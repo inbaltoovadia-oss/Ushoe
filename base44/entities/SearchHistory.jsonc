@@ -1,0 +1,17 @@
+{
+  "name": "SearchHistory",
+  "type": "object",
+  "properties": {
+    "query": {
+      "type": "string",
+      "title": "Search Query"
+    },
+    "results_count": {
+      "type": "number",
+      "title": "Results Count"
+    }
+  },
+  "required": [
+    "query"
+  ]
+}

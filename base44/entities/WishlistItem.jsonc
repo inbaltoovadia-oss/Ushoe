@@ -1,0 +1,39 @@
+{
+  "name": "WishlistItem",
+  "type": "object",
+  "properties": {
+    "shoe_id": {
+      "type": "string",
+      "title": "Shoe ID"
+    },
+    "shoe_name": {
+      "type": "string",
+      "title": "Shoe Name"
+    },
+    "shoe_brand": {
+      "type": "string",
+      "title": "Shoe Brand"
+    },
+    "shoe_image": {
+      "type": "string",
+      "title": "Shoe Image"
+    },
+    "shoe_price": {
+      "type": "number",
+      "title": "Shoe Price"
+    },
+    "price_alert": {
+      "type": "boolean",
+      "title": "Price Alert Enabled"
+    },
+    "alert_price": {
+      "type": "number",
+      "title": "Alert Price"
+    }
+  },
+  "required": [
+    "shoe_id",
+    "shoe_name",
+    "shoe_price"
+  ]
+}

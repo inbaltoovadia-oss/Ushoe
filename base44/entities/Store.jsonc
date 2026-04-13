@@ -1,0 +1,59 @@
+{
+  "name": "Store",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "title": "Store Name"
+    },
+    "address": {
+      "type": "string",
+      "title": "Address"
+    },
+    "city": {
+      "type": "string",
+      "title": "City"
+    },
+    "latitude": {
+      "type": "number",
+      "title": "Latitude"
+    },
+    "longitude": {
+      "type": "number",
+      "title": "Longitude"
+    },
+    "rating": {
+      "type": "number",
+      "title": "Rating"
+    },
+    "phone": {
+      "type": "string",
+      "title": "Phone"
+    },
+    "website": {
+      "type": "string",
+      "title": "Website"
+    },
+    "store_type": {
+      "type": "string",
+      "title": "Store Type",
+      "enum": [
+        "Nike",
+        "Adidas",
+        "Foot Locker",
+        "Finish Line",
+        "Independent",
+        "Department Store"
+      ]
+    },
+    "image_url": {
+      "type": "string",
+      "title": "Image URL"
+    }
+  },
+  "required": [
+    "name",
+    "address",
+    "city"
+  ]
+}

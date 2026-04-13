@@ -1,0 +1,104 @@
+{
+  "name": "Shoe",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "title": "Name"
+    },
+    "brand": {
+      "type": "string",
+      "title": "Brand"
+    },
+    "model": {
+      "type": "string",
+      "title": "Model"
+    },
+    "category": {
+      "type": "string",
+      "title": "Category",
+      "enum": [
+        "Running",
+        "Casual",
+        "Basketball",
+        "Lifestyle",
+        "Training",
+        "Walking"
+      ]
+    },
+    "price": {
+      "type": "number",
+      "title": "Price"
+    },
+    "original_price": {
+      "type": "number",
+      "title": "Original Price"
+    },
+    "image_url": {
+      "type": "string",
+      "title": "Image URL"
+    },
+    "colorway": {
+      "type": "string",
+      "title": "Colorway"
+    },
+    "description": {
+      "type": "string",
+      "title": "Description"
+    },
+    "features": {
+      "type": "array",
+      "title": "Features",
+      "items": {
+        "type": "string"
+      }
+    },
+    "rating": {
+      "type": "number",
+      "title": "Rating"
+    },
+    "trending_score": {
+      "type": "number",
+      "title": "Trending Score"
+    },
+    "sizes_available": {
+      "type": "array",
+      "title": "Sizes Available",
+      "items": {
+        "type": "number"
+      }
+    },
+    "colors_available": {
+      "type": "array",
+      "title": "Colors Available",
+      "items": {
+        "type": "string"
+      }
+    },
+    "gender": {
+      "type": "string",
+      "title": "Gender",
+      "enum": [
+        "Men",
+        "Women",
+        "Unisex"
+      ]
+    },
+    "release_date": {
+      "type": "string",
+      "title": "Release Date",
+      "format": "date"
+    },
+    "is_trending": {
+      "type": "boolean",
+      "title": "Is Trending"
+    }
+  },
+  "required": [
+    "name",
+    "brand",
+    "price",
+    "image_url",
+    "category"
+  ]
+}

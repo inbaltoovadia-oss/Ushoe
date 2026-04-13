@@ -6,6 +6,13 @@ import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 // Add page imports here
+import Layout from './components/Layout';
+import Home from './pages/Home';
+import Discover from './pages/Discover';
+import SearchResults from './pages/SearchResults';
+import Trending from './pages/Trending';
+import Wishlist from './pages/Wishlist';
+import ShoeDetail from './pages/ShoeDetail';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -33,8 +40,15 @@ const AuthenticatedApp = () => {
   // Render the main app
   return (
     <Routes>
-      {/* Add your page Route elements here */}
-      <Route path="*" element={<PageNotFound />} />
+      <Route element={<Layout />}>
+        <Route path="/" element={<Home />} />
+        <Route path="/discover" element={<Discover />} />
+        <Route path="/search" element={<SearchResults />} />
+        <Route path="/trending" element={<Trending />} />
+        <Route path="/wishlist" element={<Wishlist />} />
+        <Route path="/shoe/:id" element={<ShoeDetail />} />
+        <Route path="*" element={<PageNotFound />} />
+      </Route>
     </Routes>
   );
 };
