@@ -1,4 +1,4 @@
-import { MapPin, Star, Phone, ExternalLink, Navigation } from "lucide-react";
+import { Star, Phone, ExternalLink, Navigation, MapPin } from "lucide-react";
 import { motion } from "framer-motion";
 
 const stockStatuses = ["In stock", "Limited stock", "Out of stock"];
@@ -10,13 +10,14 @@ const stockColors = {
 const stockIcons = { "In stock": "✅", "Limited stock": "⚠️", "Out of stock": "❌" };
 
 export default function StoreCard({ store, index = 0 }) {
-  // Simulate stock & price
-  const stockStatus = stockStatuses[index % 3];
-  const priceVariation = Math.floor(Math.random() * 20) - 10;
+  // Deterministic simulated stock status per store
+  const stockStatus = stockStatuses[Math.abs((store.name?.charCodeAt(0) || 0) + index) % 3];
 
   const openDirections = () => {
-    const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(store.address)}`;
-    window.open(url, "_blank");
+    const dest = store.latitude && store.longitude
+      ? `${store.latitude},${store.longitude}`
+      : encodeURIComponent(store.address);
+    window.open(`https://www.google.com/maps/dir/?api=1&destination=${dest}`, "_blank");
   };
 
   return (
@@ -38,24 +39,30 @@ export default function StoreCard({ store, index = 0 }) {
 
         {/* Info */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between">
-            <div>
-              <h4 className="font-heading font-semibold text-sm">{store.name}</h4>
-              <div className="flex items-center gap-1 mt-0.5">
-                <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <h4 className="font-heading font-semibold text-sm truncate">{store.name}</h4>
+              <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                <Star className="w-3 h-3 text-yellow-500 fill-yellow-500 flex-shrink-0" />
                 <span className="text-xs text-muted-foreground">{store.rating}</span>
-                <span className="text-xs text-muted-foreground">·</span>
-                <span className="text-xs text-muted-foreground">{(Math.random() * 3 + 0.5).toFixed(1)} mi</span>
+                {store.distance != null && (
+                  <>
+                    <span className="text-xs text-muted-foreground">·</span>
+                    <span className="text-xs font-medium text-primary">
+                      {store.distance < 0.1 ? "< 0.1 mi" : `${store.distance.toFixed(1)} mi`}
+                    </span>
+                  </>
+                )}
               </div>
             </div>
-            <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${stockColors[stockStatus]}`}>
+            <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium whitespace-nowrap flex-shrink-0 ${stockColors[stockStatus]}`}>
               {stockIcons[stockStatus]} {stockStatus}
             </span>
           </div>
 
           <p className="text-xs text-muted-foreground mt-1 truncate">{store.address}</p>
 
-          <div className="flex items-center gap-2 mt-3">
+          <div className="flex items-center gap-2 mt-3 flex-wrap">
             <button
               onClick={openDirections}
               className="flex items-center gap-1 text-xs px-3 py-1.5 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity"

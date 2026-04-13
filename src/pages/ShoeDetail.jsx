@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { base44 } from "@/api/base44Client";
-import StoreCard from "../components/StoreCard";
+import NearbyStores from "../components/NearbyStores";
 import { addToCart } from "../lib/cartStore";
 import { toast } from "sonner";
 import ShoeCard from "../components/ShoeCard";
@@ -26,7 +26,7 @@ import {
 export default function ShoeDetail() {
   const { id } = useParams();
   const [shoe, setShoe] = useState(null);
-  const [stores, setStores] = useState([]);
+
   const [similar, setSimilar] = useState([]);
   const [loading, setLoading] = useState(true);
   const [wishlisted, setWishlisted] = useState(false);
@@ -56,9 +56,8 @@ export default function ShoeDetail() {
 
   const loadShoe = async () => {
     setLoading(true);
-    const [shoeData, storeData, allShoes] = await Promise.all([
+    const [shoeData, allShoes] = await Promise.all([
       base44.entities.Shoe.filter({ id }),
-      base44.entities.Store.list("-rating", 10),
       base44.entities.Shoe.list("-trending_score", 50),
     ]);
 
@@ -71,7 +70,6 @@ export default function ShoeDetail() {
           .slice(0, 4)
       );
     }
-    setStores(storeData);
     setLoading(false);
   };
 
@@ -265,11 +263,9 @@ export default function ShoeDetail() {
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: "auto" }}
-                  className="space-y-3 pt-2"
+                  className="pt-2"
                 >
-                  {stores.slice(0, 3).map((store, i) => (
-                    <StoreCard key={store.id} store={store} index={i} />
-                  ))}
+                  <NearbyStores title="Stores Near You" maxCount={3} />
                 </motion.div>
               )}
             </div>
@@ -297,17 +293,7 @@ export default function ShoeDetail() {
 
         {/* Nearby Stores */}
         <section className="mt-16">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h2 className="font-heading font-bold text-2xl">Find Nearby</h2>
-              <p className="text-sm text-muted-foreground mt-1">Stores that carry this shoe</p>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {stores.slice(0, 3).map((store, i) => (
-              <StoreCard key={store.id} store={store} index={i} />
-            ))}
-          </div>
+          <NearbyStores title="Find Nearby" maxCount={6} />
         </section>
 
         {/* Similar Shoes */}

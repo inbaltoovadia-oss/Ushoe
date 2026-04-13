@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Search, SlidersHorizontal, X } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import ShoeCard from "../components/ShoeCard";
-import StoreCard from "../components/StoreCard";
+import NearbyStores from "../components/NearbyStores";
 import SkeletonCard from "../components/SkeletonCard";
 import SearchBar from "../components/SearchBar";
 
@@ -19,7 +19,7 @@ export default function SearchResults() {
 
   const [query, setQuery] = useState(initialQuery);
   const [shoes, setShoes] = useState([]);
-  const [stores, setStores] = useState([]);
+
   const [loading, setLoading] = useState(true);
   const [sort, setSort] = useState("trending");
   const [showFilters, setShowFilters] = useState(false);
@@ -31,12 +31,8 @@ export default function SearchResults() {
 
   const loadData = async () => {
     setLoading(true);
-    const [shoeData, storeData] = await Promise.all([
-      base44.entities.Shoe.list("-trending_score", 50),
-      base44.entities.Store.list("-rating", 20),
-    ]);
+    const shoeData = await base44.entities.Shoe.list("-trending_score", 50);
     setShoes(shoeData);
-    setStores(storeData);
     setLoading(false);
   };
 
@@ -196,12 +192,7 @@ export default function SearchResults() {
 
           {/* Nearby Stores Sidebar */}
           <div className="w-full lg:w-80 flex-shrink-0">
-            <h3 className="font-heading font-semibold text-lg mb-4">Nearby Stores</h3>
-            <div className="space-y-3">
-              {stores.slice(0, 4).map((store, i) => (
-                <StoreCard key={store.id} store={store} index={i} />
-              ))}
-            </div>
+            <NearbyStores maxCount={4} />
           </div>
         </div>
       </div>
