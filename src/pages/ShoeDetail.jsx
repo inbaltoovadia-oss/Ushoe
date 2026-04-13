@@ -13,6 +13,8 @@ import {
 import { motion } from "framer-motion";
 import { base44 } from "@/api/base44Client";
 import StoreCard from "../components/StoreCard";
+import { addToCart } from "../lib/cartStore";
+import { toast } from "sonner";
 import ShoeCard from "../components/ShoeCard";
 import {
   isInWishlist,
@@ -29,6 +31,20 @@ export default function ShoeDetail() {
   const [loading, setLoading] = useState(true);
   const [wishlisted, setWishlisted] = useState(false);
   const [selectedSize, setSelectedSize] = useState(null);
+  const [addedToCart, setAddedToCart] = useState(false);
+  const [showWhereToBuy, setShowWhereToBuy] = useState(false);
+
+  const handleAddToCart = () => {
+    addToCart(shoe, selectedSize);
+    setAddedToCart(true);
+    toast.success(`${shoe.name} added to cart!`);
+    setTimeout(() => setAddedToCart(false), 2000);
+  };
+
+  const handleBuyNow = () => {
+    addToCart(shoe, selectedSize);
+    toast.success("Added to cart — ready to checkout!");
+  };
 
   useEffect(() => {
     loadShoe();
@@ -219,26 +235,61 @@ export default function ShoeDetail() {
               </div>
             )}
 
-            {/* Actions */}
-            <div className="flex gap-3 mt-8">
+            {/* Amazon-style Buy Actions */}
+            <div className="mt-8 space-y-3">
               <button
-                onClick={toggleWishlist}
-                className={`flex items-center gap-2 px-6 py-3.5 rounded-xl font-medium transition-all ${
-                  wishlisted
-                    ? "bg-red-500 text-white"
-                    : "bg-secondary text-foreground hover:bg-secondary/80"
+                onClick={handleBuyNow}
+                className="w-full bg-accent text-accent-foreground py-4 rounded-2xl font-semibold text-lg hover:opacity-90 transition-all active:scale-[0.98]"
+              >
+                Buy Now
+              </button>
+              <button
+                onClick={handleAddToCart}
+                className={`w-full py-4 rounded-2xl font-semibold text-lg transition-all active:scale-[0.98] border-2 ${
+                  addedToCart
+                    ? "bg-green-500 border-green-500 text-white"
+                    : "bg-card border-primary text-primary hover:bg-primary/5"
                 }`}
               >
-                <Heart className={`w-5 h-5 ${wishlisted ? "fill-current" : ""}`} />
+                {addedToCart ? "✓ Added to Cart" : "Add to Cart"}
+              </button>
+              <button
+                onClick={() => setShowWhereToBuy(!showWhereToBuy)}
+                className="w-full py-3.5 rounded-2xl font-medium text-base bg-secondary text-foreground hover:bg-secondary/80 transition-all flex items-center justify-center gap-2"
+              >
+                <MapPin className="w-4 h-4" />
+                {showWhereToBuy ? "Hide Stores" : "Where to Buy"}
+              </button>
+
+              {showWhereToBuy && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  className="space-y-3 pt-2"
+                >
+                  {stores.slice(0, 3).map((store, i) => (
+                    <StoreCard key={store.id} store={store} index={i} />
+                  ))}
+                </motion.div>
+              )}
+            </div>
+
+            {/* Save & Share */}
+            <div className="flex gap-3 mt-4">
+              <button
+                onClick={toggleWishlist}
+                className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-medium transition-all ${
+                  wishlisted ? "bg-red-500 text-white" : "bg-secondary text-foreground hover:bg-secondary/80"
+                }`}
+              >
+                <Heart className={`w-4 h-4 ${wishlisted ? "fill-current" : ""}`} />
                 {wishlisted ? "Saved" : "Save"}
               </button>
               <button
-                onClick={() => {
-                  navigator.clipboard.writeText(window.location.href);
-                }}
-                className="p-3.5 rounded-xl bg-secondary hover:bg-secondary/80 transition-colors"
+                onClick={() => { navigator.clipboard.writeText(window.location.href); toast.success("Link copied!"); }}
+                className="p-3 rounded-xl bg-secondary hover:bg-secondary/80 transition-colors"
               >
-                <Share2 className="w-5 h-5" />
+                <Share2 className="w-4 h-4" />
               </button>
             </div>
           </motion.div>
