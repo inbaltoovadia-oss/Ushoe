@@ -4,6 +4,7 @@ import { Search, Bell, MapPin, Sun, Moon, Sparkles, Menu, X, ShoppingBag } from 
 import { getLocation, subscribeLocation, detectLocation } from "../lib/locationStore";
 import { getCartCount, subscribeCart } from "../lib/cartStore";
 import CartDrawer from "./CartDrawer";
+import LocationPicker from "./LocationPicker";
 
 export default function Navbar() {
   const location = useLocation();
@@ -13,15 +14,12 @@ export default function Navbar() {
   const [cartOpen, setCartOpen] = useState(false);
   const [cartCount, setCartCount] = useState(getCartCount());
   const [locLoading, setLocLoading] = useState(false);
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
 
   useEffect(() => subscribeCart(() => setCartCount(getCartCount())), []);
   useEffect(() => subscribeLocation(setLoc), []);
 
-  const handleLocationClick = async () => {
-    setLocLoading(true);
-    await detectLocation();
-    setLocLoading(false);
-  };
+  const handleLocationClick = () => setShowLocationPicker((v) => !v);
 
   const toggleDark = () => {
     document.documentElement.classList.toggle("dark");
@@ -73,18 +71,20 @@ export default function Navbar() {
             {/* Right Actions */}
             <div className="flex items-center gap-2">
               {/* Location */}
-              <button
-                onClick={handleLocationClick}
-                disabled={locLoading}
-                className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-lg bg-secondary/50 disabled:opacity-50"
-              >
-                {locLoading ? (
-                  <span className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                ) : (
+              <div className="relative hidden sm:block">
+                <button
+                  onClick={handleLocationClick}
+                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-lg bg-secondary/50"
+                >
                   <MapPin className="w-3 h-3" />
+                  <span className="max-w-[80px] truncate">{loc.city}</span>
+                </button>
+                {showLocationPicker && (
+                  <div className="absolute top-full mt-2 right-0 z-50">
+                    <LocationPicker onClose={() => setShowLocationPicker(false)} />
+                  </div>
                 )}
-                <span className="max-w-[80px] truncate">{loc.city}</span>
-              </button>
+              </div>
 
               <Link to="/search" className="p-2 rounded-xl hover:bg-secondary transition-colors">
                 <Search className="w-5 h-5 text-muted-foreground" />

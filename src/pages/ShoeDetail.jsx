@@ -266,7 +266,7 @@ export default function ShoeDetail() {
                   animate={{ opacity: 1, height: "auto" }}
                   className="pt-2"
                 >
-                  <NearbyStores title="Stores Near You" maxCount={3} />
+                  <NearbyStores title="Stores Near You" maxCount={3} shoe={shoe} />
                 </motion.div>
               )}
             </div>
@@ -299,7 +299,7 @@ export default function ShoeDetail() {
 
         {/* Nearby Stores */}
         <section className="mt-16">
-          <NearbyStores title="Find Nearby" maxCount={6} />
+          <NearbyStores title="Find Nearby" maxCount={6} shoe={shoe} />
         </section>
 
         {/* Similar Shoes */}
