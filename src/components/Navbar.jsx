@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { Search, Heart, MapPin, Sun, Moon, Sparkles, Menu, X, ShoppingBag } from "lucide-react";
+import { Search, Bell, MapPin, Sun, Moon, Sparkles, Menu, X, ShoppingBag } from "lucide-react";
 import { getLocation, subscribeLocation, detectLocation } from "../lib/locationStore";
 import { getCartCount, subscribeCart } from "../lib/cartStore";
 import CartDrawer from "./CartDrawer";
@@ -33,6 +33,7 @@ export default function Navbar() {
     { to: "/discover", label: "Discover" },
     { to: "/trending", label: "Trending" },
     { to: "/wishlist", label: "Wishlist" },
+    { to: "/price-drops", label: "Price Drops" },
   ];
 
   const isActive = (path) => location.pathname === path;

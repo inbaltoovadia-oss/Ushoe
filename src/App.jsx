@@ -13,6 +13,7 @@ import SearchResults from './pages/SearchResults';
 import Trending from './pages/Trending';
 import Wishlist from './pages/Wishlist';
 import ShoeDetail from './pages/ShoeDetail';
+import PriceDrops from './pages/PriceDrops';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -47,6 +48,7 @@ const AuthenticatedApp = () => {
         <Route path="/trending" element={<Trending />} />
         <Route path="/wishlist" element={<Wishlist />} />
         <Route path="/shoe/:id" element={<ShoeDetail />} />
+        <Route path="/price-drops" element={<PriceDrops />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>
     </Routes>

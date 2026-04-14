@@ -9,6 +9,7 @@ import {
   removeFromWishlistLocal,
   subscribeWishlist,
 } from "../lib/wishlistStore";
+import PriceTrackButton from "./PriceTrackButton";
 
 export default function ShoeCard({ shoe, index = 0 }) {
   const [wishlisted, setWishlisted] = useState(isInWishlist(shoe.id));
@@ -72,6 +73,7 @@ export default function ShoeCard({ shoe, index = 0 }) {
               >
                 <Heart className={`w-4 h-4 ${wishlisted ? "fill-current" : ""}`} />
               </button>
+              <PriceTrackButton shoe={shoe} compact />
             </div>
 
             {/* Trending Badge */}

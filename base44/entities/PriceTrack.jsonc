@@ -1,0 +1,39 @@
+{
+  "name": "PriceTrack",
+  "type": "object",
+  "properties": {
+    "shoe_id": {
+      "type": "string",
+      "title": "Shoe ID"
+    },
+    "shoe_name": {
+      "type": "string",
+      "title": "Shoe Name"
+    },
+    "shoe_brand": {
+      "type": "string",
+      "title": "Shoe Brand"
+    },
+    "shoe_image": {
+      "type": "string",
+      "title": "Shoe Image URL"
+    },
+    "tracked_price": {
+      "type": "number",
+      "title": "Price at Time of Tracking"
+    },
+    "current_price": {
+      "type": "number",
+      "title": "Current Price"
+    },
+    "category": {
+      "type": "string",
+      "title": "Category"
+    }
+  },
+  "required": [
+    "shoe_id",
+    "shoe_name",
+    "tracked_price"
+  ]
+}

@@ -22,6 +22,7 @@ import {
   removeFromWishlistLocal,
   subscribeWishlist,
 } from "../lib/wishlistStore";
+import PriceTrackButton from "../components/PriceTrackButton";
 
 export default function ShoeDetail() {
   const { id } = useParams();
@@ -268,6 +269,11 @@ export default function ShoeDetail() {
                   <NearbyStores title="Stores Near You" maxCount={3} />
                 </motion.div>
               )}
+            </div>
+
+            {/* Price Track */}
+            <div className="mt-3">
+              <PriceTrackButton shoe={shoe} />
             </div>
 
             {/* Save & Share */}
