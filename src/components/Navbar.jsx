@@ -36,6 +36,10 @@ export default function Navbar() {
 
   const isActive = (path) => location.pathname === path;
 
+  const handleNavClick = () => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   return (
     <>
       <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border/50">
@@ -57,6 +61,7 @@ export default function Navbar() {
                 <Link
                   key={link.to}
                   to={link.to}
+                  onClick={handleNavClick}
                   className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
                     isActive(link.to)
                       ? "bg-primary text-primary-foreground"
@@ -124,7 +129,7 @@ export default function Navbar() {
                 <Link
                   key={link.to}
                   to={link.to}
-                  onClick={() => setMobileOpen(false)}
+                  onClick={() => { setMobileOpen(false); handleNavClick(); }}
                   className={`block px-4 py-3 rounded-xl text-sm font-medium transition-all ${
                     isActive(link.to)
                       ? "bg-primary text-primary-foreground"

@@ -1,0 +1,79 @@
+import { useState, useEffect } from "react";
+import { X, Check, Sparkles } from "lucide-react";
+import { ALL_CATEGORIES, getInterests, setInterests } from "../lib/interestStore";
+
+const CATEGORY_ICONS = {
+  Running: "🏃",
+  Basketball: "🏀",
+  Soccer: "⚽",
+  Tennis: "🎾",
+  Training: "💪",
+  Lifestyle: "✨",
+  Casual: "👟",
+  Walking: "🚶",
+  Hiking: "🥾",
+  Skateboarding: "🛹",
+};
+
+export default function InterestPicker({ onClose, onSave }) {
+  const [selected, setSelected] = useState(getInterests());
+
+  const toggle = (cat) => {
+    setSelected((prev) =>
+      prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]
+    );
+  };
+
+  const save = () => {
+    setInterests(selected);
+    onSave?.(selected);
+    onClose?.();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+      <div className="bg-card border border-border rounded-3xl shadow-2xl w-full max-w-md p-6">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-primary" />
+            <h2 className="font-heading font-bold text-xl">Your Interests</h2>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-xl hover:bg-secondary">
+            <X className="w-4 h-4 text-muted-foreground" />
+          </button>
+        </div>
+        <p className="text-sm text-muted-foreground mb-5">
+          Pick your favorite shoe categories so we can personalize your trending feed.
+        </p>
+
+        <div className="grid grid-cols-2 gap-2 mb-6">
+          {ALL_CATEGORIES.map((cat) => {
+            const active = selected.includes(cat);
+            return (
+              <button
+                key={cat}
+                onClick={() => toggle(cat)}
+                className={`flex items-center gap-2 px-4 py-3 rounded-2xl text-sm font-medium transition-all border-2 ${
+                  active
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border bg-secondary text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <span className="text-lg">{CATEGORY_ICONS[cat]}</span>
+                {cat}
+                {active && <Check className="w-3.5 h-3.5 ml-auto" />}
+              </button>
+            );
+          })}
+        </div>
+
+        <button
+          onClick={save}
+          className="w-full bg-primary text-primary-foreground py-3 rounded-2xl font-semibold hover:opacity-90 transition-opacity"
+        >
+          Save Interests ({selected.length} selected)
+        </button>
+      </div>
+    </div>
+  );
+}
