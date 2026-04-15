@@ -1,9 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
-import { useState, useEffect } from "react";
-import { Search, Bell, MapPin, Sun, Moon, Sparkles, Menu, X, ShoppingBag } from "lucide-react";
-import { getLocation, subscribeLocation, detectLocation } from "../lib/locationStore";
-import { getCartCount, subscribeCart } from "../lib/cartStore";
-import CartDrawer from "./CartDrawer";
+import { useState, useEffect, useRef } from "react";
+import { Search, MapPin, Sun, Moon, Sparkles, Menu, X, Wand2, ChevronDown } from "lucide-react";
+import { getLocation, subscribeLocation } from "../lib/locationStore";
 import LocationPicker from "./LocationPicker";
 
 export default function Navbar() {
@@ -11,34 +9,44 @@ export default function Navbar() {
   const [dark, setDark] = useState(() => document.documentElement.classList.contains("dark"));
   const [loc, setLoc] = useState(getLocation());
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [cartOpen, setCartOpen] = useState(false);
-  const [cartCount, setCartCount] = useState(getCartCount());
-  const [locLoading, setLocLoading] = useState(false);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
+  const [showToolsMenu, setShowToolsMenu] = useState(false);
+  const toolsRef = useRef(null);
 
-  useEffect(() => subscribeCart(() => setCartCount(getCartCount())), []);
   useEffect(() => subscribeLocation(setLoc), []);
 
-  const handleLocationClick = () => setShowLocationPicker((v) => !v);
+  // Close tools menu on outside click
+  useEffect(() => {
+    const handler = (e) => {
+      if (toolsRef.current && !toolsRef.current.contains(e.target)) setShowToolsMenu(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   const toggleDark = () => {
     document.documentElement.classList.toggle("dark");
     setDark((d) => !d);
   };
 
+  const handleNavClick = () => window.scrollTo({ top: 0, behavior: "smooth" });
+
+  const isActive = (path) => location.pathname === path;
+
   const navLinks = [
     { to: "/", label: "Home" },
     { to: "/discover", label: "Discover" },
     { to: "/trending", label: "Trending" },
+    { to: "/deals", label: "Deals" },
     { to: "/wishlist", label: "Wishlist" },
     { to: "/price-drops", label: "Price Drops" },
   ];
 
-  const isActive = (path) => location.pathname === path;
-
-  const handleNavClick = () => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
+  const toolLinks = [
+    { to: "/fit-predictor", label: "Fit Predictor", emoji: "👟" },
+    { to: "/outfit-matcher", label: "Outfit Matcher", emoji: "✨" },
+    { to: "/style-quiz", label: "Style Quiz", emoji: "🎯" },
+  ];
 
   return (
     <>
@@ -46,7 +54,7 @@ export default function Navbar() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
-            <Link to="/" className="flex items-center gap-2">
+            <Link to="/" className="flex items-center gap-2" onClick={handleNavClick}>
               <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center">
                 <Sparkles className="w-4 h-4 text-primary-foreground" />
               </div>
@@ -56,13 +64,13 @@ export default function Navbar() {
             </Link>
 
             {/* Desktop Nav */}
-            <div className="hidden md:flex items-center gap-1">
+            <div className="hidden lg:flex items-center gap-1">
               {navLinks.map((link) => (
                 <Link
                   key={link.to}
                   to={link.to}
                   onClick={handleNavClick}
-                  className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
+                  className={`px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
                     isActive(link.to)
                       ? "bg-primary text-primary-foreground"
                       : "text-muted-foreground hover:text-foreground hover:bg-secondary"
@@ -71,6 +79,35 @@ export default function Navbar() {
                   {link.label}
                 </Link>
               ))}
+
+              {/* AI Tools Dropdown */}
+              <div className="relative" ref={toolsRef}>
+                <button
+                  onClick={() => setShowToolsMenu((v) => !v)}
+                  className={`flex items-center gap-1 px-3 py-2 rounded-xl text-sm font-medium transition-all ${
+                    showToolsMenu ? "bg-accent/10 text-accent" : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                  }`}
+                >
+                  <Wand2 className="w-3.5 h-3.5" />
+                  AI Tools
+                  <ChevronDown className={`w-3 h-3 transition-transform ${showToolsMenu ? "rotate-180" : ""}`} />
+                </button>
+                {showToolsMenu && (
+                  <div className="absolute top-full mt-2 right-0 bg-card border border-border rounded-2xl shadow-xl py-2 w-48 z-50">
+                    {toolLinks.map((t) => (
+                      <Link
+                        key={t.to}
+                        to={t.to}
+                        onClick={() => { setShowToolsMenu(false); handleNavClick(); }}
+                        className="flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-secondary transition-colors"
+                      >
+                        <span>{t.emoji}</span>
+                        {t.label}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Right Actions */}
@@ -78,7 +115,7 @@ export default function Navbar() {
               {/* Location */}
               <div className="relative hidden sm:block">
                 <button
-                  onClick={handleLocationClick}
+                  onClick={() => setShowLocationPicker((v) => !v)}
                   className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-lg bg-secondary/50"
                 >
                   <MapPin className="w-3 h-3" />
@@ -91,7 +128,7 @@ export default function Navbar() {
                 )}
               </div>
 
-              <Link to="/search" className="p-2 rounded-xl hover:bg-secondary transition-colors">
+              <Link to="/search" onClick={handleNavClick} className="p-2 rounded-xl hover:bg-secondary transition-colors">
                 <Search className="w-5 h-5 text-muted-foreground" />
               </Link>
 
@@ -100,19 +137,7 @@ export default function Navbar() {
               </button>
 
               <button
-                onClick={() => setCartOpen(true)}
-                className="relative p-2 rounded-xl hover:bg-secondary transition-colors"
-              >
-                <ShoppingBag className="w-5 h-5 text-muted-foreground" />
-                {cartCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-primary text-primary-foreground text-[10px] font-bold rounded-full flex items-center justify-center">
-                    {cartCount}
-                  </span>
-                )}
-              </button>
-
-              <button
-                className="md:hidden p-2 rounded-xl hover:bg-secondary transition-colors"
+                className="lg:hidden p-2 rounded-xl hover:bg-secondary transition-colors"
                 onClick={() => setMobileOpen(!mobileOpen)}
               >
                 {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -123,7 +148,7 @@ export default function Navbar() {
 
         {/* Mobile Menu */}
         {mobileOpen && (
-          <div className="md:hidden border-t border-border/50 bg-background/95 backdrop-blur-xl">
+          <div className="lg:hidden border-t border-border/50 bg-background/95 backdrop-blur-xl max-h-[80vh] overflow-y-auto">
             <div className="px-4 py-3 space-y-1">
               {navLinks.map((link) => (
                 <Link
@@ -131,16 +156,28 @@ export default function Navbar() {
                   to={link.to}
                   onClick={() => { setMobileOpen(false); handleNavClick(); }}
                   className={`block px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-                    isActive(link.to)
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:bg-secondary"
+                    isActive(link.to) ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary"
                   }`}
                 >
                   {link.label}
                 </Link>
               ))}
+              <div className="pt-2 pb-1">
+                <p className="text-xs text-muted-foreground px-4 pb-1 font-medium uppercase tracking-wider">AI Tools</p>
+                {toolLinks.map((t) => (
+                  <Link
+                    key={t.to}
+                    to={t.to}
+                    onClick={() => { setMobileOpen(false); handleNavClick(); }}
+                    className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm text-muted-foreground hover:bg-secondary transition-colors"
+                  >
+                    <span>{t.emoji}</span>
+                    {t.label}
+                  </Link>
+                ))}
+              </div>
               <button
-                onClick={handleLocationClick}
+                onClick={() => { setShowLocationPicker(true); setMobileOpen(false); }}
                 className="flex items-center gap-2 w-full px-4 py-3 text-sm text-muted-foreground rounded-xl hover:bg-secondary"
               >
                 <MapPin className="w-4 h-4" />
@@ -150,7 +187,9 @@ export default function Navbar() {
           </div>
         )}
       </nav>
-      <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} />
+      {showLocationPicker && (
+        <div className="fixed inset-0 z-40 lg:hidden" onClick={() => setShowLocationPicker(false)} />
+      )}
     </>
   );
 }

@@ -14,6 +14,10 @@ import Trending from './pages/Trending';
 import Wishlist from './pages/Wishlist';
 import ShoeDetail from './pages/ShoeDetail';
 import PriceDrops from './pages/PriceDrops';
+import Deals from './pages/Deals';
+import StyleQuiz from './pages/StyleQuiz';
+import FitPredictor from './pages/FitPredictor';
+import OutfitMatcher from './pages/OutfitMatcher';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -49,6 +53,10 @@ const AuthenticatedApp = () => {
         <Route path="/wishlist" element={<Wishlist />} />
         <Route path="/shoe/:id" element={<ShoeDetail />} />
         <Route path="/price-drops" element={<PriceDrops />} />
+        <Route path="/deals" element={<Deals />} />
+        <Route path="/style-quiz" element={<StyleQuiz />} />
+        <Route path="/fit-predictor" element={<FitPredictor />} />
+        <Route path="/outfit-matcher" element={<OutfitMatcher />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>
     </Routes>

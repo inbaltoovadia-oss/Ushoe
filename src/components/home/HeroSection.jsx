@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import SearchBar from "../SearchBar";
-import { Sparkles } from "lucide-react";
+import { Sparkles, Ruler, Camera } from "lucide-react";
 import { Link } from "react-router-dom";
 
 export default function HeroSection() {
@@ -64,18 +64,29 @@ export default function HeroSection() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.6, delay: 0.5 }}
-            className="flex items-center gap-6 mt-8"
+            className="flex flex-wrap items-center gap-3 mt-8"
           >
             <Link
               to="/discover"
               className="flex items-center gap-2 bg-primary text-primary-foreground px-6 py-3 rounded-xl font-medium hover:opacity-90 transition-opacity"
             >
               <Sparkles className="w-4 h-4" />
-              Try AI Finder
+              AI Finder
             </Link>
-            <div className="text-sm text-muted-foreground">
-              <span className="font-semibold text-foreground">10,000+</span> shoes analyzed
-            </div>
+            <Link
+              to="/fit-predictor"
+              className="flex items-center gap-2 bg-secondary text-foreground px-5 py-3 rounded-xl font-medium hover:bg-secondary/80 transition-colors"
+            >
+              <Ruler className="w-4 h-4" />
+              Fit Predictor
+            </Link>
+            <Link
+              to="/outfit-matcher"
+              className="flex items-center gap-2 bg-secondary text-foreground px-5 py-3 rounded-xl font-medium hover:bg-secondary/80 transition-colors"
+            >
+              <Camera className="w-4 h-4" />
+              Outfit Matcher
+            </Link>
           </motion.div>
         </div>
       </div>

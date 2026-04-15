@@ -7,6 +7,7 @@ import MatchScoreRing from "../components/MatchScoreRing";
 import SkeletonCard from "../components/SkeletonCard";
 import InterestPicker from "../components/InterestPicker";
 import { getInterests, ALL_CATEGORIES } from "../lib/interestStore";
+import { getCached, setCache } from "../lib/searchCache";
 
 const CATEGORY_ICONS = {
   Running: "🏃", Basketball: "🏀", Soccer: "⚽", Tennis: "🎾",
@@ -58,6 +59,19 @@ export default function Discover() {
     setWebResults([]);
     if (resultsRef.current) {
       setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+    }
+
+    // Check cache first (skip if image uploaded)
+    if (!imageUrl) {
+      const cached = getCached(finalQ);
+      if (cached) {
+        setResults(cached.results);
+        setWebResults(cached.webResults);
+        setAiExplanation(cached.summary);
+        setLoading(false);
+        await base44.entities.SearchHistory.create({ query: finalQ, results_count: cached.results.length });
+        return;
+      }
     }
 
     const [allShoes, aiResponse] = await Promise.all([
@@ -116,6 +130,11 @@ Provide a short summary.`,
     setWebResults(aiResponse.web_picks || []);
     setAiExplanation(aiResponse.summary || "");
     setLoading(false);
+
+    // Cache the result
+    if (!imageUrl) {
+      setCache(finalQ, { results: recs, webResults: aiResponse.web_picks || [], summary: aiResponse.summary || "" });
+    }
 
     await base44.entities.SearchHistory.create({ query: finalQ, results_count: recs.length });
   };

@@ -7,13 +7,13 @@ import {
   Star,
   Share2,
   Flame,
-  ChevronRight,
   Loader2,
+  BarChart3,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { base44 } from "@/api/base44Client";
 import NearbyStores from "../components/NearbyStores";
-import { addToCart } from "../lib/cartStore";
+import CompareStores from "../components/CompareStores";
 import { toast } from "sonner";
 import ShoeCard from "../components/ShoeCard";
 import {
@@ -32,20 +32,8 @@ export default function ShoeDetail() {
   const [loading, setLoading] = useState(true);
   const [wishlisted, setWishlisted] = useState(false);
   const [selectedSize, setSelectedSize] = useState(null);
-  const [addedToCart, setAddedToCart] = useState(false);
   const [showWhereToBuy, setShowWhereToBuy] = useState(false);
-
-  const handleAddToCart = () => {
-    addToCart(shoe, selectedSize);
-    setAddedToCart(true);
-    toast.success(`${shoe.name} added to cart!`);
-    setTimeout(() => setAddedToCart(false), 2000);
-  };
-
-  const handleBuyNow = () => {
-    addToCart(shoe, selectedSize);
-    toast.success("Added to cart — ready to checkout!");
-  };
+  const [showCompare, setShowCompare] = useState(false);
 
   useEffect(() => {
     loadShoe();
@@ -234,30 +222,23 @@ export default function ShoeDetail() {
               </div>
             )}
 
-            {/* Amazon-style Buy Actions */}
+            {/* Find Near You — replaces cart/buy */}
             <div className="mt-8 space-y-3">
               <button
-                onClick={handleBuyNow}
-                className="w-full bg-accent text-accent-foreground py-4 rounded-2xl font-semibold text-lg hover:opacity-90 transition-all active:scale-[0.98]"
-              >
-                Buy Now
-              </button>
-              <button
-                onClick={handleAddToCart}
-                className={`w-full py-4 rounded-2xl font-semibold text-lg transition-all active:scale-[0.98] border-2 ${
-                  addedToCart
-                    ? "bg-green-500 border-green-500 text-white"
-                    : "bg-card border-primary text-primary hover:bg-primary/5"
+                onClick={() => { setShowWhereToBuy(!showWhereToBuy); setShowCompare(false); }}
+                className={`w-full py-4 rounded-2xl font-semibold text-lg transition-all active:scale-[0.98] flex items-center justify-center gap-2 ${
+                  showWhereToBuy ? "bg-primary text-primary-foreground" : "bg-primary text-primary-foreground hover:opacity-90"
                 }`}
               >
-                {addedToCart ? "✓ Added to Cart" : "Add to Cart"}
+                <MapPin className="w-5 h-5" />
+                {showWhereToBuy ? "Hide Nearby Stores" : "Find Near You"}
               </button>
               <button
-                onClick={() => setShowWhereToBuy(!showWhereToBuy)}
+                onClick={() => { setShowCompare(!showCompare); setShowWhereToBuy(false); }}
                 className="w-full py-3.5 rounded-2xl font-medium text-base bg-secondary text-foreground hover:bg-secondary/80 transition-all flex items-center justify-center gap-2"
               >
-                <MapPin className="w-4 h-4" />
-                {showWhereToBuy ? "Hide Stores" : "Where to Buy"}
+                <BarChart3 className="w-4 h-4" />
+                {showCompare ? "Hide Store Comparison" : "Compare All Stores & Prices"}
               </button>
 
               {showWhereToBuy && (
@@ -266,7 +247,20 @@ export default function ShoeDetail() {
                   animate={{ opacity: 1, height: "auto" }}
                   className="pt-2"
                 >
-                  <NearbyStores title="Stores Near You" maxCount={3} shoe={shoe} />
+                  <NearbyStores title="Stores Near You" maxCount={4} shoe={shoe} />
+                </motion.div>
+              )}
+              {showCompare && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  className="pt-2"
+                >
+                  <h3 className="font-heading font-semibold mb-3 flex items-center gap-2">
+                    <BarChart3 className="w-4 h-4 text-primary" />
+                    Store Price Comparison
+                  </h3>
+                  <CompareStores shoe={shoe} />
                 </motion.div>
               )}
             </div>

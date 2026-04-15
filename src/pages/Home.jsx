@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import HeroSection from "../components/home/HeroSection";
 import TrendingSection from "../components/home/TrendingSection";
 import AIFinderCTA from "../components/home/AIFinderCTA";
+import DealsSection from "../components/home/DealsSection";
 import { detectLocation } from "../lib/locationStore";
 
 export default function Home() {
@@ -13,6 +14,7 @@ export default function Home() {
     <div>
       <HeroSection />
       <TrendingSection />
+      <DealsSection />
       <AIFinderCTA />
     </div>
   );
