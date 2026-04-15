@@ -74,9 +74,9 @@ export default function Discover() {
       }
     }
 
-    const [allShoes, aiResponse] = await Promise.all([
-      base44.entities.Shoe.list("-trending_score", 50),
-      base44.integrations.Core.InvokeLLM({
+    const allShoes = await base44.entities.Shoe.list("-trending_score", 50);
+
+    const aiResponse = await base44.integrations.Core.InvokeLLM({
         prompt: `You are a shoe recommendation AI with web search capabilities. The user is looking for: "${finalQ}"
 ${selectedCategory ? `They are specifically interested in: ${selectedCategory} shoes.` : ""}
 ${imageUrl ? "The user has uploaded an image — use it as a visual reference to identify the style/type of shoe they want." : ""}
@@ -119,8 +119,7 @@ Provide a short summary.`,
             },
           },
         },
-      }),
-    ]);
+      });
 
     const recs = (aiResponse.recommendations || [])
       .filter((r) => r.index >= 0 && r.index < allShoes.length)
