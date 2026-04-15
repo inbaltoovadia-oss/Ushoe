@@ -1,0 +1,50 @@
+{
+  "name": "Webhook",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "title": "Webhook Name"
+    },
+    "url": {
+      "type": "string",
+      "title": "Endpoint URL"
+    },
+    "events": {
+      "type": "array",
+      "title": "Events",
+      "items": {
+        "type": "string",
+        "enum": [
+          "price_drop",
+          "wishlist_add",
+          "shoe_search",
+          "new_deal",
+          "price_track_add"
+        ]
+      }
+    },
+    "is_active": {
+      "type": "boolean",
+      "title": "Active",
+      "default": true
+    },
+    "secret": {
+      "type": "string",
+      "title": "Secret Token"
+    },
+    "last_triggered": {
+      "type": "string",
+      "title": "Last Triggered"
+    },
+    "trigger_count": {
+      "type": "number",
+      "title": "Total Triggers",
+      "default": 0
+    }
+  },
+  "required": [
+    "name",
+    "url"
+  ]
+}

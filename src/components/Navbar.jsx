@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
-import { Search, MapPin, Sun, Moon, Sparkles, Menu, X, Wand2, ChevronDown } from "lucide-react";
+import { Search, MapPin, Sun, Moon, Sparkles, Menu, X, Wand2, ChevronDown, Settings } from "lucide-react";
 import { getLocation, subscribeLocation } from "../lib/locationStore";
 import LocationPicker from "./LocationPicker";
 
@@ -131,6 +131,9 @@ export default function Navbar() {
               <Link to="/search" onClick={handleNavClick} className="p-2 rounded-xl hover:bg-secondary transition-colors">
                 <Search className="w-5 h-5 text-muted-foreground" />
               </Link>
+              <Link to="/settings" onClick={handleNavClick} className="p-2 rounded-xl hover:bg-secondary transition-colors hidden sm:block">
+                <Settings className="w-5 h-5 text-muted-foreground" />
+              </Link>
 
               <button onClick={toggleDark} className="p-2 rounded-xl hover:bg-secondary transition-colors">
                 {dark ? <Sun className="w-5 h-5 text-muted-foreground" /> : <Moon className="w-5 h-5 text-muted-foreground" />}
@@ -176,6 +179,14 @@ export default function Navbar() {
                   </Link>
                 ))}
               </div>
+              <Link
+                to="/settings"
+                onClick={() => { setMobileOpen(false); handleNavClick(); }}
+                className="flex items-center gap-2 w-full px-4 py-3 text-sm text-muted-foreground rounded-xl hover:bg-secondary"
+              >
+                <Settings className="w-4 h-4" />
+                Settings
+              </Link>
               <button
                 onClick={() => { setShowLocationPicker(true); setMobileOpen(false); }}
                 className="flex items-center gap-2 w-full px-4 py-3 text-sm text-muted-foreground rounded-xl hover:bg-secondary"
