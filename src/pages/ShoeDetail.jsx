@@ -3,17 +3,17 @@ import { useParams, Link } from "react-router-dom";
 import {
   Heart,
   MapPin,
+  Globe,
   ArrowLeft,
   Star,
   Share2,
   Flame,
   Loader2,
-  BarChart3,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { base44 } from "@/api/base44Client";
 import NearbyStores from "../components/NearbyStores";
-import CompareStores from "../components/CompareStores";
+import BuyOnline from "../components/BuyOnline";
 import { toast } from "sonner";
 import ShoeCard from "../components/ShoeCard";
 import {
@@ -32,8 +32,7 @@ export default function ShoeDetail() {
   const [loading, setLoading] = useState(true);
   const [wishlisted, setWishlisted] = useState(false);
   const [selectedSize, setSelectedSize] = useState(null);
-  const [showWhereToBuy, setShowWhereToBuy] = useState(false);
-  const [showCompare, setShowCompare] = useState(false);
+  const [activeTab, setActiveTab] = useState(null); // null | "nearby" | "online"
 
   useEffect(() => {
     loadShoe();
@@ -222,45 +221,37 @@ export default function ShoeDetail() {
               </div>
             )}
 
-            {/* Find Near You — replaces cart/buy */}
-            <div className="mt-8 space-y-3">
-              <button
-                onClick={() => { setShowWhereToBuy(!showWhereToBuy); setShowCompare(false); }}
-                className={`w-full py-4 rounded-2xl font-semibold text-lg transition-all active:scale-[0.98] flex items-center justify-center gap-2 ${
-                  showWhereToBuy ? "bg-primary text-primary-foreground" : "bg-primary text-primary-foreground hover:opacity-90"
-                }`}
-              >
-                <MapPin className="w-5 h-5" />
-                {showWhereToBuy ? "Hide Nearby Stores" : "Find Near You"}
-              </button>
-              <button
-                onClick={() => { setShowCompare(!showCompare); setShowWhereToBuy(false); }}
-                className="w-full py-3.5 rounded-2xl font-medium text-base bg-secondary text-foreground hover:bg-secondary/80 transition-all flex items-center justify-center gap-2"
-              >
-                <BarChart3 className="w-4 h-4" />
-                {showCompare ? "Hide Store Comparison" : "Compare All Stores & Prices"}
-              </button>
-
-              {showWhereToBuy && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  className="pt-2"
+            {/* Find Near You / Buy Online tabs */}
+            <div className="mt-8">
+              <div className="flex gap-2 mb-4">
+                <button
+                  onClick={() => setActiveTab(activeTab === "nearby" ? null : "nearby")}
+                  className={`flex-1 py-3.5 rounded-2xl font-semibold text-sm transition-all active:scale-[0.98] flex items-center justify-center gap-2 ${
+                    activeTab === "nearby" ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground hover:bg-secondary/80"
+                  }`}
                 >
+                  <MapPin className="w-4 h-4" />
+                  Find Near You
+                </button>
+                <button
+                  onClick={() => setActiveTab(activeTab === "online" ? null : "online")}
+                  className={`flex-1 py-3.5 rounded-2xl font-semibold text-sm transition-all active:scale-[0.98] flex items-center justify-center gap-2 ${
+                    activeTab === "online" ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground hover:bg-secondary/80"
+                  }`}
+                >
+                  <Globe className="w-4 h-4" />
+                  Buy Online
+                </button>
+              </div>
+
+              {activeTab === "nearby" && (
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="pt-1">
                   <NearbyStores title="Stores Near You" maxCount={4} shoe={shoe} />
                 </motion.div>
               )}
-              {showCompare && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  className="pt-2"
-                >
-                  <h3 className="font-heading font-semibold mb-3 flex items-center gap-2">
-                    <BarChart3 className="w-4 h-4 text-primary" />
-                    Store Price Comparison
-                  </h3>
-                  <CompareStores shoe={shoe} />
+              {activeTab === "online" && (
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="pt-1">
+                  <BuyOnline shoe={shoe} />
                 </motion.div>
               )}
             </div>
@@ -290,11 +281,6 @@ export default function ShoeDetail() {
             </div>
           </motion.div>
         </div>
-
-        {/* Nearby Stores */}
-        <section className="mt-16">
-          <NearbyStores title="Find Nearby" maxCount={6} shoe={shoe} />
-        </section>
 
         {/* Similar Shoes */}
         {similar.length > 0 && (
