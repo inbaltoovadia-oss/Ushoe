@@ -84,15 +84,8 @@ ${imageUrl ? "The user uploaded an image — identify the shoe style/type from i
 From the catalog below, pick up to 5 best matches (by index number):
 ${allShoes.map((s, i) => `${i}: ${s.brand} ${s.name} $${s.price} ${s.category}`).join("\n")}
 
-Also pick 6 real shoes from the web (brand, name, price like "$120", short reason, a buy URL, and an image_url from the brand's website or a CDN).
-Write a 1-2 sentence summary of what you found.
-
-Respond ONLY with valid JSON in this exact format:
-{
-  "summary": "...",
-  "recommendations": [{"index": 0, "match_score": 85, "explanation": "..."}],
-  "web_picks": [{"brand": "Nike", "name": "...", "price": "$120", "reason": "...", "search_url": "https://...", "image_url": "https://..."}]
-}`,
+Also pick 6 real shoes from the web with brand, name, price, short reason, and a buy URL.
+Write a short 1 sentence summary.`,
         add_context_from_internet: true,
         file_urls: imageUrl ? [imageUrl] : undefined,
         response_json_schema: {
@@ -120,7 +113,6 @@ Respond ONLY with valid JSON in this exact format:
                   price: { type: "string" },
                   reason: { type: "string" },
                   search_url: { type: "string" },
-                  image_url: { type: "string" },
                 },
               },
             },
@@ -303,10 +295,9 @@ Respond ONLY with valid JSON in this exact format:
                       >
                         <div className="aspect-square overflow-hidden bg-secondary/40">
                           <img
-                            src={pick.image_url && pick.image_url.startsWith("http") ? pick.image_url : fallbackImg}
+                            src={fallbackImg}
                             alt={pick.name}
                             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                            onError={(e) => { e.target.src = fallbackImg; }}
                           />
                         </div>
                         <div className="p-3">

@@ -57,18 +57,7 @@ export default function Navbar() {
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
             <Link to="/" className="flex items-center gap-2" onClick={handleNavClick}>
-              <div className="w-9 h-9 flex items-center justify-center">
-                {/* Classic Jordan shoe silhouette SVG */}
-                <svg viewBox="0 0 48 32" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-9 h-7">
-                  <path d="M2 24 C4 18, 10 10, 20 8 C28 6, 36 9, 42 12 L46 14 C46 14, 44 18, 40 20 L10 26 C6 27, 2 26, 2 24Z" fill="hsl(220,90%,56%)" />
-                  <path d="M2 24 C4 20, 8 18, 14 18 L40 20 C44 20, 46 22, 44 24 L8 28 C4 28, 2 27, 2 24Z" fill="hsl(220,90%,40%)" />
-                  <path d="M18 8 C22 4, 30 4, 34 8 L42 12 C38 10, 28 8, 18 8Z" fill="hsl(25,95%,53%)" />
-                  <path d="M6 22 L38 18 L40 20 L8 24Z" fill="white" fillOpacity="0.25" />
-                  <ellipse cx="8" cy="26" rx="5" ry="3" fill="hsl(220,90%,30%)" />
-                  <ellipse cx="22" cy="27" rx="6" ry="2.5" fill="hsl(220,90%,30%)" />
-                  <ellipse cx="37" cy="24" rx="5" ry="2.5" fill="hsl(220,90%,30%)" />
-                </svg>
-              </div>
+              <span className="text-2xl">👟</span>
               <span className="font-heading font-bold text-lg tracking-tight">
                 u<span className="text-primary font-black">shoe</span>
               </span>
