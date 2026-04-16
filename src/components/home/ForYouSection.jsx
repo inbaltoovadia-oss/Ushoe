@@ -5,6 +5,7 @@ import { base44 } from "@/api/base44Client";
 import ShoeCard from "../ShoeCard";
 import SkeletonCard from "../SkeletonCard";
 import ShoeListingSidebar from "./ShoeListingSidebar";
+import SponsoredModal from "../SponsoredModal";
 
 const DEFAULT_FILTERS = {
   brands: [],
@@ -21,6 +22,7 @@ export default function ForYouSection() {
   const [profile, setProfile] = useState(null);
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [showSidebar, setShowSidebar] = useState(false);
+  const [sponsorModal, setSponsorModal] = useState(null);
 
   useEffect(() => {
     loadPersonalized();
@@ -202,9 +204,20 @@ export default function ForYouSection() {
               <>
                 <p className="text-xs text-muted-foreground mb-3">{displayedShoes.length} shoe{displayedShoes.length !== 1 ? "s" : ""}</p>
                 <div className={`grid gap-4 sm:gap-6 ${showSidebar ? "grid-cols-2 lg:grid-cols-3" : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4"}`}>
-                  {displayedShoes.map((shoe, i) => <ShoeCard key={shoe.id} shoe={shoe} index={i} />)}
+                  {displayedShoes.map((shoe, i) => (
+                    <ShoeCard
+                      key={shoe.id}
+                      shoe={shoe}
+                      index={i}
+                      sponsored={i % 7 === 3}
+                      onSponsorClick={() => setSponsorModal(shoe)}
+                    />
+                  ))}
                 </div>
               </>
+              {sponsorModal && (
+                <SponsoredModal shoe={sponsorModal} onClose={() => setSponsorModal(null)} />
+              )}
             ) : (
               <div className="text-center py-16">
                 <Sparkles className="w-12 h-12 text-muted-foreground/20 mx-auto mb-4" />

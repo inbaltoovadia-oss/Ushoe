@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Heart, MapPin, ArrowRight, Flame, GitCompare } from "lucide-react";
+import { Heart, MapPin, ArrowRight, Flame, GitCompare, Rocket } from "lucide-react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { base44 } from "@/api/base44Client";
@@ -12,7 +12,7 @@ import {
 import { isInCompare, toggleCompare, subscribeCompare } from "../lib/compareStore";
 import PriceTrackButton from "./PriceTrackButton";
 
-export default function ShoeCard({ shoe, index = 0 }) {
+export default function ShoeCard({ shoe, index = 0, sponsored = false, onSponsorClick }) {
   const [wishlisted, setWishlisted] = useState(isInWishlist(shoe.id));
   const [compared, setCompared] = useState(isInCompare(shoe.id));
   const [imgLoaded, setImgLoaded] = useState(false);
@@ -88,8 +88,19 @@ export default function ShoeCard({ shoe, index = 0 }) {
               <PriceTrackButton shoe={shoe} compact />
             </div>
 
+            {/* Sponsored Tag */}
+            {sponsored && (
+              <button
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); onSponsorClick?.(); }}
+                className="absolute top-3 left-3 flex items-center gap-1 bg-amber-500 text-white px-2.5 py-1 rounded-full text-xs font-bold shadow-md hover:bg-amber-600 transition-colors z-10"
+              >
+                <Rocket className="w-3 h-3" />
+                Sponsored
+              </button>
+            )}
+
             {/* Trending Badge */}
-            {shoe.is_trending && (
+            {shoe.is_trending && !sponsored && (
               <div className="absolute top-3 left-3 flex items-center gap-1 bg-accent text-accent-foreground px-2.5 py-1 rounded-full text-xs font-semibold">
                 <Flame className="w-3 h-3" />
                 Trending
