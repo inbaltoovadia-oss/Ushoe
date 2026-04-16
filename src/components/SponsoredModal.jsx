@@ -2,6 +2,7 @@ import { X, Rocket, Star, Check, Zap } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { useState } from "react";
+import { base44 } from "@/api/base44Client";
 
 const SPONSOR_PLANS = [
   {
@@ -9,36 +10,59 @@ const SPONSOR_PLANS = [
     name: "Starter Boost",
     price: "$4.99",
     period: "/ week",
+    durationDays: 7,
     description: "Get your shoe featured in search results",
-    perks: ["Sponsored tag on shoe card", "Boosted in search results", "500+ impressions"],
+    perks: ["Sponsored tag on shoe card", "Boosted in search results", "500+ impressions", "1 week duration"],
   },
   {
     id: "featured",
     name: "Homepage Feature",
     price: "$14.99",
-    period: "/ week",
+    period: "/ 2 weeks",
+    durationDays: 14,
     description: "Prime placement on the homepage",
-    perks: ["Sponsored tag on homepage", "Top of trending feed", "2,000+ impressions", "Bold \"Featured\" badge"],
+    perks: ["Sponsored tag on homepage", "Top of trending feed", "2,000+ impressions", "Bold \"Featured\" badge", "2 weeks duration"],
     popular: true,
   },
   {
     id: "premium",
     name: "Max Visibility",
     price: "$29.99",
-    period: "/ week",
+    period: "/ month",
+    durationDays: 30,
     description: "Maximum exposure across the entire platform",
-    perks: ["Homepage + search + discover", "Priority placement everywhere", "10,000+ impressions", "Custom brand badge", "Analytics report"],
+    perks: ["Homepage + search + discover", "Priority placement everywhere", "10,000+ impressions", "Custom brand badge", "Analytics report", "30 days duration"],
   },
 ];
 
-export default function SponsoredModal({ shoe, onClose }) {
+export default function SponsoredModal({ shoe, onClose, onSponsorComplete }) {
   const [selected, setSelected] = useState("featured");
   const [done, setDone] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleSponsor = () => {
-    setDone(true);
-    toast.success(`${shoe?.name || "Shoe"} sponsored! 🚀 (Beta — no charge)`);
-    setTimeout(onClose, 1800);
+  const handleSponsor = async () => {
+    if (!shoe?.id) return;
+    setLoading(true);
+
+    const plan = SPONSOR_PLANS.find((p) => p.id === selected);
+    const sponsoredUntil = new Date();
+    sponsoredUntil.setDate(sponsoredUntil.getDate() + plan.durationDays);
+
+    try {
+      await base44.entities.Shoe.update(shoe.id, {
+        is_sponsored: true,
+        sponsored_plan: selected,
+        sponsored_until: sponsoredUntil.toISOString(),
+      });
+
+      setDone(true);
+      toast.success(`${shoe?.name || "Shoe"} sponsored for ${plan.durationDays} days! 🚀`);
+      onSponsorComplete?.();
+      setTimeout(onClose, 1800);
+    } catch (error) {
+      toast.error("Failed to sponsor shoe. Please try again.");
+    }
+    setLoading(false);
   };
 
   return (
@@ -112,9 +136,14 @@ export default function SponsoredModal({ shoe, onClose }) {
 
               <button
                 onClick={handleSponsor}
-                className="w-full bg-primary text-primary-foreground py-3.5 rounded-2xl font-semibold hover:opacity-90 transition-opacity flex items-center justify-center gap-2 mt-2"
+                disabled={loading}
+                className="w-full bg-primary text-primary-foreground py-3.5 rounded-2xl font-semibold hover:opacity-90 transition-opacity flex items-center justify-center gap-2 mt-2 disabled:opacity-50"
               >
-                <Rocket className="w-4 h-4" />
+                {loading ? (
+                  <span className="animate-spin w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full" />
+                ) : (
+                  <Rocket className="w-4 h-4" />
+                )}
                 Sponsor Now (Beta — Free)
               </button>
               <p className="text-center text-xs text-muted-foreground">

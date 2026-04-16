@@ -246,7 +246,11 @@ export default function ForYouSection() {
                   ))}
                 </div>
                 {sponsorModal && (
-                  <SponsoredModal shoe={sponsorModal} onClose={() => setSponsorModal(null)} />
+                  <SponsoredModal
+                    shoe={sponsorModal}
+                    onClose={() => setSponsorModal(null)}
+                    onSponsorComplete={loadPersonalized}
+                  />
                 )}
               </>
             ) : (

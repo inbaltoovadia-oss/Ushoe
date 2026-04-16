@@ -92,6 +92,25 @@
     "is_trending": {
       "type": "boolean",
       "title": "Is Trending"
+    },
+    "is_sponsored": {
+      "type": "boolean",
+      "title": "Is Sponsored",
+      "default": false
+    },
+    "sponsored_plan": {
+      "type": "string",
+      "title": "Sponsored Plan",
+      "enum": [
+        "starter",
+        "featured",
+        "premium"
+      ]
+    },
+    "sponsored_until": {
+      "type": "string",
+      "title": "Sponsored Until",
+      "format": "date-time"
     }
   },
   "required": [
