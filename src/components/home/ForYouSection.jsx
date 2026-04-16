@@ -214,10 +214,10 @@ export default function ForYouSection() {
                     />
                   ))}
                 </div>
+                {sponsorModal && (
+                  <SponsoredModal shoe={sponsorModal} onClose={() => setSponsorModal(null)} />
+                )}
               </>
-              {sponsorModal && (
-                <SponsoredModal shoe={sponsorModal} onClose={() => setSponsorModal(null)} />
-              )}
             ) : (
               <div className="text-center py-16">
                 <Sparkles className="w-12 h-12 text-muted-foreground/20 mx-auto mb-4" />
