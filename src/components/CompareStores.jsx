@@ -28,10 +28,12 @@ export default function CompareStores({ shoe }) {
   const load = async () => {
     setLoading(true);
     const res = await base44.integrations.Core.InvokeLLM({
-      prompt: `Find all stores selling the ${shoe.brand} ${shoe.name} near ${loc.city} (lat: ${loc.lat}, lng: ${loc.lng}).
-Search major retailers, brand stores, and outlets.
-For each store include real pricing, stock status, and whether this exact shoe (${shoe.colorway || "any colorway"}, price ~$${shoe.price}) is available.
-Highlight the best deal.`,
+      prompt: `Find all stores and online retailers selling the ${shoe.brand} ${shoe.name} near or shipping to ${loc.city}.
+      Search major physical retailers, brand stores, outlets, AND online stores (Nike.com, Adidas.com, Zappos, Amazon, GOAT, StockX, Foot Locker online, etc).
+      For each store include real pricing, stock status, and whether this exact shoe (${shoe.colorway || "any colorway"}, price ~$${shoe.price}) is available.
+      For physical stores: include real address near ${loc.city}.
+      For online stores: set is_online to true, check if they ship to ${loc.city} / that region, and note the shipping info.
+      Highlight the best deal.`,
       add_context_from_internet: true,
       response_json_schema: {
         type: "object",
@@ -49,6 +51,9 @@ Highlight the best deal.`,
                 distance_miles: { type: "number" },
                 rating: { type: "number" },
                 is_best_deal: { type: "boolean" },
+                is_online: { type: "boolean" },
+                ships_to_location: { type: "boolean" },
+                shipping_info: { type: "string" },
                 buy_link: { type: "string" },
                 phone: { type: "string" },
               },
@@ -98,8 +103,13 @@ Highlight the best deal.`,
             )}
             <div className="flex items-start justify-between gap-2 flex-wrap">
               <div className="flex-1 min-w-0">
-                <p className="font-heading font-semibold text-sm">{store.name}</p>
-                <p className="text-xs text-muted-foreground truncate mt-0.5">{store.address}</p>
+                <div className="flex items-center gap-2">
+                  <p className="font-heading font-semibold text-sm">{store.name}</p>
+                  {store.is_online && (
+                    <span className="text-[10px] px-1.5 py-0.5 bg-blue-50 dark:bg-blue-950/30 text-blue-600 rounded-full font-medium">Online</span>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground truncate mt-0.5">{store.is_online ? "Online retailer" : store.address}</p>
                 <div className="flex items-center gap-2 mt-1 flex-wrap">
                   {store.rating && (
                     <span className="text-xs text-muted-foreground flex items-center gap-1">
@@ -122,26 +132,39 @@ Highlight the best deal.`,
                 </span>
               </div>
             </div>
+            {/* Shipping info for online stores */}
+            {store.is_online && (
+              <div className={`flex items-center gap-1.5 text-xs mt-2 px-2 py-1 rounded-lg w-fit ${
+                store.ships_to_location === false
+                  ? "bg-red-50 dark:bg-red-950/30 text-red-600"
+                  : "bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400"
+              }`}>
+                {store.ships_to_location === false ? "❌ Doesn't ship to your location" : "✓ Ships to your location"}
+                {store.shipping_info && <span className="text-muted-foreground ml-1">· {store.shipping_info}</span>}
+              </div>
+            )}
             <div className="flex gap-2 mt-3">
-              <a
-                href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(store.address)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1 text-xs px-3 py-1.5 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity"
-              >
-                <Navigation className="w-3 h-3" /> Directions
-              </a>
+              {!store.is_online && (
+                <a
+                  href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(store.address)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 text-xs px-3 py-1.5 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity"
+                >
+                  <Navigation className="w-3 h-3" /> Directions
+                </a>
+              )}
               {store.buy_link && (
                 <a
                   href={store.buy_link}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-1 text-xs px-3 py-1.5 bg-secondary text-foreground rounded-lg hover:bg-secondary/80"
+                  className="flex items-center gap-1 text-xs px-3 py-1.5 bg-primary text-primary-foreground rounded-lg hover:opacity-90"
                 >
-                  <ExternalLink className="w-3 h-3" /> Buy Here
+                  <ExternalLink className="w-3 h-3" /> {store.is_online ? "Buy Online" : "Buy Here"}
                 </a>
               )}
-              {store.phone && (
+              {!store.is_online && store.phone && (
                 <a href={`tel:${store.phone}`} className="text-xs px-3 py-1.5 bg-secondary text-foreground rounded-lg hover:bg-secondary/80">
                   Call
                 </a>
