@@ -32,6 +32,7 @@ export default function ShoeDetail() {
   const [loading, setLoading] = useState(true);
   const [wishlisted, setWishlisted] = useState(false);
   const [selectedSize, setSelectedSize] = useState(null);
+  const [selectedColor, setSelectedColor] = useState(null);
   const [activeTab, setActiveTab] = useState(null); // null | "nearby" | "online"
 
   useEffect(() => {
@@ -199,15 +200,41 @@ export default function ShoeDetail() {
               </div>
             )}
 
+            {/* Colors */}
+            {shoe.colors_available && shoe.colors_available.length > 0 && (
+              <div className="mt-6">
+                <p className="text-sm font-medium mb-3">
+                  Color{selectedColor ? <span className="text-muted-foreground font-normal"> — {selectedColor}</span> : ""}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {shoe.colors_available.map((color) => (
+                    <button
+                      key={color}
+                      onClick={() => setSelectedColor(selectedColor === color ? null : color)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all border ${
+                        selectedColor === color
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-secondary hover:bg-secondary/80 text-foreground border-transparent"
+                      }`}
+                    >
+                      {color}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Sizes */}
             {shoe.sizes_available && shoe.sizes_available.length > 0 && (
               <div className="mt-6">
-                <p className="text-sm font-medium mb-3">Select Size</p>
+                <p className="text-sm font-medium mb-3">
+                  Size{selectedSize ? <span className="text-muted-foreground font-normal"> — {selectedSize}</span> : ""}
+                </p>
                 <div className="flex flex-wrap gap-2">
                   {shoe.sizes_available.map((size) => (
                     <button
                       key={size}
-                      onClick={() => setSelectedSize(size)}
+                      onClick={() => setSelectedSize(selectedSize === size ? null : size)}
                       className={`w-12 h-12 rounded-xl text-sm font-medium transition-all ${
                         selectedSize === size
                           ? "bg-primary text-primary-foreground"
@@ -223,7 +250,7 @@ export default function ShoeDetail() {
 
             {/* Find Near You / Buy Online tabs */}
             <div className="mt-8">
-              <div className="flex gap-2 mb-4">
+              <div className="flex gap-2 mb-2">
                 <button
                   onClick={() => setActiveTab(activeTab === "nearby" ? null : "nearby")}
                   className={`flex-1 py-3.5 rounded-2xl font-semibold text-sm transition-all active:scale-[0.98] flex items-center justify-center gap-2 ${
@@ -244,14 +271,25 @@ export default function ShoeDetail() {
                 </button>
               </div>
 
+              {activeTab && (selectedSize || selectedColor) && (
+                <p className="text-xs text-muted-foreground mb-3">
+                  Showing availability for{selectedSize ? ` size ${selectedSize}` : ""}{selectedSize && selectedColor ? " /" : ""}{selectedColor ? ` ${selectedColor}` : ""}
+                </p>
+              )}
+              {activeTab && !selectedSize && !selectedColor && (
+                <p className="text-xs text-amber-600 dark:text-amber-400 mb-3">
+                  💡 Select a size or color above to filter stores by availability
+                </p>
+              )}
+
               {activeTab === "nearby" && (
                 <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="pt-1">
-                  <NearbyStores title="Stores Near You" maxCount={4} shoe={shoe} />
+                  <NearbyStores title="Stores Near You" maxCount={4} shoe={shoe} selectedSize={selectedSize} selectedColor={selectedColor} />
                 </motion.div>
               )}
               {activeTab === "online" && (
                 <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="pt-1">
-                  <BuyOnline shoe={shoe} />
+                  <BuyOnline shoe={shoe} selectedSize={selectedSize} selectedColor={selectedColor} />
                 </motion.div>
               )}
             </div>

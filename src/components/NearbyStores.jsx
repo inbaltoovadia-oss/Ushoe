@@ -4,7 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { getLocation, subscribeLocation } from "../lib/locationStore";
 import { sortStoresByLocation } from "../lib/storeUtils";
 
-export default function NearbyStores({ title = "Nearby Stores", maxCount = 6, shoe = null }) {
+export default function NearbyStores({ title = "Nearby Stores", maxCount = 6, shoe = null, selectedSize = null, selectedColor = null }) {
   const [stores, setStores] = useState([]);
   const [loading, setLoading] = useState(true);
   const [aiSummary, setAiSummary] = useState("");
@@ -29,8 +29,10 @@ export default function NearbyStores({ title = "Nearby Stores", maxCount = 6, sh
       base44.integrations.Core.InvokeLLM({
         prompt: `You are a shoe store locator AI. The user is in ${location.city} (lat: ${location.lat}, lng: ${location.lng}).
 ${shoe ? `They are looking for: "${shoe.name}" by ${shoe.brand} (${shoe.category}, $${shoe.price}).` : "They are looking for shoe stores nearby."}
+${selectedSize ? `Required size: ${selectedSize}.` : ""}
+${selectedColor ? `Required color/colorway: ${selectedColor}.` : ""}
 
-List the top ${maxCount} real shoe stores near ${location.city} that would likely carry ${shoe ? `the ${shoe.brand} brand` : "popular sneakers"}.
+List the top ${maxCount} real shoe stores near ${location.city} that ${selectedSize || selectedColor ? `have this specific shoe in stock in${selectedSize ? ` size ${selectedSize}` : ""}${selectedColor ? ` color ${selectedColor}` : ""}. Only include stores that actually have this exact size${selectedColor ? " and color" : ""} available — skip stores that are out of stock for these specs.` : `would likely carry ${shoe ? `the ${shoe.brand} brand` : "popular sneakers"}.`}
 For each store provide realistic data. Make the addresses real streets in ${location.city}.
 Also provide a short 1-sentence summary of the local shoe store scene.`,
         add_context_from_internet: true,

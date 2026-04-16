@@ -16,18 +16,21 @@ const stockIcons = {
   "Out of stock": XCircle,
 };
 
-export default function BuyOnline({ shoe }) {
+export default function BuyOnline({ shoe, selectedSize = null, selectedColor = null }) {
   const [retailers, setRetailers] = useState([]);
   const [loading, setLoading] = useState(true);
   const loc = getLocation();
 
-  useEffect(() => { load(); }, [shoe?.id]);
+  useEffect(() => { load(); }, [shoe?.id, selectedSize, selectedColor]);
 
   const load = async () => {
     setLoading(true);
     const res = await base44.integrations.Core.InvokeLLM({
       prompt: `Find the best online retailers currently selling the ${shoe.brand} ${shoe.name} (${shoe.colorway || "any colorway"}, ~$${shoe.price}).
+${selectedSize ? `The customer needs size ${selectedSize} specifically.` : ""}
+${selectedColor ? `The customer wants the color/colorway: ${selectedColor}.` : ""}
 Search Nike.com, Adidas.com, Zappos, Amazon, GOAT, StockX, Foot Locker, DSW, Finish Line, and other major online shoe retailers.
+${selectedSize || selectedColor ? `IMPORTANT: Only include retailers that have this shoe in stock in${selectedSize ? ` size ${selectedSize}` : ""}${selectedColor ? ` ${selectedColor}` : ""}. Skip any retailer that doesn't have the exact size${selectedColor ? " and color" : ""} available.` : ""}
 For each retailer: check if they ship to ${loc.city}, provide a real buy link, current price, stock status, and any shipping/return highlights.
 Mark the best deal. Return up to 8 results.`,
       add_context_from_internet: true,
