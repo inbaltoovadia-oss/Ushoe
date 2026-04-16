@@ -77,17 +77,22 @@ export default function Discover() {
     const allShoes = await base44.entities.Shoe.list("-trending_score", 50);
 
     const aiResponse = await base44.integrations.Core.InvokeLLM({
-        prompt: `You are a shoe recommendation AI with web search capabilities. The user is looking for: "${finalQ}"
-${selectedCategory ? `They are specifically interested in: ${selectedCategory} shoes.` : ""}
-${imageUrl ? "The user has uploaded an image — use it as a visual reference to identify the style/type of shoe they want." : ""}
+        prompt: `You are a shoe recommendation AI. The user is looking for: "${finalQ}"
+${selectedCategory ? `Category: ${selectedCategory}.` : ""}
+${imageUrl ? "The user uploaded an image — identify the shoe style/type from it." : ""}
 
-STEP 1: Search the web for the latest information about "${finalQ}" shoes — new releases, popular models, price ranges, reviews.
-STEP 2: From the database below, pick the top 5 best matches:
-${allShoes.map((s, i) => `${i}: ${s.brand} ${s.name} - $${s.price} - ${s.category} - ${(s.features || []).join(", ")}`).join("\n")}
+From the catalog below, pick up to 5 best matches (by index number):
+${allShoes.map((s, i) => `${i}: ${s.brand} ${s.name} $${s.price} ${s.category}`).join("\n")}
 
-Also list 3 real web shoe recommendations the user should check out online (from Nike, Adidas, etc. with real model names and estimated prices).
-For each web pick, provide a real direct buy URL to the retailer's product page (e.g. nike.com, adidas.com, zappos.com, footlocker.com). Not a search URL — a real product page URL.
-Provide a short summary.`,
+Also pick 3 real shoes from the web (brand, name, price like "$120", short reason, and a buy URL).
+Write a 1-2 sentence summary of what you found.
+
+Respond ONLY with valid JSON in this exact format:
+{
+  "summary": "...",
+  "recommendations": [{"index": 0, "match_score": 85, "explanation": "..."}],
+  "web_picks": [{"brand": "Nike", "name": "...", "price": "$120", "reason": "...", "search_url": "https://..."}]
+}`,
         add_context_from_internet: true,
         file_urls: imageUrl ? [imageUrl] : undefined,
         response_json_schema: {
