@@ -20,6 +20,7 @@ import FitPredictor from './pages/FitPredictor';
 import OutfitMatcher from './pages/OutfitMatcher';
 import Settings from './pages/Settings';
 import ShoeSurvey from './pages/ShoeSurvey';
+import NearbyStoresPage from './pages/NearbyStoresPage';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -61,6 +62,7 @@ const AuthenticatedApp = () => {
         <Route path="/outfit-matcher" element={<OutfitMatcher />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/survey" element={<ShoeSurvey />} />
+        <Route path="/nearby-stores" element={<NearbyStoresPage />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>
     </Routes>

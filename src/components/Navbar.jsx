@@ -38,11 +38,13 @@ export default function Navbar() {
     { to: "/discover", label: "Discover" },
     { to: "/trending", label: "Trending" },
     { to: "/deals", label: "Deals" },
+    { to: "/nearby-stores", label: "Stores" },
     { to: "/wishlist", label: "Wishlist" },
     { to: "/price-drops", label: "Price Drops" },
   ];
 
   const toolLinks = [
+    { to: "/nearby-stores", label: "Nearby Stores", emoji: "📍" },
     { to: "/fit-predictor", label: "Fit Predictor", emoji: "👟" },
     { to: "/outfit-matcher", label: "Outfit Matcher", emoji: "✨" },
     { to: "/style-quiz", label: "Style Quiz", emoji: "🎯" },
