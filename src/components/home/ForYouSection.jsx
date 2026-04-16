@@ -92,7 +92,16 @@ export default function ForYouSection() {
     return sorted; // trending — already sorted by score / trending_score
   };
 
-  const displayedShoes = applySort(applyFilters(getBaseShoes()));
+  const SPONSORED_INDICES = [3, 11, 19]; // positions that get sponsored treatment
+  const SPONSORED_PLAN_TIERS = ["brand", "featured", "starter"]; // mock tiers per slot
+
+  const rawDisplayed = applySort(applyFilters(getBaseShoes()));
+
+  // Inject sponsored shoes at the front based on "plan" (mocked: every 7th shoe is sponsored)
+  const sponsoredShoes = rawDisplayed.filter((_, i) => SPONSORED_INDICES.includes(i));
+  const regularShoes = rawDisplayed.filter((_, i) => !SPONSORED_INDICES.includes(i));
+  // Brand-tier sponsored go first, then regular
+  const displayedShoes = [...sponsoredShoes, ...regularShoes];
 
   const activeFilterCount = filters.brands.length + filters.categories.length +
     (filters.onSaleOnly ? 1 : 0) + (filters.maxPrice < 500 || filters.minPrice > 0 ? 1 : 0);
@@ -202,14 +211,36 @@ export default function ForYouSection() {
               </div>
             ) : displayedShoes.length > 0 ? (
               <>
-                <p className="text-xs text-muted-foreground mb-3">{displayedShoes.length} shoe{displayedShoes.length !== 1 ? "s" : ""}</p>
+                <p className="text-xs text-muted-foreground mb-3">{rawDisplayed.length} shoe{rawDisplayed.length !== 1 ? "s" : ""}</p>
+                {/* Sponsored featured row — brand-tier shoes shown larger */}
+                {sponsoredShoes.length > 0 && (
+                  <div className="mb-6">
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="text-xs font-bold text-amber-500 uppercase tracking-wider">⭐ Featured</span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                      {sponsoredShoes.map((shoe, i) => (
+                        <ShoeCard
+                          key={shoe.id + "-sp"}
+                          shoe={shoe}
+                          index={i}
+                          sponsored={true}
+                          sponsorTier={SPONSORED_PLAN_TIERS[i] || "starter"}
+                          onSponsorClick={() => setSponsorModal(shoe)}
+                        />
+                      ))}
+                    </div>
+                    <div className="border-t border-border/50 mt-6 mb-4" />
+                  </div>
+                )}
+
                 <div className={`grid gap-4 sm:gap-6 ${showSidebar ? "grid-cols-2 lg:grid-cols-3" : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4"}`}>
-                  {displayedShoes.map((shoe, i) => (
+                  {regularShoes.map((shoe, i) => (
                     <ShoeCard
                       key={shoe.id}
                       shoe={shoe}
                       index={i}
-                      sponsored={i % 7 === 3}
+                      sponsored={false}
                       onSponsorClick={() => setSponsorModal(shoe)}
                     />
                   ))}

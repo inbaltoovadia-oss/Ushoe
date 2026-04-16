@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { Heart, MapPin, ArrowRight, Flame, GitCompare, Rocket } from "lucide-react";
+import { Heart, MapPin, Flame, GitCompare, Rocket, Camera } from "lucide-react";
 import { Link } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { base44 } from "@/api/base44Client";
 import {
   isInWishlist,
@@ -11,11 +11,14 @@ import {
 } from "../lib/wishlistStore";
 import { isInCompare, toggleCompare, subscribeCompare } from "../lib/compareStore";
 import PriceTrackButton from "./PriceTrackButton";
+import ShoeOptionsMenu from "./ShoeOptionsMenu";
+import ARTryOn from "./ARTryOn";
 
-export default function ShoeCard({ shoe, index = 0, sponsored = false, onSponsorClick }) {
+export default function ShoeCard({ shoe, index = 0, sponsored = false, onSponsorClick, sponsorTier = null }) {
   const [wishlisted, setWishlisted] = useState(isInWishlist(shoe.id));
   const [compared, setCompared] = useState(isInCompare(shoe.id));
   const [imgLoaded, setImgLoaded] = useState(false);
+  const [showAR, setShowAR] = useState(false);
 
   useEffect(() => subscribeWishlist(() => setWishlisted(isInWishlist(shoe.id))), [shoe.id]);
   useEffect(() => subscribeCompare(() => setCompared(isInCompare(shoe.id))), [shoe.id]);
@@ -41,13 +44,17 @@ export default function ShoeCard({ shoe, index = 0, sponsored = false, onSponsor
   };
 
   return (
+    <>
+    {showAR && <ARTryOn shoe={shoe} onClose={() => setShowAR(false)} />}
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: index * 0.05 }}
     >
       <Link to={`/shoe/${shoe.id}`} className="group block">
-        <div className="relative bg-card rounded-2xl overflow-hidden border border-border/50 transition-all duration-300 hover:shadow-2xl hover:shadow-primary/5 hover:-translate-y-1">
+        <div className={`relative bg-card rounded-2xl overflow-hidden border transition-all duration-300 hover:shadow-2xl hover:shadow-primary/5 hover:-translate-y-1 ${
+          sponsored ? "border-amber-400/50 shadow-md shadow-amber-400/10" : "border-border/50"
+        }`}>
           {/* Image */}
           <div className="relative aspect-square overflow-hidden bg-secondary/30">
             {!imgLoaded && (
@@ -75,17 +82,13 @@ export default function ShoeCard({ shoe, index = 0, sponsored = false, onSponsor
                 <Heart className={`w-4 h-4 ${wishlisted ? "fill-current" : ""}`} />
               </button>
               <button
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleCompare(shoe); }}
-                title="Compare"
-                className={`p-2 rounded-full backdrop-blur-md transition-all duration-200 ${
-                  compared
-                    ? "bg-primary text-white"
-                    : "bg-white/80 dark:bg-black/50 text-foreground hover:bg-white dark:hover:bg-black/70"
-                }`}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowAR(true); }}
+                title="AR Try-On"
+                className="p-2 rounded-full backdrop-blur-md bg-white/80 dark:bg-black/50 text-primary hover:bg-white dark:hover:bg-black/70 transition-all duration-200"
               >
-                <GitCompare className="w-4 h-4" />
+                <Camera className="w-4 h-4" />
               </button>
-              <PriceTrackButton shoe={shoe} compact />
+              <ShoeOptionsMenu shoe={shoe} onSponsorClick={() => onSponsorClick?.()} onARClick={() => setShowAR(true)} />
             </div>
 
             {/* Sponsored Tag */}
@@ -156,5 +159,6 @@ export default function ShoeCard({ shoe, index = 0, sponsored = false, onSponsor
         </div>
       </Link>
     </motion.div>
+    </>
   );
 }
