@@ -263,11 +263,29 @@ Provide a short summary.`,
             {/* AI Summary */}
             {aiExplanation && (
               <div className="bg-primary/5 border border-primary/10 rounded-2xl p-5">
-                <div className="flex items-center gap-2 mb-1">
+                <div className="flex items-center gap-2 mb-2">
                   <Globe className="w-4 h-4 text-primary" />
                   <span className="text-sm font-semibold text-primary">AI Web Summary</span>
                 </div>
-                <p className="text-foreground text-sm">{aiExplanation}</p>
+                <p className="text-foreground text-sm leading-relaxed">{aiExplanation}</p>
+                {webResults.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-primary/10">
+                    {webResults.map((pick, i) => (
+                      <a
+                        key={i}
+                        href={pick.search_url && pick.search_url.startsWith("http") ? pick.search_url : `https://www.google.com/search?q=${encodeURIComponent((pick.brand || "") + " " + (pick.name || "") + " buy")}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-card border border-border rounded-full text-xs font-medium hover:border-primary/40 hover:text-primary transition-all"
+                      >
+                        <span className="text-muted-foreground">{pick.brand}</span>
+                        <span className="text-foreground">{pick.name}</span>
+                        {pick.price && <span className="text-primary font-semibold">{pick.price}</span>}
+                        <span className="text-muted-foreground">→</span>
+                      </a>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -289,32 +307,7 @@ Provide a short summary.`,
               </div>
             )}
 
-            {/* Web Picks */}
-            {webResults.length > 0 && (
-              <div>
-                <div className="flex items-center gap-2 mb-4">
-                  <Globe className="w-4 h-4 text-accent" />
-                  <h2 className="font-heading font-bold text-xl">Also Found on the Web</h2>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {webResults.map((pick, i) => (
-                    <a
-                      key={i}
-                      href={pick.search_url && pick.search_url.startsWith("http") ? pick.search_url : `https://www.google.com/search?q=${encodeURIComponent((pick.brand || "") + " " + (pick.name || "") + " buy")}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block bg-card border border-border rounded-2xl p-4 hover:shadow-lg hover:border-primary/30 transition-all"
-                    >
-                      <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">{pick.brand}</p>
-                      <p className="font-heading font-semibold mt-1">{pick.name}</p>
-                      <p className="text-primary font-bold mt-1">{pick.price}</p>
-                      <p className="text-xs text-muted-foreground mt-2">{pick.reason}</p>
-                      <span className="text-xs text-primary mt-3 inline-block font-medium hover:underline">View online →</span>
-                    </a>
-                  ))}
-                </div>
-              </div>
-            )}
+
           </motion.section>
         )}
       </AnimatePresence>
