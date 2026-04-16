@@ -84,14 +84,14 @@ ${imageUrl ? "The user uploaded an image — identify the shoe style/type from i
 From the catalog below, pick up to 5 best matches (by index number):
 ${allShoes.map((s, i) => `${i}: ${s.brand} ${s.name} $${s.price} ${s.category}`).join("\n")}
 
-Also pick 3 real shoes from the web (brand, name, price like "$120", short reason, and a buy URL).
+Also pick 6 real shoes from the web (brand, name, price like "$120", short reason, a buy URL, and an image_url from the brand's website or a CDN).
 Write a 1-2 sentence summary of what you found.
 
 Respond ONLY with valid JSON in this exact format:
 {
   "summary": "...",
   "recommendations": [{"index": 0, "match_score": 85, "explanation": "..."}],
-  "web_picks": [{"brand": "Nike", "name": "...", "price": "$120", "reason": "...", "search_url": "https://..."}]
+  "web_picks": [{"brand": "Nike", "name": "...", "price": "$120", "reason": "...", "search_url": "https://...", "image_url": "https://..."}]
 }`,
         add_context_from_internet: true,
         file_urls: imageUrl ? [imageUrl] : undefined,
@@ -120,6 +120,7 @@ Respond ONLY with valid JSON in this exact format:
                   price: { type: "string" },
                   reason: { type: "string" },
                   search_url: { type: "string" },
+                  image_url: { type: "string" },
                 },
               },
             },
@@ -273,24 +274,51 @@ Respond ONLY with valid JSON in this exact format:
                   <span className="text-sm font-semibold text-primary">AI Web Summary</span>
                 </div>
                 <p className="text-foreground text-sm leading-relaxed">{aiExplanation}</p>
-                {webResults.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-primary/10">
-                    {webResults.map((pick, i) => (
-                      <a
+              </div>
+            )}
+
+            {/* Web Picks */}
+            {webResults.length > 0 && (
+              <div>
+                <h2 className="font-heading font-bold text-xl mb-4 flex items-center gap-2">
+                  <Globe className="w-5 h-5 text-primary" />
+                  Also Found on the Web
+                </h2>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+                  {webResults.map((pick, i) => {
+                    const url = pick.search_url && pick.search_url.startsWith("http")
+                      ? pick.search_url
+                      : `https://www.google.com/search?q=${encodeURIComponent((pick.brand || "") + " " + (pick.name || "") + " buy")}`;
+                    const fallbackImg = `https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&h=400&fit=crop`;
+                    return (
+                      <motion.a
                         key={i}
-                        href={pick.search_url && pick.search_url.startsWith("http") ? pick.search_url : `https://www.google.com/search?q=${encodeURIComponent((pick.brand || "") + " " + (pick.name || "") + " buy")}`}
+                        href={url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-card border border-border rounded-full text-xs font-medium hover:border-primary/40 hover:text-primary transition-all"
+                        initial={{ opacity: 0, y: 16 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: i * 0.07 }}
+                        className="group block bg-card border border-border rounded-2xl overflow-hidden hover:shadow-lg hover:border-primary/30 hover:-translate-y-1 transition-all duration-300"
                       >
-                        <span className="text-muted-foreground">{pick.brand}</span>
-                        <span className="text-foreground">{pick.name}</span>
-                        {pick.price && <span className="text-primary font-semibold">{pick.price}</span>}
-                        <span className="text-muted-foreground">→</span>
-                      </a>
-                    ))}
-                  </div>
-                )}
+                        <div className="aspect-square overflow-hidden bg-secondary/40">
+                          <img
+                            src={pick.image_url && pick.image_url.startsWith("http") ? pick.image_url : fallbackImg}
+                            alt={pick.name}
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                            onError={(e) => { e.target.src = fallbackImg; }}
+                          />
+                        </div>
+                        <div className="p-3">
+                          <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider truncate">{pick.brand}</p>
+                          <p className="font-heading font-semibold text-xs mt-0.5 line-clamp-2 group-hover:text-primary transition-colors">{pick.name}</p>
+                          {pick.price && <p className="text-primary font-bold text-sm mt-1">{pick.price}</p>}
+                          <p className="text-[10px] text-primary mt-1.5 font-medium group-hover:underline">Shop →</p>
+                        </div>
+                      </motion.a>
+                    );
+                  })}
+                </div>
               </div>
             )}
 
