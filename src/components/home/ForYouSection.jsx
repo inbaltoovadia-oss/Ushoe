@@ -16,10 +16,22 @@ export default function ForYouSection() {
 
   const loadPersonalized = async () => {
     setLoading(true);
-    const [profiles, allShoes] = await Promise.all([
-      base44.entities.UserProfile.list("-created_date", 1),
-      base44.entities.Shoe.list("-trending_score", 50),
-    ]);
+    let profiles = [];
+    let allShoes = [];
+
+    try {
+      [profiles, allShoes] = await Promise.all([
+        base44.entities.UserProfile.list("-created_date", 1),
+        base44.entities.Shoe.list("-trending_score", 50),
+      ]);
+    } catch {
+      try {
+        allShoes = await base44.entities.Shoe.list("-trending_score", 50);
+      } catch {
+        setLoading(false);
+        return;
+      }
+    }
 
     const p = profiles[0] || null;
     setProfile(p);
