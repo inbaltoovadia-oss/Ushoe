@@ -65,17 +65,40 @@ export default function ARTryOn({ shoe, onClose }) {
       const imageData = ctx.getImageData(0, 0, c.width, c.height);
       const data = imageData.data;
 
-      // Remove near-white and near-light-gray pixels (background removal)
+      // Sample background color from corners (assumed to be background)
+      const sampleCorners = (d, w, h) => {
+        const positions = [
+          0, // top-left
+          (w - 1) * 4, // top-right
+          (h - 1) * w * 4, // bottom-left
+          ((h - 1) * w + w - 1) * 4, // bottom-right
+          (Math.floor(h / 2) * w) * 4, // mid-left
+          (Math.floor(h / 2) * w + w - 1) * 4, // mid-right
+        ];
+        return positions.map(p => ({ r: d[p], g: d[p + 1], b: d[p + 2] }));
+      };
+
+      const corners = sampleCorners(data, c.width, c.height);
+      const avgBg = corners.reduce((acc, px) => ({
+        r: acc.r + px.r / corners.length,
+        g: acc.g + px.g / corners.length,
+        b: acc.b + px.b / corners.length,
+      }), { r: 0, g: 0, b: 0 });
+
+      const tolerance = 30;
+
       for (let i = 0; i < data.length; i += 4) {
         const r = data[i], g = data[i + 1], b = data[i + 2];
-        const brightness = (r + g + b) / 3;
-        const isNearWhite = brightness > 220 && Math.abs(r - g) < 20 && Math.abs(g - b) < 20;
-        const isNearGray = brightness > 200 && Math.abs(r - g) < 15 && Math.abs(g - b) < 15;
-        if (isNearWhite || isNearGray) {
-          data[i + 3] = 0; // fully transparent
-        } else if (brightness > 180) {
-          // Semi-transparent edge softening
-          data[i + 3] = Math.round(((255 - brightness) / 75) * 255);
+        const dr = Math.abs(r - avgBg.r);
+        const dg = Math.abs(g - avgBg.g);
+        const db = Math.abs(b - avgBg.b);
+        const dist = Math.sqrt(dr * dr + dg * dg + db * db);
+
+        if (dist < tolerance) {
+          data[i + 3] = 0; // remove background pixel
+        } else if (dist < tolerance + 15) {
+          // soft edge feathering
+          data[i + 3] = Math.round(((dist - tolerance) / 15) * 255);
         }
       }
       ctx.putImageData(imageData, 0, 0);
