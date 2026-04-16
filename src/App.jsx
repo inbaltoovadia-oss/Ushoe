@@ -19,6 +19,7 @@ import StyleQuiz from './pages/StyleQuiz';
 import FitPredictor from './pages/FitPredictor';
 import OutfitMatcher from './pages/OutfitMatcher';
 import Settings from './pages/Settings';
+import ShoeSurvey from './pages/ShoeSurvey';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -59,6 +60,7 @@ const AuthenticatedApp = () => {
         <Route path="/fit-predictor" element={<FitPredictor />} />
         <Route path="/outfit-matcher" element={<OutfitMatcher />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/survey" element={<ShoeSurvey />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>
     </Routes>
