@@ -86,6 +86,7 @@ STEP 2: From the database below, pick the top 5 best matches:
 ${allShoes.map((s, i) => `${i}: ${s.brand} ${s.name} - $${s.price} - ${s.category} - ${(s.features || []).join(", ")}`).join("\n")}
 
 Also list 3 real web shoe recommendations the user should check out online (from Nike, Adidas, etc. with real model names and estimated prices).
+For each web pick, provide a real direct buy URL to the retailer's product page (e.g. nike.com, adidas.com, zappos.com, footlocker.com). Not a search URL — a real product page URL.
 Provide a short summary.`,
         add_context_from_internet: true,
         file_urls: imageUrl ? [imageUrl] : undefined,
@@ -299,7 +300,7 @@ Provide a short summary.`,
                   {webResults.map((pick, i) => (
                     <a
                       key={i}
-                      href={pick.search_url || `https://www.google.com/search?q=${encodeURIComponent(pick.brand + " " + pick.name)}`}
+                      href={pick.search_url && pick.search_url.startsWith("http") ? pick.search_url : `https://www.google.com/search?q=${encodeURIComponent((pick.brand || "") + " " + (pick.name || "") + " buy")}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="block bg-card border border-border rounded-2xl p-4 hover:shadow-lg hover:border-primary/30 transition-all"

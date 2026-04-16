@@ -57,11 +57,11 @@ export default function Navbar() {
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
             <Link to="/" className="flex items-center gap-2" onClick={handleNavClick}>
-              <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center">
-                <Sparkles className="w-4 h-4 text-primary-foreground" />
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-md">
+                <span className="text-white font-heading font-black text-sm leading-none">U</span>
               </div>
               <span className="font-heading font-bold text-lg tracking-tight">
-                U<span className="text-primary">shoe</span>
+                u<span className="text-primary font-black">shoe</span>
               </span>
             </Link>
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Heart, MapPin, ArrowRight, Flame } from "lucide-react";
+import { Heart, MapPin, ArrowRight, Flame, GitCompare } from "lucide-react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { base44 } from "@/api/base44Client";
@@ -9,15 +9,16 @@ import {
   removeFromWishlistLocal,
   subscribeWishlist,
 } from "../lib/wishlistStore";
+import { isInCompare, toggleCompare, subscribeCompare } from "../lib/compareStore";
 import PriceTrackButton from "./PriceTrackButton";
 
 export default function ShoeCard({ shoe, index = 0 }) {
   const [wishlisted, setWishlisted] = useState(isInWishlist(shoe.id));
+  const [compared, setCompared] = useState(isInCompare(shoe.id));
   const [imgLoaded, setImgLoaded] = useState(false);
 
-  useEffect(() => {
-    return subscribeWishlist(() => setWishlisted(isInWishlist(shoe.id)));
-  }, [shoe.id]);
+  useEffect(() => subscribeWishlist(() => setWishlisted(isInWishlist(shoe.id))), [shoe.id]);
+  useEffect(() => subscribeCompare(() => setCompared(isInCompare(shoe.id))), [shoe.id]);
 
   const toggleWishlist = async (e) => {
     e.preventDefault();
@@ -72,6 +73,17 @@ export default function ShoeCard({ shoe, index = 0 }) {
                 }`}
               >
                 <Heart className={`w-4 h-4 ${wishlisted ? "fill-current" : ""}`} />
+              </button>
+              <button
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleCompare(shoe); }}
+                title="Compare"
+                className={`p-2 rounded-full backdrop-blur-md transition-all duration-200 ${
+                  compared
+                    ? "bg-primary text-white"
+                    : "bg-white/80 dark:bg-black/50 text-foreground hover:bg-white dark:hover:bg-black/70"
+                }`}
+              >
+                <GitCompare className="w-4 h-4" />
               </button>
               <PriceTrackButton shoe={shoe} compact />
             </div>
