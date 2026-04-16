@@ -9,7 +9,7 @@ import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import Layout from './components/Layout';
 import Home from './pages/Home';
 import Discover from './pages/Discover';
-import SearchResults from './pages/SearchResults.jsx';
+import SearchResults from './pages/SearchResults';
 import Trending from './pages/Trending';
 import Wishlist from './pages/Wishlist';
 import ShoeDetail from './pages/ShoeDetail';
@@ -20,7 +20,7 @@ import FitPredictor from './pages/FitPredictor';
 import OutfitMatcher from './pages/OutfitMatcher';
 import Settings from './pages/Settings';
 import ShoeSurvey from './pages/ShoeSurvey';
-import NearbyStoresPage from './pages/NearbyStoresPage.jsx';
+import NearbyStoresPage from './pages/NearbyStoresPage';
 import Compare from './pages/Compare';
 
 const AuthenticatedApp = () => {
