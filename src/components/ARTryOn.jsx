@@ -253,7 +253,11 @@ export default function ARTryOn({ shoe, onClose }) {
     if (cameraUtilRef.current) { cameraUtilRef.current.stop(); cameraUtilRef.current = null; }
 
     const cam = new window.Camera(video, {
-      onFrame: async () => { if (poseRef.current) await poseRef.current.send({ image: video }); },
+      onFrame: async () => {
+        if (poseRef.current && video.videoWidth > 0 && video.videoHeight > 0 && video.readyState >= 2) {
+          await poseRef.current.send({ image: video });
+        }
+      },
       width: 1280, height: 720,
     });
     await cam.start();
