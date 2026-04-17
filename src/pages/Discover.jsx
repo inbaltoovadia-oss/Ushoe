@@ -11,6 +11,7 @@ import { getCached, setCache } from "../lib/searchCache";
 import { getLocation } from "../lib/locationStore";
 import { canSearch, incrementSearchCount, canUse, getPlan, getSearchesUsedToday, PLAN_LIMITS } from "../lib/planStore";
 import PlanGate from "../components/PlanGate";
+import ShoeProblemSolver from "../components/ShoeProblemSolver";
 import { Link } from "react-router-dom";
 
 const CATEGORY_ICONS = {
@@ -290,6 +291,9 @@ For each provide: brand, name, price (as string like "$120"), retailer name, whe
           </motion.div>
         </div>
       </section>
+
+      {/* Shoe Problem Solver */}
+      <ShoeProblemSolver />
 
       {/* Results */}
       <div ref={resultsRef} />
