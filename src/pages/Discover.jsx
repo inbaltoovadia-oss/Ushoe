@@ -76,17 +76,21 @@ export default function Discover() {
 
     const allShoes = await base44.entities.Shoe.list("-trending_score", 50);
 
-    const aiResponse = await base44.integrations.Core.InvokeLLM({
-        prompt: `You are a shoe recommendation AI. The user is looking for: "${finalQ}"
+    // Run catalog matching and web search in parallel with separate simple schemas
+    const catalogPrompt = `You are a shoe recommendation AI. The user is looking for: "${finalQ}"
 ${selectedCategory ? `Category: ${selectedCategory}.` : ""}
 ${imageUrl ? "The user uploaded an image — identify the shoe style/type from it." : ""}
 
-From the catalog below, pick up to 5 best matches (by index number):
+From the catalog below, pick up to 5 best matches by index number:
 ${allShoes.map((s, i) => `${i}: ${s.brand} ${s.name} $${s.price} ${s.category}`).join("\n")}
 
-Also pick 6 real shoes from the web with brand, name, price, short reason, and a buy URL.
-Write a short 1 sentence summary.`,
-        add_context_from_internet: true,
+Write a short 1 sentence summary of what you found.`;
+
+    const webPrompt = `Find 6 real shoes matching: "${finalQ}"${selectedCategory ? ` in category ${selectedCategory}` : ""}. For each provide brand, name, price (as string like "$120"), and a Google Shopping search URL.`;
+
+    const [catalogResponse, webResponse] = await Promise.all([
+      base44.integrations.Core.InvokeLLM({
+        prompt: catalogPrompt,
         file_urls: imageUrl ? [imageUrl] : undefined,
         response_json_schema: {
           type: "object",
@@ -103,6 +107,15 @@ Write a short 1 sentence summary.`,
                 },
               },
             },
+          },
+        },
+      }),
+      base44.integrations.Core.InvokeLLM({
+        prompt: webPrompt,
+        add_context_from_internet: true,
+        response_json_schema: {
+          type: "object",
+          properties: {
             web_picks: {
               type: "array",
               items: {
@@ -118,20 +131,21 @@ Write a short 1 sentence summary.`,
             },
           },
         },
-      });
+      }),
+    ]);
 
-    const recs = (aiResponse.recommendations || [])
+    const recs = (catalogResponse.recommendations || [])
       .filter((r) => r.index >= 0 && r.index < allShoes.length)
       .map((r) => ({ shoe: allShoes[r.index], match_score: r.match_score, explanation: r.explanation }));
 
     setResults(recs);
-    setWebResults(aiResponse.web_picks || []);
-    setAiExplanation(aiResponse.summary || "");
+    setWebResults(webResponse.web_picks || []);
+    setAiExplanation(catalogResponse.summary || "");
     setLoading(false);
 
     // Cache the result
     if (!imageUrl) {
-      setCache(finalQ, { results: recs, webResults: aiResponse.web_picks || [], summary: aiResponse.summary || "" });
+      setCache(finalQ, { results: recs, webResults: webResponse.web_picks || [], summary: catalogResponse.summary || "" });
     }
 
     await base44.entities.SearchHistory.create({ query: finalQ, results_count: recs.length });
