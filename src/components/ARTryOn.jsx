@@ -1,8 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { X, Camera, CameraOff, Loader2, RotateCcw, Download, ScanLine, Wand2 } from "lucide-react";
+import { X, Camera, CameraOff, Loader2, RotateCcw, Download, ScanLine, Wand2, FlipHorizontal, ZoomIn, ZoomOut } from "lucide-react";
 import { motion } from "framer-motion";
 
-// Load MediaPipe scripts dynamically
 function loadScript(src) {
   return new Promise((resolve, reject) => {
     if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
@@ -16,42 +15,56 @@ function loadScript(src) {
 
 const MEDIAPIPE_POSE_CDN = "https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js";
 const MEDIAPIPE_CAM_UTILS = "https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js";
-const MEDIAPIPE_DRAWING = "https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1675466124/drawing_utils.js";
 
-// Foot landmark indices in MediaPipe Pose
-const LEFT_ANKLE = 27;
-const RIGHT_ANKLE = 28;
 const LEFT_HEEL = 29;
 const RIGHT_HEEL = 30;
 const LEFT_FOOT_INDEX = 31;
 const RIGHT_FOOT_INDEX = 32;
 
+// Smooth landmark positions using exponential moving average
+function smoothLandmark(prev, next, alpha = 0.35) {
+  if (!prev) return next;
+  return {
+    x: prev.x * (1 - alpha) + next.x * alpha,
+    y: prev.y * (1 - alpha) + next.y * alpha,
+    visibility: next.visibility,
+  };
+}
+
 export default function ARTryOn({ shoe, onClose }) {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
-  const overlayCanvasRef = useRef(null);
   const shoeImgRef = useRef(null);
   const streamRef = useRef(null);
   const poseRef = useRef(null);
   const cameraUtilRef = useRef(null);
-  const animFrameRef = useRef(null);
+  const smoothedLandmarksRef = useRef(null);
   const manualPosRef = useRef({ x: 50, y: 75 });
   const manualScaleRef = useRef(1);
+  const facingModeRef = useRef("environment");
+  const autoDetectRef = useRef(true);
+  const footsDetectedRef = useRef(false);
 
   const [cameraActive, setCameraActive] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingMsg, setLoadingMsg] = useState("");
   const [error, setError] = useState(null);
   const [autoDetect, setAutoDetect] = useState(true);
-  const [poseReady, setPoseReady] = useState(false);
   const [footsDetected, setFootsDetected] = useState(false);
   const [manualScale, setManualScale] = useState(1);
   const [dragging, setDragging] = useState(false);
   const [dragStart, setDragStart] = useState(null);
   const [manualPos, setManualPos] = useState({ x: 50, y: 75 });
-  const [shoeRemoveBg, setShoeRemoveBg] = useState(null); // processed shoe image
+  const [shoePreview, setShoePreview] = useState(null);
+  const [facingMode, setFacingMode] = useState("environment"); // "environment" | "user"
+  const [switching, setSwitching] = useState(false);
 
-  // Preprocess shoe image: remove white/light background using canvas
+  // Keep refs in sync
+  useEffect(() => { manualPosRef.current = manualPos; }, [manualPos]);
+  useEffect(() => { manualScaleRef.current = manualScale; }, [manualScale]);
+  useEffect(() => { autoDetectRef.current = autoDetect; }, [autoDetect]);
+
+  // Preprocess shoe image — corner-based background removal
   useEffect(() => {
     if (!shoe?.image_url) return;
     const img = new Image();
@@ -64,95 +77,121 @@ export default function ARTryOn({ shoe, onClose }) {
       ctx.drawImage(img, 0, 0);
       const imageData = ctx.getImageData(0, 0, c.width, c.height);
       const data = imageData.data;
+      const W = c.width, H = c.height;
 
-      // Sample background color from corners (assumed to be background)
-      const sampleCorners = (d, w, h) => {
-        const positions = [
-          0, // top-left
-          (w - 1) * 4, // top-right
-          (h - 1) * w * 4, // bottom-left
-          ((h - 1) * w + w - 1) * 4, // bottom-right
-          (Math.floor(h / 2) * w) * 4, // mid-left
-          (Math.floor(h / 2) * w + w - 1) * 4, // mid-right
-        ];
-        return positions.map(p => ({ r: d[p], g: d[p + 1], b: d[p + 2] }));
-      };
+      // Sample corners + edges to determine background color
+      const samplePx = (idx) => ({ r: data[idx], g: data[idx + 1], b: data[idx + 2] });
+      const samples = [
+        samplePx(0),
+        samplePx((W - 1) * 4),
+        samplePx((H - 1) * W * 4),
+        samplePx(((H - 1) * W + W - 1) * 4),
+        samplePx(Math.floor(W / 2) * 4), // top center
+        samplePx(((H - 1) * W + Math.floor(W / 2)) * 4), // bottom center
+      ];
+      const avgBg = samples.reduce((a, p) => ({ r: a.r + p.r / samples.length, g: a.g + p.g / samples.length, b: a.b + p.b / samples.length }), { r: 0, g: 0, b: 0 });
 
-      const corners = sampleCorners(data, c.width, c.height);
-      const avgBg = corners.reduce((acc, px) => ({
-        r: acc.r + px.r / corners.length,
-        g: acc.g + px.g / corners.length,
-        b: acc.b + px.b / corners.length,
-      }), { r: 0, g: 0, b: 0 });
-
-      const tolerance = 30;
+      const HARD = 28;
+      const SOFT = 18;
 
       for (let i = 0; i < data.length; i += 4) {
-        const r = data[i], g = data[i + 1], b = data[i + 2];
-        const dr = Math.abs(r - avgBg.r);
-        const dg = Math.abs(g - avgBg.g);
-        const db = Math.abs(b - avgBg.b);
-        const dist = Math.sqrt(dr * dr + dg * dg + db * db);
-
-        if (dist < tolerance) {
-          data[i + 3] = 0; // remove background pixel
-        } else if (dist < tolerance + 15) {
-          // soft edge feathering
-          data[i + 3] = Math.round(((dist - tolerance) / 15) * 255);
+        const dist = Math.sqrt(
+          Math.pow(data[i] - avgBg.r, 2) +
+          Math.pow(data[i + 1] - avgBg.g, 2) +
+          Math.pow(data[i + 2] - avgBg.b, 2)
+        );
+        if (dist < HARD) {
+          data[i + 3] = 0;
+        } else if (dist < HARD + SOFT) {
+          data[i + 3] = Math.round(((dist - HARD) / SOFT) * 255);
         }
       }
       ctx.putImageData(imageData, 0, 0);
-      setShoeRemoveBg(c.toDataURL("image/png"));
-
-      // Also store as Image for canvas drawing
+      const dataUrl = c.toDataURL("image/png");
+      setShoePreview(dataUrl);
       const processed = new Image();
       processed.onload = () => { shoeImgRef.current = processed; };
-      processed.src = c.toDataURL("image/png");
+      processed.src = dataUrl;
     };
     img.onerror = () => {
-      // fallback: use original
       const fallback = new Image();
       fallback.crossOrigin = "anonymous";
       fallback.onload = () => { shoeImgRef.current = fallback; };
       fallback.src = shoe.image_url;
+      setShoePreview(shoe.image_url);
     };
     img.src = shoe.image_url;
   }, [shoe?.image_url]);
 
-  // Sync manual pos/scale to refs for use in canvas loop
-  useEffect(() => { manualPosRef.current = manualPos; }, [manualPos]);
-  useEffect(() => { manualScaleRef.current = manualScale; }, [manualScale]);
+  const drawFrame = useCallback((results, isFrontCam) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const vw = results.image.width || canvas.width;
+    const vh = results.image.height || canvas.height;
+    canvas.width = vw;
+    canvas.height = vh;
 
-  const drawShoeOnCanvas = useCallback((ctx, canvasW, canvasH, landmarks) => {
+    ctx.clearRect(0, 0, vw, vh);
+
+    // Mirror front camera
+    if (isFrontCam) {
+      ctx.save();
+      ctx.translate(vw, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(results.image, 0, 0, vw, vh);
+      ctx.restore();
+    } else {
+      ctx.drawImage(results.image, 0, 0, vw, vh);
+    }
+
     if (!shoeImgRef.current) return;
 
-    let leftShoe = null;
-    let rightShoe = null;
+    const landmarks = results.poseLandmarks;
+    let leftFoot = null;
+    let rightFoot = null;
 
-    if (autoDetect && landmarks) {
-      const lAnkle = landmarks[LEFT_ANKLE];
-      const lHeel = landmarks[LEFT_HEEL];
-      const lToe = landmarks[LEFT_FOOT_INDEX];
-      const rAnkle = landmarks[RIGHT_ANKLE];
-      const rHeel = landmarks[RIGHT_HEEL];
-      const rToe = landmarks[RIGHT_FOOT_INDEX];
+    if (autoDetectRef.current && landmarks) {
+      // Smooth landmarks
+      if (!smoothedLandmarksRef.current) {
+        smoothedLandmarksRef.current = [...landmarks];
+      } else {
+        smoothedLandmarksRef.current = smoothedLandmarksRef.current.map((prev, i) =>
+          smoothLandmark(prev, landmarks[i])
+        );
+      }
+      const sm = smoothedLandmarksRef.current;
 
-      // Only draw if visibility is decent
-      if (lAnkle?.visibility > 0.4 && lToe?.visibility > 0.4) {
-        const lx = ((lHeel?.x + lToe?.x) / 2) * canvasW;
-        const ly = ((lHeel?.y + lToe?.y) / 2) * canvasH;
-        const footLen = Math.hypot((lToe.x - lHeel.x) * canvasW, (lToe.y - lHeel.y) * canvasH);
-        const angle = Math.atan2((lToe.y - lHeel.y) * canvasH, (lToe.x - lHeel.x) * canvasW);
-        leftShoe = { cx: lx, cy: ly, len: footLen, angle };
+      const lHeel = sm[LEFT_HEEL];
+      const lToe = sm[LEFT_FOOT_INDEX];
+      const rHeel = sm[RIGHT_HEEL];
+      const rToe = sm[RIGHT_FOOT_INDEX];
+
+      if (lHeel?.visibility > 0.45 && lToe?.visibility > 0.45) {
+        // Mirror x coords for front cam
+        const lhx = isFrontCam ? 1 - lHeel.x : lHeel.x;
+        const ltx = isFrontCam ? 1 - lToe.x : lToe.x;
+        const cx = ((lhx + ltx) / 2) * vw;
+        const cy = ((lHeel.y + lToe.y) / 2) * vh;
+        const len = Math.hypot((ltx - lhx) * vw, (lToe.y - lHeel.y) * vh);
+        const angle = Math.atan2((lToe.y - lHeel.y) * vh, (ltx - lhx) * vw);
+        leftFoot = { cx, cy, len, angle };
       }
-      if (rAnkle?.visibility > 0.4 && rToe?.visibility > 0.4) {
-        const rx = ((rHeel?.x + rToe?.x) / 2) * canvasW;
-        const ry = ((rHeel?.y + rToe?.y) / 2) * canvasH;
-        const footLen = Math.hypot((rToe.x - rHeel.x) * canvasW, (rToe.y - rHeel.y) * canvasH);
-        const angle = Math.atan2((rToe.y - rHeel.y) * canvasH, (rToe.x - rHeel.x) * canvasW);
-        rightShoe = { cx: rx, cy: ry, len: footLen, angle };
+      if (rHeel?.visibility > 0.45 && rToe?.visibility > 0.45) {
+        const rhx = isFrontCam ? 1 - rHeel.x : rHeel.x;
+        const rtx = isFrontCam ? 1 - rToe.x : rToe.x;
+        const cx = ((rhx + rtx) / 2) * vw;
+        const cy = ((rHeel.y + rToe.y) / 2) * vh;
+        const len = Math.hypot((rtx - rhx) * vw, (rToe.y - rHeel.y) * vh);
+        const angle = Math.atan2((rToe.y - rHeel.y) * vh, (rtx - rhx) * vw);
+        rightFoot = { cx, cy, len, angle };
       }
-      setFootsDetected(!!(leftShoe || rightShoe));
+
+      const detected = !!(leftFoot || rightFoot);
+      if (detected !== footsDetectedRef.current) {
+        footsDetectedRef.current = detected;
+        setFootsDetected(detected);
+      }
     }
 
     const drawShoe = (cx, cy, w, h, angle, flipH) => {
@@ -160,133 +199,132 @@ export default function ARTryOn({ shoe, onClose }) {
       ctx.translate(cx, cy);
       ctx.rotate(angle);
       if (flipH) ctx.scale(-1, 1);
-      ctx.globalAlpha = 0.95;
+      // Drop shadow for realism
+      ctx.shadowColor = "rgba(0,0,0,0.5)";
+      ctx.shadowBlur = 12;
+      ctx.shadowOffsetY = 4;
+      ctx.globalAlpha = 0.93;
       ctx.drawImage(shoeImgRef.current, -w / 2, -h / 2, w, h);
       ctx.globalAlpha = 1;
+      ctx.shadowBlur = 0;
       ctx.restore();
     };
 
-    if (leftShoe || rightShoe) {
-      // Auto-detect mode: draw on detected feet
-      if (leftShoe) {
-        const w = leftShoe.len * 2.2 * manualScaleRef.current;
-        const h = w * 0.5;
-        drawShoe(leftShoe.cx, leftShoe.cy, w, h, leftShoe.angle, false);
+    if ((leftFoot || rightFoot) && autoDetectRef.current) {
+      if (leftFoot) {
+        const w = Math.max(leftFoot.len * 2.4, 80) * manualScaleRef.current;
+        drawShoe(leftFoot.cx, leftFoot.cy, w, w * 0.45, leftFoot.angle, false);
       }
-      if (rightShoe) {
-        const w = rightShoe.len * 2.2 * manualScaleRef.current;
-        const h = w * 0.5;
-        drawShoe(rightShoe.cx, rightShoe.cy, w, h, rightShoe.angle, true);
+      if (rightFoot) {
+        const w = Math.max(rightFoot.len * 2.4, 80) * manualScaleRef.current;
+        drawShoe(rightFoot.cx, rightFoot.cy, w, w * 0.45, rightFoot.angle, true);
       }
     } else {
-      // Manual mode or no detection — draw at manual position
-      const cx = (manualPosRef.current.x / 100) * canvasW;
-      const cy = (manualPosRef.current.y / 100) * canvasH;
-      const w = canvasW * 0.32 * manualScaleRef.current;
-      const h = w * 0.5;
-      drawShoe(cx, cy, w, h, 0, false);
+      // Manual fallback
+      const cx = (manualPosRef.current.x / 100) * vw;
+      const cy = (manualPosRef.current.y / 100) * vh;
+      const w = vw * 0.30 * manualScaleRef.current;
+      drawShoe(cx, cy, w, w * 0.45, 0, false);
     }
-  }, [autoDetect]);
+  }, []);
 
-  const startAR = useCallback(async () => {
+  const initPose = useCallback(async (video, isFrontCam) => {
+    await Promise.all([
+      loadScript(MEDIAPIPE_POSE_CDN),
+      loadScript(MEDIAPIPE_CAM_UTILS),
+    ]);
+
+    if (poseRef.current) { poseRef.current.close(); poseRef.current = null; }
+
+    const pose = new window.Pose({
+      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/${file}`,
+    });
+    pose.setOptions({
+      modelComplexity: 1,
+      smoothLandmarks: true,
+      enableSegmentation: false,
+      minDetectionConfidence: 0.5,
+      minTrackingConfidence: 0.5,
+    });
+    pose.onResults((results) => drawFrame(results, isFrontCam));
+    await pose.initialize();
+    poseRef.current = pose;
+
+    if (cameraUtilRef.current) { cameraUtilRef.current.stop(); cameraUtilRef.current = null; }
+
+    const cam = new window.Camera(video, {
+      onFrame: async () => { if (poseRef.current) await poseRef.current.send({ image: video }); },
+      width: 1280, height: 720,
+    });
+    await cam.start();
+    cameraUtilRef.current = cam;
+  }, [drawFrame]);
+
+  const startCamera = useCallback(async (facing) => {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: facing, width: { ideal: 1280 }, height: { ideal: 720 } },
+    });
+    if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
+    streamRef.current = stream;
+    const video = videoRef.current;
+    video.srcObject = stream;
+    await video.play();
+    return stream;
+  }, []);
+
+  const startAR = useCallback(async (facing = "environment") => {
     setLoading(true);
     setError(null);
-
+    smoothedLandmarksRef.current = null;
     try {
-      // Start camera
       setLoadingMsg("Starting camera…");
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
-      });
-      streamRef.current = stream;
-      const video = videoRef.current;
-      video.srcObject = stream;
-      await video.play();
-
-      // Load MediaPipe scripts
-      setLoadingMsg("Loading AI foot detection…");
-      await Promise.all([
-        loadScript(MEDIAPIPE_POSE_CDN),
-        loadScript(MEDIAPIPE_CAM_UTILS),
-        loadScript(MEDIAPIPE_DRAWING),
-      ]);
-
-      // Init MediaPipe Pose
-      setLoadingMsg("Initializing pose model…");
-      const Pose = window.Pose;
-      const pose = new Pose({
-        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/${file}`,
-      });
-      pose.setOptions({
-        modelComplexity: 1,
-        smoothLandmarks: true,
-        enableSegmentation: false,
-        minDetectionConfidence: 0.5,
-        minTrackingConfidence: 0.5,
-      });
-
-      const canvas = canvasRef.current;
-      const ctx = canvas.getContext("2d");
-
-      pose.onResults((results) => {
-        const vw = video.videoWidth || canvas.width;
-        const vh = video.videoHeight || canvas.height;
-        canvas.width = vw;
-        canvas.height = vh;
-
-        // Draw video frame (mirrored for front-facing feel)
-        ctx.save();
-        ctx.clearRect(0, 0, vw, vh);
-        ctx.drawImage(results.image, 0, 0, vw, vh);
-        ctx.restore();
-
-        // Draw shoe overlay
-        drawShoeOnCanvas(ctx, vw, vh, results.poseLandmarks);
-      });
-
-      poseRef.current = pose;
-
-      // Use MediaPipe Camera util to feed frames
-      const Camera = window.Camera;
-      const cam = new Camera(video, {
-        onFrame: async () => {
-          if (poseRef.current) await poseRef.current.send({ image: video });
-        },
-        width: 1280,
-        height: 720,
-      });
-      await cam.start();
-      cameraUtilRef.current = cam;
-
-      setPoseReady(true);
+      await startCamera(facing);
+      setLoadingMsg("Loading AI model…");
+      await initPose(videoRef.current, facing === "user");
       setCameraActive(true);
     } catch (e) {
       console.error(e);
-      if (e.name === "NotAllowedError") {
-        setError("Camera access denied. Please allow camera permissions and try again.");
-      } else {
-        setError("Failed to start AR. " + (e.message || "Please try again."));
-      }
+      setError(e.name === "NotAllowedError"
+        ? "Camera access denied. Please allow camera permissions."
+        : "Failed to start AR. " + (e.message || "Please try again."));
     }
-
     setLoading(false);
     setLoadingMsg("");
-  }, [drawShoeOnCanvas]);
+  }, [startCamera, initPose]);
 
   const stopAR = useCallback(() => {
     cameraUtilRef.current?.stop?.();
     cameraUtilRef.current = null;
     poseRef.current?.close?.();
     poseRef.current = null;
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(t => t.stop());
-      streamRef.current = null;
-    }
-    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+    streamRef.current?.getTracks().forEach(t => t.stop());
+    streamRef.current = null;
+    smoothedLandmarksRef.current = null;
     setCameraActive(false);
-    setPoseReady(false);
     setFootsDetected(false);
+    footsDetectedRef.current = false;
   }, []);
+
+  const flipCamera = useCallback(async () => {
+    if (switching) return;
+    setSwitching(true);
+    const newFacing = facingMode === "environment" ? "user" : "environment";
+    setFacingMode(newFacing);
+    facingModeRef.current = newFacing;
+    smoothedLandmarksRef.current = null;
+    setFootsDetected(false);
+    footsDetectedRef.current = false;
+
+    try {
+      setLoadingMsg("Switching camera…");
+      await startCamera(newFacing);
+      await initPose(videoRef.current, newFacing === "user");
+    } catch (e) {
+      console.error(e);
+    }
+    setLoadingMsg("");
+    setSwitching(false);
+  }, [facingMode, switching, startCamera, initPose]);
 
   useEffect(() => () => stopAR(), []);
 
@@ -300,10 +338,10 @@ export default function ARTryOn({ shoe, onClose }) {
       a.download = `${shoe.name}-ar-tryon.jpg`;
       a.click();
       URL.revokeObjectURL(url);
-    }, "image/jpeg", 0.9);
+    }, "image/jpeg", 0.92);
   };
 
-  // Dragging for manual mode
+  // Drag to reposition (manual mode)
   const handlePointerDown = (e) => {
     if (footsDetected && autoDetect) return;
     e.preventDefault();
@@ -312,150 +350,177 @@ export default function ARTryOn({ shoe, onClose }) {
   };
   const handlePointerMove = (e) => {
     if (!dragging || !dragStart) return;
-    const container = canvasRef.current?.parentElement?.getBoundingClientRect();
-    if (!container) return;
-    const dx = ((e.clientX - dragStart.x) / container.width) * 100;
-    const dy = ((e.clientY - dragStart.y) / container.height) * 100;
+    const rect = canvasRef.current?.parentElement?.getBoundingClientRect();
+    if (!rect) return;
     setManualPos({
-      x: Math.max(5, Math.min(95, dragStart.ox + dx)),
-      y: Math.max(5, Math.min(95, dragStart.oy + dy)),
+      x: Math.max(5, Math.min(95, dragStart.ox + ((e.clientX - dragStart.x) / rect.width) * 100)),
+      y: Math.max(5, Math.min(95, dragStart.oy + ((e.clientY - dragStart.y) / rect.height) * 100)),
     });
   };
   const handlePointerUp = () => setDragging(false);
 
+  const statusText = cameraActive
+    ? footsDetected && autoDetect
+      ? "✓ Foot detected — shoe auto-fitted"
+      : autoDetect
+        ? "Point camera at your feet"
+        : "Drag shoe to position · use slider to resize"
+    : "AI-powered foot detection & shoe overlay";
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-sm">
       <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        className="bg-card border border-border rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[95vh]"
+        initial={{ opacity: 0, scale: 0.94, y: 16 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.94 }}
+        transition={{ duration: 0.25 }}
+        className="bg-card border border-border rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[96vh]"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-border flex-shrink-0">
-          <div>
-            <h2 className="font-heading font-bold text-base flex items-center gap-2">
-              <ScanLine className="w-4 h-4 text-primary" /> AR Try-On
-              <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-semibold">AI</span>
-            </h2>
-            <p className="text-xs text-muted-foreground">{shoe.brand} {shoe.name}</p>
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-border flex-shrink-0 bg-card">
+          <div className="flex items-center gap-3">
+            {shoePreview && (
+              <img src={shoePreview} alt={shoe.name} className="h-10 w-10 object-contain rounded-lg bg-secondary p-1" />
+            )}
+            <div>
+              <h2 className="font-heading font-bold text-sm flex items-center gap-2">
+                <ScanLine className="w-4 h-4 text-primary" />
+                AR Try-On
+                <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-semibold">AI</span>
+              </h2>
+              <p className="text-xs text-muted-foreground">{shoe.brand} — {shoe.name}</p>
+            </div>
           </div>
           <button onClick={() => { stopAR(); onClose(); }} className="p-2 rounded-xl hover:bg-secondary transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Camera/Canvas viewport */}
+        {/* Viewport */}
         <div
-          className="relative bg-black overflow-hidden flex-shrink-0"
-          style={{ aspectRatio: "16/9" }}
+          className="relative bg-black flex-shrink-0 overflow-hidden"
+          style={{ aspectRatio: "4/3" }}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerLeave={handlePointerUp}
         >
-          {/* Hidden video feed */}
           <video ref={videoRef} className="hidden" muted playsInline />
-
-          {/* Main canvas where everything is composited */}
           <canvas
             ref={canvasRef}
             className="w-full h-full object-cover"
-            style={{ cursor: cameraActive && !footsDetected ? (dragging ? "grabbing" : "grab") : "default" }}
+            style={{ cursor: cameraActive && !(footsDetected && autoDetect) ? (dragging ? "grabbing" : "grab") : "default" }}
             onPointerDown={handlePointerDown}
           />
 
-          {/* Status badges */}
+          {/* Overlaid controls when camera is active */}
           {cameraActive && (
-            <div className="absolute top-3 left-3 flex flex-col gap-1.5">
-              {footsDetected && autoDetect ? (
-                <div className="flex items-center gap-1.5 bg-green-500/90 text-white text-xs px-2.5 py-1 rounded-full font-semibold backdrop-blur-sm">
-                  <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
-                  Foot detected
-                </div>
-              ) : (
-                <div className="flex items-center gap-1.5 bg-black/50 text-white/80 text-xs px-2.5 py-1 rounded-full backdrop-blur-sm">
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                  {autoDetect ? "Scanning for feet…" : "Manual mode"}
-                </div>
-              )}
-            </div>
+            <>
+              {/* Status pill — top left */}
+              <div className="absolute top-3 left-3">
+                {footsDetected && autoDetect ? (
+                  <div className="flex items-center gap-1.5 bg-green-500/90 text-white text-xs px-3 py-1.5 rounded-full font-semibold backdrop-blur-sm shadow-lg">
+                    <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
+                    Foot detected
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5 bg-black/60 text-white/80 text-xs px-3 py-1.5 rounded-full backdrop-blur-sm">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    {autoDetect ? "Scanning…" : "Manual"}
+                  </div>
+                )}
+              </div>
+
+              {/* Top-right buttons: flip + auto/manual */}
+              <div className="absolute top-3 right-3 flex gap-2">
+                <button
+                  onClick={flipCamera}
+                  disabled={switching}
+                  className="flex items-center gap-1.5 bg-black/60 text-white text-xs px-3 py-1.5 rounded-full font-semibold backdrop-blur-sm hover:bg-black/80 transition-all disabled:opacity-50"
+                  title="Flip camera"
+                >
+                  {switching ? <Loader2 className="w-3 h-3 animate-spin" /> : <FlipHorizontal className="w-3 h-3" />}
+                  {facingMode === "environment" ? "Back" : "Front"}
+                </button>
+                <button
+                  onClick={() => setAutoDetect(v => !v)}
+                  className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-semibold backdrop-blur-sm transition-all ${
+                    autoDetect ? "bg-primary/90 text-white shadow-lg" : "bg-black/60 text-white/80 hover:bg-black/80"
+                  }`}
+                >
+                  <Wand2 className="w-3 h-3" />
+                  {autoDetect ? "Auto" : "Manual"}
+                </button>
+              </div>
+            </>
           )}
 
-          {/* Auto/Manual toggle */}
-          {cameraActive && (
-            <div className="absolute top-3 right-3">
-              <button
-                onClick={() => setAutoDetect(v => !v)}
-                className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-semibold backdrop-blur-sm transition-all ${
-                  autoDetect ? "bg-primary/90 text-white" : "bg-black/50 text-white/80"
-                }`}
-              >
-                <Wand2 className="w-3 h-3" />
-                {autoDetect ? "Auto" : "Manual"}
-              </button>
-            </div>
-          )}
-
-          {/* Prompt overlay when camera not active */}
+          {/* Pre-start / loading / error overlay */}
           {!cameraActive && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-white">
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-white">
               {loading ? (
                 <>
-                  <div className="relative">
-                    <Loader2 className="w-10 h-10 animate-spin text-primary" />
+                  <div className="relative w-16 h-16 flex items-center justify-center">
+                    <div className="absolute inset-0 rounded-full border-2 border-primary/20 animate-ping" />
+                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
                   </div>
                   <div className="text-center">
-                    <p className="text-sm font-medium">{loadingMsg || "Loading…"}</p>
-                    <p className="text-xs text-white/50 mt-1">This may take a moment</p>
+                    <p className="text-sm font-semibold">{loadingMsg}</p>
+                    <p className="text-xs text-white/40 mt-1">Hang tight…</p>
                   </div>
                 </>
               ) : error ? (
-                <div className="text-center px-6">
+                <div className="text-center px-8 max-w-sm">
                   <p className="text-4xl mb-3">⚠️</p>
-                  <p className="text-sm text-red-400 leading-relaxed">{error}</p>
+                  <p className="text-sm text-red-300 leading-relaxed mb-4">{error}</p>
+                  <button
+                    onClick={() => startAR(facingMode)}
+                    className="text-xs bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl transition-colors"
+                  >
+                    Try Again
+                  </button>
                 </div>
               ) : (
-                <div className="text-center px-6">
-                  <div className="text-5xl mb-3">👟</div>
-                  <p className="text-sm text-white/80 leading-relaxed max-w-xs">
-                    Point your camera at your feet — AI will automatically detect and fit the shoe on you
-                  </p>
-                  {shoeRemoveBg && (
-                    <div className="mt-4 flex justify-center">
-                      <img src={shoeRemoveBg} alt="preview" className="h-16 drop-shadow-2xl" />
-                    </div>
+                <div className="text-center px-8 max-w-sm">
+                  {shoePreview ? (
+                    <img src={shoePreview} alt={shoe.name} className="h-20 mx-auto drop-shadow-2xl mb-4 object-contain" />
+                  ) : (
+                    <div className="text-5xl mb-4">👟</div>
                   )}
+                  <p className="font-heading font-bold text-base mb-1">{shoe.name}</p>
+                  <p className="text-xs text-white/60 leading-relaxed">
+                    Point your camera at your feet — AI detects and overlays the shoe automatically
+                  </p>
                 </div>
               )}
             </div>
           )}
         </div>
 
-        {/* Controls */}
-        <div className="px-5 py-4 space-y-3 flex-shrink-0">
-          {/* Size slider */}
+        {/* Controls panel */}
+        <div className="px-5 py-4 space-y-3 flex-shrink-0 bg-card">
           {cameraActive && (
             <div className="flex items-center gap-3">
-              <span className="text-xs text-muted-foreground w-8">Size</span>
+              <ZoomOut className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
               <input
                 type="range" min={0.4} max={3} step={0.05}
                 value={manualScale}
                 onChange={e => setManualScale(parseFloat(e.target.value))}
-                className="flex-1 accent-primary"
+                className="flex-1 accent-primary h-1.5"
               />
-              <span className="text-xs text-muted-foreground w-10 text-right">{Math.round(manualScale * 100)}%</span>
+              <ZoomIn className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+              <span className="text-xs text-muted-foreground w-9 text-right tabular-nums">{Math.round(manualScale * 100)}%</span>
             </div>
           )}
 
-          <div className="flex gap-2.5">
+          <div className="flex gap-2">
             {!cameraActive ? (
               <button
-                onClick={startAR}
+                onClick={() => startAR(facingMode)}
                 disabled={loading}
                 className="flex-1 flex items-center justify-center gap-2 bg-primary text-primary-foreground py-3 rounded-2xl font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity text-sm"
               >
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
-                {loading ? loadingMsg || "Loading…" : "Start AR Try-On"}
+                {loading ? loadingMsg : "Start AR Try-On"}
               </button>
             ) : (
               <>
@@ -469,7 +534,7 @@ export default function ARTryOn({ shoe, onClose }) {
                 <button
                   onClick={() => { setManualPos({ x: 50, y: 75 }); setManualScale(1); }}
                   className="flex items-center justify-center gap-2 bg-secondary text-foreground px-4 py-3 rounded-2xl font-medium hover:bg-secondary/80 transition-colors"
-                  title="Reset position"
+                  title="Reset"
                 >
                   <RotateCcw className="w-4 h-4" />
                 </button>
@@ -484,15 +549,7 @@ export default function ARTryOn({ shoe, onClose }) {
             )}
           </div>
 
-          <p className="text-[11px] text-muted-foreground text-center leading-relaxed">
-            {cameraActive
-              ? footsDetected && autoDetect
-                ? "✓ Auto-fitting shoe to your feet · Use size slider to adjust"
-                : autoDetect
-                  ? "Point camera at your feet for auto-detection · Or switch to Manual"
-                  : "Drag the shoe to position it · Use size slider to adjust"
-              : "AI-powered foot detection with background removal"}
-          </p>
+          <p className="text-[11px] text-muted-foreground text-center">{statusText}</p>
         </div>
       </motion.div>
     </div>
