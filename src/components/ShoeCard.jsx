@@ -11,6 +11,8 @@ import {
 } from "../lib/wishlistStore";
 import { isInCompare, subscribeCompare } from "../lib/compareStore";
 import ShoeOptionsMenu from "./ShoeOptionsMenu";
+import ShoeInsightBadge from "./ShoeInsightBadge";
+import ScarcityBadge from "./ScarcityBadge";
 
 export default function ShoeCard({ shoe, index = 0, sponsored = false, onSponsorClick }) {
   const [wishlisted, setWishlisted] = useState(isInWishlist(shoe.id));
@@ -122,6 +124,12 @@ export default function ShoeCard({ shoe, index = 0, sponsored = false, onSponsor
                 ))}
               </div>
             )}
+
+            {/* Insight + Scarcity — lazy load, non-blocking */}
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              <ShoeInsightBadge shoe={shoe} />
+              <ScarcityBadge shoe={shoe} />
+            </div>
 
             <div className="flex items-center justify-between mt-3">
               <div className="flex items-baseline gap-2">

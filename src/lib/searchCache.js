@@ -1,7 +1,7 @@
 // Simple in-memory + localStorage search cache to keep AI responses fast
 const CACHE_VERSION = "v1";
 const MEM_CACHE = new Map();
-const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+const CACHE_TTL_MS = 20 * 60 * 1000; // 20 minutes for speed
 
 function cacheKey(query) {
   return `ushoe_cache_${CACHE_VERSION}_${query.toLowerCase().trim()}`;

@@ -23,6 +23,9 @@ import {
   subscribeWishlist,
 } from "../lib/wishlistStore";
 import PriceTrackButton from "../components/PriceTrackButton";
+import BestDealBanner from "../components/BestDealBanner";
+import ScarcityBadge from "../components/ScarcityBadge";
+import ShoeInsightBadge from "../components/ShoeInsightBadge";
 
 export default function ShoeDetail() {
   const { id } = useParams();
@@ -181,6 +184,12 @@ export default function ShoeDetail() {
               )}
             </div>
 
+            {/* Trust + Scarcity signals */}
+            <div className="flex flex-wrap gap-2 mt-4">
+              <ShoeInsightBadge shoe={shoe} />
+              <ScarcityBadge shoe={shoe} />
+            </div>
+
             {/* Description */}
             {shoe.description && (
               <p className="text-muted-foreground mt-4 leading-relaxed">{shoe.description}</p>
@@ -248,8 +257,13 @@ export default function ShoeDetail() {
               </div>
             )}
 
+            {/* Best Deal Banner */}
+            <div className="mt-6">
+              <BestDealBanner shoe={shoe} />
+            </div>
+
             {/* Find Near You / Buy Online tabs */}
-            <div className="mt-8">
+            <div className="mt-6">
               <div className="flex gap-2 mb-2">
                 <button
                   onClick={() => setActiveTab(activeTab === "nearby" ? null : "nearby")}
