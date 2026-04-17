@@ -14,9 +14,9 @@ const BRAND_COLORS = {
 };
 
 const STOCK_CONFIG = {
-  "In Stock":   { icon: CheckCircle,    color: "text-green-600 bg-green-50 dark:bg-green-950/30",  label: "In Stock" },
-  "Low Stock":  { icon: AlertTriangle,  color: "text-amber-600 bg-amber-50 dark:bg-amber-950/30",  label: "Low Stock" },
-  "Out of Stock": { icon: XCircle,      color: "text-red-500 bg-red-50 dark:bg-red-950/30",        label: "Out of Stock" },
+  "In Stock":     { icon: CheckCircle,   color: "text-green-500 bg-green-950/40 border border-green-800/40",  label: "High Stock" },
+  "Low Stock":    { icon: AlertTriangle, color: "text-amber-400 bg-amber-950/40 border border-amber-800/40",  label: "Low Stock" },
+  "Out of Stock": { icon: XCircle,       color: "text-red-400 bg-red-950/40 border border-red-800/40",        label: "Out of Stock" },
 };
 
 function getDirectionsUrl(store) {
@@ -117,21 +117,28 @@ Also return a short 1-sentence summary about the shoe store scene in that area.`
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="mb-8">
           <form
             onSubmit={e => { e.preventDefault(); searchStores(); }}
-            className="flex items-center bg-card border-2 border-border rounded-2xl px-4 py-3 gap-3 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all shadow-lg shadow-primary/5"
+            className="flex flex-col sm:flex-row gap-3"
           >
-            <MapPin className="w-5 h-5 text-primary flex-shrink-0" />
-            <input
-              value={locationInput}
-              onChange={e => setLocationInput(e.target.value)}
-              placeholder="Enter your city, zip code, or address…"
-              className="flex-1 bg-transparent border-none outline-none text-base placeholder:text-muted-foreground/50"
-            />
+            <div className="flex items-center flex-1 bg-card border-2 border-border rounded-2xl px-4 py-3.5 gap-3 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all shadow-lg">
+              <MapPin className="w-5 h-5 text-primary flex-shrink-0" aria-hidden="true" />
+              <input
+                value={locationInput}
+                onChange={e => setLocationInput(e.target.value)}
+                placeholder="City, zip code, or address…"
+                aria-label="Enter your location to find nearby stores"
+                className="flex-1 bg-transparent border-none outline-none text-base placeholder:text-muted-foreground/50"
+              />
+              {locationInput && (
+                <button type="button" onClick={() => setLocationInput("")} className="text-muted-foreground hover:text-foreground transition-colors text-lg leading-none">×</button>
+              )}
+            </div>
             <button
               type="submit"
               disabled={loading || !locationInput.trim()}
-              className="flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-xl text-sm font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity flex-shrink-0"
+              aria-label="Search for nearby shoe stores"
+              className="flex items-center justify-center gap-2 bg-primary text-white px-7 py-3.5 rounded-2xl text-base font-bold hover:opacity-90 disabled:opacity-50 transition-all shadow-lg shadow-primary/25 min-h-[52px] min-w-[160px]"
             >
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Search className="w-5 h-5" />}
               {loading ? "Searching…" : "Find Stores"}
             </button>
           </form>
