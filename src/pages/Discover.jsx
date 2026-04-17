@@ -387,7 +387,14 @@ For each provide: brand, name, price (as string like "$120"), retailer name, whe
                     const url = pick.search_url && pick.search_url.startsWith("http")
                       ? pick.search_url
                       : `https://www.google.com/search?q=${encodeURIComponent((pick.brand || "") + " " + (pick.name || "") + " buy")}`;
-                    const fallbackImg = `https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&h=400&fit=crop`;
+                    const imgs = [
+                      "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&h=400&fit=crop",
+                      "https://images.unsplash.com/photo-1608231387042-66d1773070a5?w=400&h=400&fit=crop",
+                      "https://images.unsplash.com/photo-1600185365483-26d7a4cc7519?w=400&h=400&fit=crop",
+                      "https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?w=400&h=400&fit=crop",
+                      "https://images.unsplash.com/photo-1491553895911-0055eca6402d?w=400&h=400&fit=crop",
+                      "https://images.unsplash.com/photo-1560769629-975ec94e6a86?w=400&h=400&fit=crop",
+                    ];
                     return (
                       <motion.a
                         key={i}
@@ -397,22 +404,32 @@ For each provide: brand, name, price (as string like "$120"), retailer name, whe
                         initial={{ opacity: 0, y: 16 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: i * 0.07 }}
-                        className="group block bg-card border border-border rounded-2xl overflow-hidden hover:shadow-lg hover:border-primary/30 hover:-translate-y-1 transition-all duration-300"
+                        className="group block bg-card border border-border rounded-2xl overflow-hidden hover:shadow-xl hover:shadow-primary/10 hover:border-primary/40 hover:-translate-y-1.5 transition-all duration-300"
                       >
-                        <div className="aspect-square overflow-hidden bg-secondary/40">
+                        <div className="relative aspect-square overflow-hidden bg-secondary/40">
                           <img
-                            src={fallbackImg}
+                            src={imgs[i % imgs.length]}
                             alt={pick.name}
                             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                           />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-center pb-3">
+                            <span className="text-white text-[11px] font-semibold bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full border border-white/30">
+                              Shop Now →
+                            </span>
+                          </div>
+                          <div className="absolute top-2 left-2">
+                            <span className="text-[9px] font-bold text-green-700 bg-green-100 dark:bg-green-900/50 dark:text-green-400 px-1.5 py-0.5 rounded-full">
+                              ✓ Ships to you
+                            </span>
+                          </div>
                         </div>
                         <div className="p-3">
                           <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider truncate">{pick.brand}</p>
-                          <p className="font-heading font-semibold text-xs mt-0.5 line-clamp-2 group-hover:text-primary transition-colors">{pick.name}</p>
-                          {pick.price && <p className="text-primary font-bold text-sm mt-1">{pick.price}</p>}
-                          {pick.retailer && <p className="text-[10px] text-muted-foreground truncate">{pick.retailer}</p>}
-                          <p className="text-[10px] text-green-600 mt-1 font-medium">✓ Ships to you</p>
-                          <p className="text-[10px] text-primary mt-0.5 font-medium group-hover:underline">Shop →</p>
+                          <p className="font-heading font-semibold text-xs mt-0.5 line-clamp-2 group-hover:text-primary transition-colors leading-tight">{pick.name}</p>
+                          <div className="flex items-center justify-between mt-2">
+                            {pick.price && <p className="text-primary font-bold text-sm">{pick.price}</p>}
+                            {pick.retailer && <p className="text-[9px] text-muted-foreground truncate max-w-[50%] text-right">{pick.retailer}</p>}
+                          </div>
                         </div>
                       </motion.a>
                     );
@@ -424,15 +441,29 @@ For each provide: brand, name, price (as string like "$120"), retailer name, whe
             {/* DB Results */}
             {results.length > 0 && (
               <div>
-                <h2 className="font-heading font-bold text-xl mb-4">Best Matches In Our Catalog</h2>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="font-heading font-bold text-xl">Best Matches In Our Catalog</h2>
+                  <span className="text-xs text-muted-foreground bg-secondary px-3 py-1.5 rounded-full">{results.length} match{results.length !== 1 ? "es" : ""} found</span>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                   {results.map((result, i) => (
-                    <motion.div key={result.shoe.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }} className="relative">
+                    <motion.div key={result.shoe.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }} className="relative group">
                       <div className="absolute top-3 right-3 z-20">
                         <MatchScoreRing score={result.match_score} />
                       </div>
                       <ShoeCard shoe={result.shoe} index={i} />
-                      <p className="text-xs text-muted-foreground italic mt-2 px-1">{result.explanation}</p>
+                      {result.explanation && (
+                        <div className="mt-2 mx-1 flex items-start gap-2 bg-primary/5 border border-primary/10 rounded-xl px-3 py-2">
+                          <Sparkles className="w-3.5 h-3.5 text-primary flex-shrink-0 mt-0.5" />
+                          <p className="text-xs text-muted-foreground leading-relaxed">{result.explanation}</p>
+                        </div>
+                      )}
+                      <Link
+                        to={`/shoe/${result.shoe.id}`}
+                        className="mt-2 mx-1 flex items-center justify-center gap-2 w-[calc(100%-8px)] py-2 rounded-xl border border-border text-sm font-medium text-muted-foreground hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-all"
+                      >
+                        Quick View
+                      </Link>
                     </motion.div>
                   ))}
                 </div>
