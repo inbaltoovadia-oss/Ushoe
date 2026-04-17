@@ -47,14 +47,14 @@ export default function HeroSection() {
         </motion.div>
       </div>
 
-      {/* ── Top gradient so text reads clearly ── */}
-      <div className="absolute inset-0 z-0 pointer-events-none" aria-hidden="true">
-        <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-transparent to-black/85" />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/40 via-transparent to-black/40" />
+      {/* ── Overlay so text sits clearly above the shoe ── */}
+      <div className="absolute inset-0 z-5 pointer-events-none" aria-hidden="true">
+        <div className="absolute inset-0 bg-gradient-to-b from-black/90 via-black/30 to-black/90" />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-transparent to-black/60" />
       </div>
 
       {/* ── Content ── */}
-      <div className="relative z-10 w-full max-w-7xl mx-auto px-5 sm:px-8 py-24 flex flex-col items-center text-center">
+      <div className="relative z-20 w-full max-w-7xl mx-auto px-5 sm:px-8 py-24 flex flex-col items-center text-center">
 
         {/* Badge */}
         <motion.div
@@ -74,6 +74,7 @@ export default function HeroSection() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, delay: 0.1 }}
           className="font-heading font-black text-5xl sm:text-7xl lg:text-8xl leading-[1.02] tracking-tight text-white"
+          style={{ textShadow: "0 2px 24px rgba(0,0,0,0.9), 0 1px 4px rgba(0,0,0,1)" }}
         >
           Find Your
           <br />
