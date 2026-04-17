@@ -4,6 +4,7 @@ import AIFinderCTA from "../components/home/AIFinderCTA";
 import DealsSection from "../components/home/DealsSection";
 import ForYouSection from "../components/home/ForYouSection";
 import SponsoredSection from "../components/home/SponsoredSection";
+import AIRecommendations from "../components/home/AIRecommendations";
 import { detectLocation } from "../lib/locationStore";
 
 export default function Home() {
@@ -16,6 +17,7 @@ export default function Home() {
   return (
     <div>
       <HeroSection />
+      <AIRecommendations />
       <SponsoredSection refreshKey={sponsoredRefreshKey} />
       <ForYouSection />
       <DealsSection />
