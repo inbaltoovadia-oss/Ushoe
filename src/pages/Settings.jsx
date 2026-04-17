@@ -1,26 +1,30 @@
-import { useState, useEffect } from "react";
-import { Crown, Zap } from "lucide-react";
+import { useState } from "react";
+import { Crown, Zap, Ruler } from "lucide-react";
 import { motion } from "framer-motion";
 import PlansSection from "../components/settings/PlansSection";
 import WebhooksSection from "../components/settings/WebhooksSection";
+import SizeSection from "../components/settings/SizeSection";
 
 export default function Settings() {
-  const [activeTab, setActiveTab] = useState("plan");
+  const [activeTab, setActiveTab] = useState("size");
+
+  const TABS = [
+    { id: "size", label: "My Size", icon: Ruler },
+    { id: "plan", label: "My Plan", icon: Crown },
+    { id: "webhooks", label: "Webhooks", icon: Zap },
+  ];
 
   return (
     <div className="min-h-screen py-8 px-4 sm:px-6">
       <div className="max-w-3xl mx-auto">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
           <h1 className="font-heading font-bold text-3xl">Settings</h1>
-          <p className="text-muted-foreground text-sm mt-1">Manage your plan and integrations</p>
+          <p className="text-muted-foreground text-sm mt-1">Manage your size, plan and integrations</p>
         </motion.div>
 
         {/* Tabs */}
         <div className="flex gap-2 mb-8 bg-secondary rounded-2xl p-1.5">
-          {[
-            { id: "plan", label: "My Plan", icon: Crown },
-            { id: "webhooks", label: "Webhooks", icon: Zap },
-          ].map(({ id, label, icon: Icon }) => (
+          {TABS.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               onClick={() => setActiveTab(id)}
@@ -29,11 +33,12 @@ export default function Settings() {
               }`}
             >
               <Icon className="w-4 h-4" />
-              {label}
+              <span className="hidden sm:inline">{label}</span>
             </button>
           ))}
         </div>
 
+        {activeTab === "size" && <SizeSection />}
         {activeTab === "plan" && <PlansSection />}
         {activeTab === "webhooks" && <WebhooksSection />}
       </div>

@@ -1,9 +1,12 @@
 import { Link, useLocation } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
-import { Search, MapPin, Sun, Moon, Sparkles, Menu, X, Wand2, ChevronDown, Settings, ShieldCheck } from "lucide-react";
+import { Search, MapPin, Sun, Moon, Sparkles, Menu, X, Wand2, ChevronDown, Settings, ShieldCheck, Ruler } from "lucide-react";
 import { getLocation, subscribeLocation } from "../lib/locationStore";
 import LocationPicker from "./LocationPicker";
 import { useAuth } from "@/lib/AuthContext";
+import { getSizeLabel, subscribeSize } from "../lib/sizeStore";
+import { AnimatePresence, motion } from "framer-motion";
+import SizeSelector from "./SizeSelector";
 
 export default function Navbar() {
   const location = useLocation();
@@ -13,7 +16,11 @@ export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [showToolsMenu, setShowToolsMenu] = useState(false);
+  const [showSizePicker, setShowSizePicker] = useState(false);
+  const [sizeLabel, setSizeLabel] = useState(getSizeLabel());
   const toolsRef = useRef(null);
+
+  useEffect(() => subscribeSize(() => setSizeLabel(getSizeLabel())), []);
 
   useEffect(() => subscribeLocation(setLoc), []);
 
@@ -133,6 +140,17 @@ export default function Navbar() {
               <Link to="/search" onClick={handleNavClick} className="p-2 rounded-xl hover:bg-secondary transition-colors">
                 <Search className="w-5 h-5 text-muted-foreground" />
               </Link>
+              {/* Size badge */}
+              <button
+                onClick={() => setShowSizePicker(true)}
+                className="hidden sm:flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors"
+                title="My shoe size"
+              >
+                <Ruler className="w-3.5 h-3.5 text-muted-foreground" />
+                <span className={sizeLabel ? "text-primary font-semibold" : "text-muted-foreground"}>
+                  {sizeLabel || "Set size"}
+                </span>
+              </button>
               <Link to="/settings" onClick={handleNavClick} className="p-2 rounded-xl hover:bg-secondary transition-colors hidden sm:block">
                 <Settings className="w-5 h-5 text-muted-foreground" />
               </Link>
@@ -219,6 +237,9 @@ export default function Navbar() {
       {showLocationPicker && (
         <div className="fixed inset-0 z-40 lg:hidden" onClick={() => setShowLocationPicker(false)} />
       )}
+      <AnimatePresence>
+        {showSizePicker && <SizeSelector onClose={() => setShowSizePicker(false)} />}
+      </AnimatePresence>
     </>
   );
 }

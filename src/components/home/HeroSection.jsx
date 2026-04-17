@@ -21,10 +21,10 @@ export default function HeroSection() {
       {/* Background */}
       <div className="absolute inset-0 z-0">
         <img
-          src="https://images.unsplash.com/photo-1556906781-9a412961c28c?w=1920&h=1080&fit=crop"
+          src="https://images.unsplash.com/photo-1600185365926-3a2ce3cdb9eb?w=1920&h=1080&fit=crop"
           alt="Hero"
           className="w-full h-full object-cover scale-105"
-          style={{ filter: "brightness(0.45)" }}
+          style={{ filter: "brightness(0.35)" }}
         />
         <div className="absolute inset-0 bg-gradient-to-r from-background/95 via-background/75 to-transparent" />
         <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent" />

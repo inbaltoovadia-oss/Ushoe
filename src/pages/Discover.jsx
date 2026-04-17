@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Sparkles, Send, Loader2, Globe, ImagePlus, X } from "lucide-react";
+import { Sparkles, Send, Loader2, Globe, ImagePlus, X, Ruler } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { base44 } from "@/api/base44Client";
 import ShoeCard from "../components/ShoeCard";
@@ -7,9 +7,12 @@ import MatchScoreRing from "../components/MatchScoreRing";
 import SkeletonCard from "../components/SkeletonCard";
 import InterestPicker from "../components/InterestPicker";
 import { getInterests, ALL_CATEGORIES } from "../lib/interestStore";
+import { getSizeLabel, subscribeSize } from "../lib/sizeStore";
+import SizeSelector from "../components/SizeSelector";
 import { getCached, setCache } from "../lib/searchCache";
 import { getLocation } from "../lib/locationStore";
 import { canSearch, incrementSearchCount, canUse, getPlan, getSearchesUsedToday, PLAN_LIMITS } from "../lib/planStore";
+import { getSizeLabel, getSize } from "../lib/sizeStore";
 import PlanGate from "../components/PlanGate";
 import ShoeProblemSolver from "../components/ShoeProblemSolver";
 import { Link } from "react-router-dom";
@@ -32,12 +35,15 @@ export default function Discover() {
   const [showInterestPicker, setShowInterestPicker] = useState(false);
   const [interests, setInterestsState] = useState(getInterests());
   const [selectedCategory, setSelectedCategory] = useState("");
+  const [sizeLabel, setSizeLabel] = useState(getSizeLabel());
+  const [showSizePicker, setShowSizePicker] = useState(false);
   const [searchBlocked, setSearchBlocked] = useState(false);
   const inputRef = useRef(null);
   const fileRef = useRef(null);
   const resultsRef = useRef(null);
 
   useEffect(() => { inputRef.current?.focus(); }, []);
+  useEffect(() => subscribeSize(() => setSizeLabel(getSizeLabel())), []);
 
   const handleImageChange = async (e) => {
     const file = e.target.files?.[0];
@@ -90,12 +96,16 @@ export default function Discover() {
     const allShoes = await base44.entities.Shoe.list("-trending_score", 50);
 
     // Run catalog matching and web search in parallel with separate simple schemas
+    const sizePref = getSize();
+    const sizeNote = sizePref.us ? `The user's shoe size is US ${sizePref.us} (EU ${sizePref.eu}, UK ${sizePref.uk}). Prefer shoes available in this size.` : "";
+
     const catalogPrompt = `You are a shoe recommendation AI. The user is looking for: "${finalQ}"
 ${selectedCategory ? `Category: ${selectedCategory}.` : ""}
 ${imageUrl ? "The user uploaded an image — identify the shoe style/type from it." : ""}
+${sizeNote}
 
 From the catalog below, pick up to 5 best matches by index number:
-${allShoes.map((s, i) => `${i}: ${s.brand} ${s.name} $${s.price} ${s.category}`).join("\n")}
+${allShoes.map((s, i) => `${i}: ${s.brand} ${s.name} $${s.price} ${s.category} sizes:${(s.sizes_available||[]).join(",")}`).join("\n")}
 
 Write a short 1 sentence summary of what you found.`;
 
@@ -182,12 +192,15 @@ For each provide: brand, name, price (as string like "$120"), retailer name, whe
           onSave={handleInterestSave}
         />
       )}
+      <AnimatePresence>
+        {showSizePicker && <SizeSelector onClose={() => setShowSizePicker(false)} />}
+      </AnimatePresence>
 
       {/* Hero Input Section */}
       <section className="relative py-16 px-4 sm:px-6">
         <div className="max-w-3xl mx-auto text-center">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-            <div className="flex items-center justify-center gap-3 mb-4">
+            <div className="flex items-center justify-center gap-3 mb-4 flex-wrap">
               <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-full text-sm font-medium">
                 <Globe className="w-4 h-4" />
                 AI + Web Search
@@ -198,6 +211,17 @@ For each provide: brand, name, price (as string like "$120"), retailer name, whe
               >
                 <Sparkles className="w-4 h-4" />
                 My Interests
+              </button>
+              <button
+                onClick={() => setShowSizePicker(true)}
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                  sizeLabel
+                    ? "bg-primary/10 text-primary hover:bg-primary/20"
+                    : "bg-secondary text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Ruler className="w-4 h-4" />
+                {sizeLabel ? `Size: ${sizeLabel}` : "Set My Size"}
               </button>
             </div>
             <h1 className="font-heading font-bold text-3xl sm:text-4xl lg:text-5xl mb-3">
