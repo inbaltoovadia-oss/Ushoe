@@ -1,39 +1,68 @@
-import { useState, useEffect } from "react";
-import { MapPin, Search, Loader2, Star, Navigation, Phone, Globe, Sparkles } from "lucide-react";
-import { motion } from "framer-motion";
+import { useState } from "react";
+import { MapPin, Search, Loader2, Star, Navigation, Phone, Globe, CheckCircle, AlertTriangle, XCircle } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { base44 } from "@/api/base44Client";
-import { getLocation, subscribeLocation } from "../lib/locationStore";
-import LocationPicker from "../components/LocationPicker";
+
+const BRAND_COLORS = {
+  "Nike": "bg-black text-white",
+  "Foot Locker": "bg-red-600 text-white",
+  "Finish Line": "bg-blue-700 text-white",
+  "DICK'S Sporting Goods": "bg-green-700 text-white",
+  "JD Sports": "bg-yellow-400 text-black",
+  "Shoe Carnival": "bg-orange-500 text-white",
+  "DSW": "bg-purple-600 text-white",
+};
+
+const STOCK_CONFIG = {
+  "In Stock":   { icon: CheckCircle,    color: "text-green-600 bg-green-50 dark:bg-green-950/30",  label: "In Stock" },
+  "Low Stock":  { icon: AlertTriangle,  color: "text-amber-600 bg-amber-50 dark:bg-amber-950/30",  label: "Low Stock" },
+  "Out of Stock": { icon: XCircle,      color: "text-red-500 bg-red-50 dark:bg-red-950/30",        label: "Out of Stock" },
+};
+
+function getDirectionsUrl(store) {
+  const query = encodeURIComponent(`${store.name} ${store.address}`);
+  const isApple = /iPhone|iPad|Macintosh/.test(navigator.userAgent);
+  return isApple
+    ? `https://maps.apple.com/?q=${query}`
+    : `https://www.google.com/maps/search/${query}`;
+}
 
 export default function NearbyStoresPage() {
-  const [loc, setLoc] = useState(getLocation());
+  const [locationInput, setLocationInput] = useState("");
   const [stores, setStores] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [aiSummary, setAiSummary] = useState("");
-  const [searchInput, setSearchInput] = useState("");
-  const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const [searchedCity, setSearchedCity] = useState("");
+  const [aiSummary, setAiSummary] = useState("");
 
-  useEffect(() => {
-    const unsub = subscribeLocation((newLoc) => {
-      setLoc(newLoc);
-    });
-    return unsub;
-  }, []);
-
-  const searchStores = async (location = loc) => {
+  const searchStores = async () => {
+    const query = locationInput.trim();
+    if (!query) return;
     setLoading(true);
     setHasSearched(true);
     setStores([]);
     setAiSummary("");
+    setSearchedCity(query);
 
     const res = await base44.integrations.Core.InvokeLLM({
-      prompt: `You are a shoe store locator. The user is in ${location.city} (lat: ${location.lat}, lng: ${location.lng}).
-${searchInput ? `They are looking for: "${searchInput}".` : "They want to find nearby shoe stores."}
+      prompt: `You are a shoe store locator AI. The user entered this location: "${query}".
 
-List the top 8 real shoe stores near ${location.city}. Include Nike stores, Adidas stores, Foot Locker, Finish Line, DSW, independent sneaker shops, and department stores with shoe sections.
-For each store: provide realistic data with real street addresses in ${location.city}, phone number, website, rating (1-5), estimated distance in miles, and store type.
-Also provide a short 1-sentence summary of the local shoe store scene in ${location.city}.`,
+Search for real, physical shoe retail stores within a 25-mile radius of that location. Only include these brands/chains: Nike, Foot Locker, Finish Line, DICK'S Sporting Goods, JD Sports, Shoe Carnival, DSW.
+
+For each store provide:
+- name: official store name
+- brand: one of the 7 chains above
+- address: full street address
+- distance_miles: estimated distance from "${query}" in miles (must be ≤ 25)
+- rating: number 1-5
+- phone: real phone number
+- website: brand's website URL
+- stock_status: one of "In Stock", "Low Stock", or "Out of Stock" (randomize realistically)
+- hours_today: store hours for today
+
+Sort results by distance ascending (closest first). Return up to 8 stores.
+If none exist within 25 miles, return an empty stores array.
+Also return a short 1-sentence summary about the shoe store scene in that area.`,
       add_context_from_internet: true,
       response_json_schema: {
         type: "object",
@@ -44,14 +73,15 @@ Also provide a short 1-sentence summary of the local shoe store scene in ${locat
             items: {
               type: "object",
               properties: {
-                name: { type: "string" },
-                address: { type: "string" },
+                name:           { type: "string" },
+                brand:          { type: "string" },
+                address:        { type: "string" },
                 distance_miles: { type: "number" },
-                rating: { type: "number" },
-                phone: { type: "string" },
-                website: { type: "string" },
-                store_type: { type: "string" },
-                hours_today: { type: "string" },
+                rating:         { type: "number" },
+                phone:          { type: "string" },
+                website:        { type: "string" },
+                stock_status:   { type: "string" },
+                hours_today:    { type: "string" },
               },
             },
           },
@@ -59,198 +89,204 @@ Also provide a short 1-sentence summary of the local shoe store scene in ${locat
       },
     });
 
-    setStores(res.stores || []);
+    const sorted = (res.stores || [])
+      .filter(s => s.distance_miles <= 25)
+      .sort((a, b) => (a.distance_miles ?? 99) - (b.distance_miles ?? 99));
+
+    setStores(sorted);
     setAiSummary(res.summary || "");
     setLoading(false);
-  };
-
-  const stockColors = {
-    Nike: "bg-black text-white",
-    Adidas: "bg-blue-600 text-white",
-    "Foot Locker": "bg-red-600 text-white",
-    "Finish Line": "bg-blue-800 text-white",
-    DSW: "bg-purple-600 text-white",
-    Independent: "bg-green-600 text-white",
-    "Department Store": "bg-gray-600 text-white",
   };
 
   return (
     <div className="min-h-screen py-8 px-4 sm:px-6">
       <div className="max-w-4xl mx-auto">
+
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
           <div className="flex items-center gap-3 mb-2">
             <div className="p-2 bg-primary/10 rounded-xl">
               <MapPin className="w-6 h-6 text-primary" />
             </div>
-            <h1 className="font-heading font-bold text-3xl">Nearby Stores</h1>
+            <h1 className="font-heading font-bold text-3xl">Store Finder</h1>
           </div>
-          <p className="text-muted-foreground">Find shoe stores near you with live AI-powered search</p>
+          <p className="text-muted-foreground text-sm">Find Nike, Foot Locker, DSW, and more within 25 miles of you</p>
         </motion.div>
 
-        {/* Search Bar */}
-        <div className="bg-card border border-border rounded-2xl p-4 mb-6 shadow-sm">
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="flex-1 flex items-center bg-secondary rounded-xl px-4 py-3 gap-2">
-              <Search className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-              <input
-                value={searchInput}
-                onChange={e => setSearchInput(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && searchStores()}
-                placeholder="Search for Nike, running shoes, sneaker stores…"
-                className="flex-1 bg-transparent border-none outline-none text-sm placeholder:text-muted-foreground/50"
-              />
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setShowLocationPicker(true)}
-                className="flex items-center gap-1.5 px-4 py-3 bg-secondary rounded-xl text-sm text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap"
-              >
-                <MapPin className="w-4 h-4" />
-                {loc.city}
-              </button>
-              <button
-                onClick={() => searchStores()}
-                disabled={loading}
-                className="flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50 whitespace-nowrap"
-              >
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-                Find Stores
-              </button>
-            </div>
-          </div>
-        </div>
+        {/* Location Search Bar */}
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="mb-8">
+          <form
+            onSubmit={e => { e.preventDefault(); searchStores(); }}
+            className="flex items-center bg-card border-2 border-border rounded-2xl px-4 py-3 gap-3 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all shadow-lg shadow-primary/5"
+          >
+            <MapPin className="w-5 h-5 text-primary flex-shrink-0" />
+            <input
+              value={locationInput}
+              onChange={e => setLocationInput(e.target.value)}
+              placeholder="Enter your city, zip code, or address…"
+              className="flex-1 bg-transparent border-none outline-none text-base placeholder:text-muted-foreground/50"
+            />
+            <button
+              type="submit"
+              disabled={loading || !locationInput.trim()}
+              className="flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-xl text-sm font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity flex-shrink-0"
+            >
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+              {loading ? "Searching…" : "Find Stores"}
+            </button>
+          </form>
+        </motion.div>
 
-        {/* Location Picker */}
-        {showLocationPicker && (
-          <div className="mb-4">
-            <LocationPicker onClose={() => { setShowLocationPicker(false); }} />
-          </div>
-        )}
-
-        {/* Loading */}
-        {loading && (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
-              <Sparkles className="w-4 h-4 animate-pulse text-primary" />
-              AI is scanning shoe stores near {loc.city}…
-            </div>
-            {[1, 2, 3, 4].map(i => (
-              <div key={i} className="h-32 bg-card border border-border animate-pulse rounded-2xl" />
-            ))}
-          </div>
-        )}
+        {/* Loading Skeletons */}
+        <AnimatePresence>
+          {loading && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-4">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                Searching for shoe stores within 25 miles of "{searchedCity}"…
+              </div>
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} className="h-36 bg-card border border-border animate-pulse rounded-2xl" />
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Results */}
         {!loading && hasSearched && (
-          <>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             {aiSummary && (
-              <div className="flex items-start gap-2 bg-primary/5 border border-primary/10 rounded-xl p-4 mb-4">
-                <Sparkles className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+              <div className="flex items-start gap-2 bg-primary/5 border border-primary/10 rounded-xl p-4 mb-5">
+                <MapPin className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
                 <p className="text-sm text-muted-foreground">{aiSummary}</p>
               </div>
             )}
 
             {stores.length === 0 ? (
-              <div className="text-center py-16">
+              <div className="text-center py-20 bg-card border border-border rounded-2xl">
                 <MapPin className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
-                <h3 className="font-heading font-semibold text-lg">No stores found</h3>
-                <p className="text-muted-foreground text-sm mt-1">Try a different search or location</p>
+                <h3 className="font-heading font-semibold text-lg">No stores found nearby</h3>
+                <p className="text-muted-foreground text-sm mt-2 max-w-sm mx-auto">
+                  No stores found nearby — try expanding your search or check online.
+                </p>
               </div>
             ) : (
-              <div className="space-y-3">
-                <p className="text-sm text-muted-foreground mb-1">{stores.length} stores found near {loc.city}</p>
-                {stores.map((store, i) => (
-                  <motion.div
-                    key={i}
-                    initial={{ opacity: 0, y: 16 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.06 }}
-                    className="bg-card border border-border rounded-2xl p-4 hover:shadow-md transition-all"
-                  >
-                    <div className="flex items-start justify-between gap-3 flex-wrap">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="font-heading font-semibold">{store.name}</h3>
-                          {store.store_type && (
-                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${stockColors[store.store_type] || "bg-secondary text-foreground"}`}>
-                              {store.store_type}
-                            </span>
-                          )}
+              <>
+                <p className="text-sm text-muted-foreground mb-4">
+                  {stores.length} store{stores.length !== 1 ? "s" : ""} found within 25 miles of <span className="font-medium text-foreground">{searchedCity}</span> — sorted by distance
+                </p>
+                <div className="space-y-4">
+                  {stores.map((store, i) => {
+                    const brandColor = BRAND_COLORS[store.brand] || "bg-secondary text-foreground";
+                    const stock = STOCK_CONFIG[store.stock_status] || STOCK_CONFIG["In Stock"];
+                    const StockIcon = stock.icon;
+
+                    return (
+                      <motion.div
+                        key={i}
+                        initial={{ opacity: 0, y: 16 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: i * 0.06 }}
+                        className="bg-card border border-border rounded-2xl p-5 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/20 transition-all"
+                      >
+                        <div className="flex items-start justify-between gap-4 flex-wrap">
+                          <div className="flex-1 min-w-0">
+                            {/* Name + Brand badge */}
+                            <div className="flex items-center gap-2 flex-wrap mb-1">
+                              <h3 className="font-heading font-bold text-base">{store.name}</h3>
+                              {store.brand && (
+                                <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${brandColor}`}>
+                                  {store.brand}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Address */}
+                            <p className="text-sm text-muted-foreground flex items-center gap-1.5 mt-1">
+                              <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
+                              {store.address}
+                            </p>
+
+                            {/* Hours */}
+                            {store.hours_today && (
+                              <p className="text-xs text-muted-foreground mt-1 ml-5">{store.hours_today}</p>
+                            )}
+
+                            {/* Meta row */}
+                            <div className="flex items-center gap-3 mt-3 flex-wrap">
+                              {store.distance_miles != null && (
+                                <span className="text-xs font-semibold text-primary bg-primary/10 px-2.5 py-1 rounded-full">
+                                  📍 {store.distance_miles.toFixed(1)} miles away
+                                </span>
+                              )}
+                              {store.rating && (
+                                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                                  <Star className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500" />
+                                  {store.rating.toFixed(1)}
+                                </span>
+                              )}
+                              {/* Stock Status */}
+                              <span className={`flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full ${stock.color}`}>
+                                <StockIcon className="w-3 h-3" />
+                                {stock.label}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Action buttons */}
+                          <div className="flex flex-col gap-2 flex-shrink-0">
+                            <a
+                              href={getDirectionsUrl(store)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1.5 text-xs px-4 py-2.5 bg-primary text-primary-foreground rounded-xl font-semibold hover:opacity-90 transition-opacity"
+                            >
+                              <Navigation className="w-3.5 h-3.5" />
+                              Get Directions
+                            </a>
+                            <div className="flex gap-2">
+                              {store.phone && (
+                                <a
+                                  href={`tel:${store.phone}`}
+                                  className="flex-1 flex items-center justify-center gap-1 text-xs px-3 py-2 bg-secondary rounded-xl hover:bg-secondary/80 transition-colors"
+                                >
+                                  <Phone className="w-3.5 h-3.5" />
+                                  Call
+                                </a>
+                              )}
+                              {store.website && (
+                                <a
+                                  href={store.website.startsWith("http") ? store.website : `https://${store.website}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex-1 flex items-center justify-center gap-1 text-xs px-3 py-2 bg-secondary rounded-xl hover:bg-secondary/80 transition-colors"
+                                >
+                                  <Globe className="w-3.5 h-3.5" />
+                                  Web
+                                </a>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                        <p className="text-sm text-muted-foreground mt-1">{store.address}</p>
-                        {store.hours_today && (
-                          <p className="text-xs text-muted-foreground mt-0.5">Today: {store.hours_today}</p>
-                        )}
-                        <div className="flex items-center gap-3 mt-2 flex-wrap">
-                          {store.rating && (
-                            <span className="flex items-center gap-1 text-xs">
-                              <Star className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500" />
-                              {store.rating.toFixed(1)}
-                            </span>
-                          )}
-                          {store.distance_miles != null && (
-                            <span className="text-xs text-primary font-medium">
-                              {store.distance_miles < 0.1 ? "< 0.1 mi" : `${store.distance_miles.toFixed(1)} mi away`}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex gap-2 flex-shrink-0">
-                        <a
-                          href={`https://www.google.com/maps/search/${encodeURIComponent(store.name + " " + store.address)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-1 text-xs px-3 py-2 bg-primary text-primary-foreground rounded-xl hover:opacity-90 transition-opacity"
-                        >
-                          <Navigation className="w-3.5 h-3.5" />
-                          Directions
-                        </a>
-                        {store.phone && (
-                          <a
-                            href={`tel:${store.phone}`}
-                            className="flex items-center gap-1 text-xs px-3 py-2 bg-secondary text-foreground rounded-xl hover:bg-secondary/80 transition-colors"
-                          >
-                            <Phone className="w-3.5 h-3.5" />
-                            Call
-                          </a>
-                        )}
-                        {store.website && (
-                          <a
-                            href={store.website.startsWith("http") ? store.website : `https://${store.website}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-1 text-xs px-3 py-2 bg-secondary text-foreground rounded-xl hover:bg-secondary/80 transition-colors"
-                          >
-                            <Globe className="w-3.5 h-3.5" />
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              </>
             )}
-          </>
+          </motion.div>
         )}
 
-        {/* Empty state before search */}
+        {/* Pre-search empty state */}
         {!loading && !hasSearched && (
-          <div className="text-center py-20">
-            <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+          <div className="text-center py-24">
+            <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-5">
               <MapPin className="w-10 h-10 text-primary" />
             </div>
-            <h3 className="font-heading font-semibold text-xl mb-2">Find Shoe Stores Near You</h3>
-            <p className="text-muted-foreground text-sm max-w-sm mx-auto mb-6">
-              Search for any type of shoe store or specific brand near {loc.city}
+            <h3 className="font-heading font-bold text-xl mb-2">Find Shoe Stores Near You</h3>
+            <p className="text-muted-foreground text-sm max-w-sm mx-auto">
+              Enter your city, zip code, or address above to find Nike, Foot Locker, DSW, and more within 25 miles.
             </p>
-            <button
-              onClick={() => searchStores()}
-              className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-6 py-3 rounded-xl font-medium hover:opacity-90"
-            >
-              <Sparkles className="w-4 h-4" />
-              Find Stores Near Me
-            </button>
           </div>
         )}
       </div>
