@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Wrench, Send, Loader2, ExternalLink, ChevronDown, ChevronUp } from "lucide-react";
+import { useState, useRef } from "react";
+import { Wrench, Send, Loader2, ExternalLink, ChevronDown, ChevronUp, ImagePlus, X } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -8,15 +8,36 @@ export default function ShoeProblemSolver() {
   const [problem, setProblem] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [imageUrl, setImageUrl] = useState(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const fileRef = useRef(null);
+
+  const handleImageChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImagePreview(URL.createObjectURL(file));
+    setUploadingImage(true);
+    const { file_url } = await base44.integrations.Core.UploadFile({ file });
+    setImageUrl(file_url);
+    setUploadingImage(false);
+  };
+
+  const clearImage = () => {
+    setImagePreview(null);
+    setImageUrl(null);
+    if (fileRef.current) fileRef.current.value = "";
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!problem.trim()) return;
+    if (!problem.trim() && !imageUrl) return;
     setLoading(true);
     setResult(null);
 
     const res = await base44.integrations.Core.InvokeLLM({
-      prompt: `A user has a shoe problem: "${problem}". 
+      prompt: `A user has a shoe problem: "${problem || "see the image provided"}". 
+${imageUrl ? "They also uploaded a photo of the issue — analyze it to better understand the problem." : ""}
 Search the web for the best solutions, fixes, tips, or products that solve this issue.
 Provide 4-6 actionable solutions. For each, include:
 - A clear title
@@ -25,6 +46,7 @@ Provide 4-6 actionable solutions. For each, include:
 - Whether they need to buy something (needs_product: true/false)
 - A helpful search URL (Google search link) for more info`,
       add_context_from_internet: true,
+      file_urls: imageUrl ? [imageUrl] : undefined,
       response_json_schema: {
         type: "object",
         properties: {
@@ -83,21 +105,49 @@ Provide 4-6 actionable solutions. For each, include:
             className="overflow-hidden"
           >
             <div className="bg-card border border-t-0 border-border rounded-b-2xl px-5 py-4">
-              <form onSubmit={handleSubmit} className="flex gap-2 mb-4">
-                <input
-                  value={problem}
-                  onChange={e => setProblem(e.target.value)}
-                  placeholder="e.g. my shoes squeak when I walk, heel is slipping, sole is coming off…"
-                  className="flex-1 bg-secondary rounded-xl px-4 py-2.5 text-sm outline-none border border-transparent focus:border-primary transition-colors placeholder:text-muted-foreground/50"
-                />
-                <button
-                  type="submit"
-                  disabled={loading || !problem.trim()}
-                  className="flex items-center gap-1.5 bg-primary text-primary-foreground px-4 py-2.5 rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity flex-shrink-0"
-                >
-                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                  {loading ? "Searching…" : "Solve"}
-                </button>
+              <form onSubmit={handleSubmit} className="space-y-2 mb-4">
+                <div className="flex gap-2">
+                  <input
+                    value={problem}
+                    onChange={e => setProblem(e.target.value)}
+                    placeholder="e.g. my shoes squeak when I walk, heel is slipping, sole is coming off…"
+                    className="flex-1 bg-secondary rounded-xl px-4 py-2.5 text-sm outline-none border border-transparent focus:border-primary transition-colors placeholder:text-muted-foreground/50"
+                  />
+                  <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
+                  <button
+                    type="button"
+                    onClick={() => fileRef.current?.click()}
+                    className="p-2.5 rounded-xl bg-secondary hover:bg-secondary/80 border border-border transition-colors flex-shrink-0"
+                    title="Upload a photo of your shoe problem"
+                  >
+                    {uploadingImage ? <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /> : <ImagePlus className="w-4 h-4 text-muted-foreground" />}
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={loading || (!problem.trim() && !imageUrl) || uploadingImage}
+                    className="flex items-center gap-1.5 bg-primary text-primary-foreground px-4 py-2.5 rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity flex-shrink-0"
+                  >
+                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                    {loading ? "Searching…" : "Solve"}
+                  </button>
+                </div>
+                {imagePreview && (
+                  <div className="relative inline-block">
+                    <img src={imagePreview} alt="shoe problem" className="h-20 w-20 object-cover rounded-xl border-2 border-primary" />
+                    {uploadingImage && (
+                      <div className="absolute inset-0 bg-black/30 rounded-xl flex items-center justify-center">
+                        <Loader2 className="w-4 h-4 text-white animate-spin" />
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={clearImage}
+                      className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-0.5"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                )}
               </form>
 
               {result && (
