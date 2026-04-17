@@ -14,7 +14,7 @@ const BRAND_COLORS = {
 };
 
 const STOCK_CONFIG = {
-  "In Stock":     { icon: CheckCircle,   color: "text-green-500 bg-green-950/40 border border-green-800/40",  label: "High Stock" },
+  "In Stock":     { icon: CheckCircle,   color: "text-green-300 bg-green-950/40 border border-green-700/50",  label: "High Stock" },
   "Low Stock":    { icon: AlertTriangle, color: "text-amber-400 bg-amber-950/40 border border-amber-800/40",  label: "Low Stock" },
   "Out of Stock": { icon: XCircle,       color: "text-red-400 bg-red-950/40 border border-red-800/40",        label: "Out of Stock" },
 };
