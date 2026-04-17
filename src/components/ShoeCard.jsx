@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { Heart, MapPin, Flame, GitCompare, Rocket, Camera } from "lucide-react";
+import { Heart, MapPin, Flame, Rocket } from "lucide-react";
 import { Link } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { base44 } from "@/api/base44Client";
 import {
   isInWishlist,
@@ -9,19 +9,14 @@ import {
   removeFromWishlistLocal,
   subscribeWishlist,
 } from "../lib/wishlistStore";
-import { isInCompare, toggleCompare, subscribeCompare } from "../lib/compareStore";
-import PriceTrackButton from "./PriceTrackButton";
+import { isInCompare, subscribeCompare } from "../lib/compareStore";
 import ShoeOptionsMenu from "./ShoeOptionsMenu";
-import ARTryOn from "./ARTryOn";
 
-export default function ShoeCard({ shoe, index = 0, sponsored = false, onSponsorClick, sponsorTier = null }) {
+export default function ShoeCard({ shoe, index = 0, sponsored = false, onSponsorClick }) {
   const [wishlisted, setWishlisted] = useState(isInWishlist(shoe.id));
-  const [compared, setCompared] = useState(isInCompare(shoe.id));
   const [imgLoaded, setImgLoaded] = useState(false);
-  const [showAR, setShowAR] = useState(false);
 
   useEffect(() => subscribeWishlist(() => setWishlisted(isInWishlist(shoe.id))), [shoe.id]);
-  useEffect(() => subscribeCompare(() => setCompared(isInCompare(shoe.id))), [shoe.id]);
 
   const toggleWishlist = async (e) => {
     e.preventDefault();
@@ -44,8 +39,6 @@ export default function ShoeCard({ shoe, index = 0, sponsored = false, onSponsor
   };
 
   return (
-    <>
-    {showAR && <ARTryOn shoe={shoe} onClose={() => setShowAR(false)} />}
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
@@ -81,14 +74,7 @@ export default function ShoeCard({ shoe, index = 0, sponsored = false, onSponsor
               >
                 <Heart className={`w-4 h-4 ${wishlisted ? "fill-current" : ""}`} />
               </button>
-              <button
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowAR(true); }}
-                title="AR Try-On"
-                className="p-2 rounded-full backdrop-blur-md bg-white/80 dark:bg-black/50 text-primary hover:bg-white dark:hover:bg-black/70 transition-all duration-200"
-              >
-                <Camera className="w-4 h-4" />
-              </button>
-              <ShoeOptionsMenu shoe={shoe} onSponsorClick={() => onSponsorClick?.()} onARClick={() => setShowAR(true)} />
+              <ShoeOptionsMenu shoe={shoe} onSponsorClick={() => onSponsorClick?.()} />
             </div>
 
             {/* Sponsored Tag */}
@@ -127,14 +113,10 @@ export default function ShoeCard({ shoe, index = 0, sponsored = false, onSponsor
               {shoe.name}
             </h3>
 
-            {/* Features */}
             {shoe.features && shoe.features.length > 0 && (
               <div className="flex flex-wrap gap-1 mt-2">
                 {shoe.features.slice(0, 2).map((f) => (
-                  <span
-                    key={f}
-                    className="text-[10px] px-2 py-0.5 bg-secondary rounded-full text-muted-foreground"
-                  >
+                  <span key={f} className="text-[10px] px-2 py-0.5 bg-secondary rounded-full text-muted-foreground">
                     {f}
                   </span>
                 ))}
@@ -145,9 +127,7 @@ export default function ShoeCard({ shoe, index = 0, sponsored = false, onSponsor
               <div className="flex items-baseline gap-2">
                 <span className="font-heading font-bold text-lg">${shoe.price}</span>
                 {shoe.original_price > shoe.price && (
-                  <span className="text-xs text-muted-foreground line-through">
-                    ${shoe.original_price}
-                  </span>
+                  <span className="text-xs text-muted-foreground line-through">${shoe.original_price}</span>
                 )}
               </div>
               <div className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -159,6 +139,5 @@ export default function ShoeCard({ shoe, index = 0, sponsored = false, onSponsor
         </div>
       </Link>
     </motion.div>
-    </>
   );
 }

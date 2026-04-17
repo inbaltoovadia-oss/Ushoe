@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect } from "react";
-import { MoreHorizontal, Rocket, Camera, GitCompare, Heart, TrendingUp, Share2, X } from "lucide-react";
+import { MoreHorizontal, Rocket, GitCompare, Heart, Share2 } from "lucide-react";
 import { toggleCompare } from "../lib/compareStore";
 import { isInWishlist, addToWishlistLocal, removeFromWishlistLocal } from "../lib/wishlistStore";
 import { base44 } from "@/api/base44Client";
 import { toast } from "sonner";
 
-export default function ShoeOptionsMenu({ shoe, onSponsorClick, onARClick }) {
+export default function ShoeOptionsMenu({ shoe, onSponsorClick }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -46,7 +46,6 @@ export default function ShoeOptionsMenu({ shoe, onSponsorClick, onARClick }) {
 
   const items = [
     { icon: Rocket, label: "Sponsor this shoe", color: "text-amber-500", onClick: wrap(onSponsorClick) },
-    { icon: Camera, label: "AR Try-On", color: "text-primary", onClick: wrap(onARClick) },
     { icon: GitCompare, label: "Add to Compare", color: "text-foreground", onClick: wrap(() => toggleCompare(shoe)) },
     { icon: Heart, label: isInWishlist(shoe.id) ? "Remove from Wishlist" : "Save to Wishlist", color: "text-red-500", onClick: wrap(handleWishlist) },
     { icon: Share2, label: "Copy Link", color: "text-foreground", onClick: wrap(handleShare) },
