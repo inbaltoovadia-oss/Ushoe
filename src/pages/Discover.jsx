@@ -259,6 +259,26 @@ For each provide: brand, name, price (as string like "$120"), retailer name, whe
               </div>
             )}
 
+            {/* Example Prompt Pills */}
+            <div className="flex flex-wrap gap-2 mb-4 justify-center">
+              {[
+                "Best running shoes under $150",
+                "Comfortable white sneakers",
+                "Nike basketball shoes size 11",
+                "Lightweight hiking shoes",
+                "Stylish shoes for work",
+              ].map((prompt) => (
+                <button
+                  key={prompt}
+                  type="button"
+                  onClick={() => { setQuery(prompt); handleSearch(prompt); }}
+                  className="text-xs px-3 py-1.5 rounded-full bg-card border border-border text-muted-foreground hover:text-primary hover:border-primary transition-all"
+                >
+                  {prompt}
+                </button>
+              ))}
+            </div>
+
             {/* Search Input */}
             <form onSubmit={(e) => { e.preventDefault(); handleSearch(); }} className="relative">
               <div className="flex items-center bg-card border border-border rounded-2xl px-4 py-3 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all shadow-lg shadow-primary/5">

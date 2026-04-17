@@ -119,6 +119,54 @@ export default function Trending() {
           </div>
         )}
 
+        {/* Featured Carousel — top 5 trending */}
+        {!loading && filtered.length > 0 && (
+          <div className="mb-10">
+            <h2 className="font-heading font-bold text-lg mb-4 flex items-center gap-2">
+              <Flame className="w-4 h-4 text-accent" /> Hot Right Now
+            </h2>
+            <div className="flex gap-4 overflow-x-auto pb-3" style={{ scrollbarWidth: "none" }}>
+              {filtered.slice(0, 8).map((shoe, i) => (
+                <motion.a
+                  key={shoe.id}
+                  href={`/shoe/${shoe.id}`}
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.06 }}
+                  className="relative flex-shrink-0 w-56 h-72 rounded-3xl overflow-hidden group cursor-pointer"
+                >
+                  <img
+                    src={shoe.image_url}
+                    alt={shoe.name}
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                  {/* Trending score bar */}
+                  <div className="absolute top-3 left-3 right-3">
+                    <div className="bg-black/30 backdrop-blur-sm rounded-full px-2 py-1 flex items-center gap-1.5">
+                      <Flame className="w-3 h-3 text-accent flex-shrink-0" />
+                      <div className="flex-1 bg-white/20 rounded-full h-1.5 overflow-hidden">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${Math.min(100, (shoe.trending_score || 50))}%` }}
+                          transition={{ delay: 0.3 + i * 0.06, duration: 0.6 }}
+                          className="h-full bg-accent rounded-full"
+                        />
+                      </div>
+                      <span className="text-[10px] text-white/80 font-bold">{shoe.trending_score || "–"}</span>
+                    </div>
+                  </div>
+                  <div className="absolute bottom-3 left-3 right-3">
+                    <p className="text-[10px] text-white/60 uppercase tracking-wider font-medium">{shoe.brand}</p>
+                    <p className="font-heading font-bold text-white text-sm leading-tight mt-0.5 line-clamp-2">{shoe.name}</p>
+                    <p className="text-white font-semibold text-sm mt-1">${shoe.price}</p>
+                  </div>
+                </motion.a>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Shoes Grid */}
         {loading ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
