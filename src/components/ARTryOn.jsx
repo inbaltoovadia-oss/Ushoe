@@ -313,20 +313,30 @@ export default function ARTryOn({ shoe, onClose }) {
     if (switching) return;
     setSwitching(true);
     const newFacing = facingMode === "environment" ? "user" : "environment";
-    setFacingMode(newFacing);
-    facingModeRef.current = newFacing;
-    smoothedLandmarksRef.current = null;
-    setFootsDetected(false);
-    footsDetectedRef.current = false;
 
     try {
-      setLoadingMsg("Switching camera…");
+      // Stop everything first
+      cameraUtilRef.current?.stop?.();
+      cameraUtilRef.current = null;
+      poseRef.current?.close?.();
+      poseRef.current = null;
+      streamRef.current?.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+      smoothedLandmarksRef.current = null;
+      setFootsDetected(false);
+      footsDetectedRef.current = false;
+
+      setFacingMode(newFacing);
+      facingModeRef.current = newFacing;
+
+      // Small delay to let browser release the camera
+      await new Promise(r => setTimeout(r, 300));
+
       await startCamera(newFacing);
       await initPose(videoRef.current, newFacing === "user");
     } catch (e) {
       console.error(e);
     }
-    setLoadingMsg("");
     setSwitching(false);
   }, [facingMode, switching, startCamera, initPose]);
 
