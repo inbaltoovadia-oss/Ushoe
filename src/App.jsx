@@ -22,6 +22,7 @@ import Settings from './pages/Settings';
 import ShoeSurvey from './pages/ShoeSurvey';
 import NearbyStoresPage from './pages/NearbyStoresPage';
 import Compare from './pages/Compare';
+import AdminDashboard from './pages/AdminDashboard';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -65,6 +66,7 @@ const AuthenticatedApp = () => {
         <Route path="/survey" element={<ShoeSurvey />} />
         <Route path="/nearby-stores" element={<NearbyStoresPage />} />
         <Route path="/compare" element={<Compare />} />
+        <Route path="/admin" element={<AdminDashboard />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>
     </Routes>

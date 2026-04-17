@@ -1,11 +1,13 @@
 import { Link, useLocation } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
-import { Search, MapPin, Sun, Moon, Sparkles, Menu, X, Wand2, ChevronDown, Settings } from "lucide-react";
+import { Search, MapPin, Sun, Moon, Sparkles, Menu, X, Wand2, ChevronDown, Settings, ShieldCheck } from "lucide-react";
 import { getLocation, subscribeLocation } from "../lib/locationStore";
 import LocationPicker from "./LocationPicker";
+import { useAuth } from "@/lib/AuthContext";
 
 export default function Navbar() {
   const location = useLocation();
+  const { user } = useAuth();
   const [dark, setDark] = useState(() => document.documentElement.classList.contains("dark"));
   const [loc, setLoc] = useState(getLocation());
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -134,6 +136,12 @@ export default function Navbar() {
               <Link to="/settings" onClick={handleNavClick} className="p-2 rounded-xl hover:bg-secondary transition-colors hidden sm:block">
                 <Settings className="w-5 h-5 text-muted-foreground" />
               </Link>
+              {user?.role === "admin" && (
+                <Link to="/admin" onClick={handleNavClick} className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 hover:opacity-80 transition-opacity">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  Admin
+                </Link>
+              )}
 
               <button onClick={toggleDark} className="p-2 rounded-xl hover:bg-secondary transition-colors">
                 {dark ? <Sun className="w-5 h-5 text-muted-foreground" /> : <Moon className="w-5 h-5 text-muted-foreground" />}

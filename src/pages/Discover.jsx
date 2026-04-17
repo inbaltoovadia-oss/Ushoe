@@ -8,6 +8,7 @@ import SkeletonCard from "../components/SkeletonCard";
 import InterestPicker from "../components/InterestPicker";
 import { getInterests, ALL_CATEGORIES } from "../lib/interestStore";
 import { getCached, setCache } from "../lib/searchCache";
+import { getLocation } from "../lib/locationStore";
 
 const CATEGORY_ICONS = {
   Running: "🏃", Basketball: "🏀", Soccer: "⚽", Tennis: "🎾",
@@ -86,7 +87,10 @@ ${allShoes.map((s, i) => `${i}: ${s.brand} ${s.name} $${s.price} ${s.category}`)
 
 Write a short 1 sentence summary of what you found.`;
 
-    const webPrompt = `Find 6 real shoes matching: "${finalQ}"${selectedCategory ? ` in category ${selectedCategory}` : ""}. For each provide brand, name, price (as string like "$120"), and a Google Shopping search URL.`;
+    const loc = getLocation();
+    const webPrompt = `Find 6 real shoes matching: "${finalQ}"${selectedCategory ? ` in category ${selectedCategory}` : ""} that are available to ship to ${loc.city}.
+CRITICAL: Only include retailers that explicitly ship to ${loc.city}. Do NOT include retailers that don't ship there.
+For each provide: brand, name, price (as string like "$120"), retailer name, whether it ships to ${loc.city} (ships_to_user must be true), and a direct buy URL.`;
 
     const [catalogResponse, webResponse] = await Promise.all([
       base44.integrations.Core.InvokeLLM({
@@ -124,6 +128,8 @@ Write a short 1 sentence summary of what you found.`;
                   name: { type: "string" },
                   brand: { type: "string" },
                   price: { type: "string" },
+                  retailer: { type: "string" },
+                  ships_to_user: { type: "boolean" },
                   reason: { type: "string" },
                   search_url: { type: "string" },
                 },
@@ -139,7 +145,8 @@ Write a short 1 sentence summary of what you found.`;
       .map((r) => ({ shoe: allShoes[r.index], match_score: r.match_score, explanation: r.explanation }));
 
     setResults(recs);
-    setWebResults(webResponse.web_picks || []);
+    // Only keep results that ship to user
+    setWebResults((webResponse.web_picks || []).filter(p => p.ships_to_user !== false));
     setAiExplanation(catalogResponse.summary || "");
     setLoading(false);
 
@@ -318,7 +325,9 @@ Write a short 1 sentence summary of what you found.`;
                           <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider truncate">{pick.brand}</p>
                           <p className="font-heading font-semibold text-xs mt-0.5 line-clamp-2 group-hover:text-primary transition-colors">{pick.name}</p>
                           {pick.price && <p className="text-primary font-bold text-sm mt-1">{pick.price}</p>}
-                          <p className="text-[10px] text-primary mt-1.5 font-medium group-hover:underline">Shop →</p>
+                          {pick.retailer && <p className="text-[10px] text-muted-foreground truncate">{pick.retailer}</p>}
+                          <p className="text-[10px] text-green-600 mt-1 font-medium">✓ Ships to you</p>
+                          <p className="text-[10px] text-primary mt-0.5 font-medium group-hover:underline">Shop →</p>
                         </div>
                       </motion.a>
                     );
