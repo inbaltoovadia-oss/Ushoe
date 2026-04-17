@@ -1,11 +1,15 @@
 import { useState, useEffect, useRef } from "react";
-import { Search, SlidersHorizontal, X, Globe, Loader2, Clock } from "lucide-react";
+import { Search, SlidersHorizontal, X, Globe, Loader2, Clock, GitCompare } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { base44 } from "@/api/base44Client";
 import ShoeCard from "../components/ShoeCard";
 import SkeletonCard from "../components/SkeletonCard";
 import AdvancedFilters from "../components/search/AdvancedFilters";
 import AISearchSuggestions from "../components/search/AISearchSuggestions";
+import PlanGate from "../components/PlanGate";
+import { canUse, getLimits, getPlan } from "../lib/planStore";
+import { toggleCompare, isInCompare, subscribeCompare, getCompareShoes } from "../lib/compareStore";
+import { Link } from "react-router-dom";
 
 const SORT_OPTIONS = [
   { label: "Trending", value: "trending" },
@@ -34,9 +38,13 @@ export default function SearchResults() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [dataAge, setDataAge] = useState(null);
   const [activeTab, setActiveTab] = useState("catalog");
+  const [compareIds, setCompareIds] = useState(() => getCompareShoes().map(s => s.id));
   const inputRef = useRef(null);
+  const isPro = canUse("webResults");
+  const limits = getLimits();
 
   useEffect(() => { loadCatalog(); }, []);
+  useEffect(() => subscribeCompare(shoes => setCompareIds(shoes.map(s => s.id))), []);
 
   const loadCatalog = async () => {
     setLoading(true);
@@ -200,22 +208,28 @@ Indicate data_freshness (e.g. "Live - just now").`,
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
         {/* Tabs */}
         {query && (
-          <div className="flex gap-2 mb-4">
-            {[
-              { id: "catalog", label: "Our Catalog" },
-              { id: "web", label: "🌐 Live Web Results" },
-            ].map(tab => (
+          <div className="flex items-center gap-2 mb-4 flex-wrap">
+            <button
+              onClick={() => handleTabSwitch("catalog")}
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                activeTab === "catalog" ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Our Catalog
+            </button>
+            {isPro ? (
               <button
-                key={tab.id}
-                onClick={() => handleTabSwitch(tab.id)}
+                onClick={() => handleTabSwitch("web")}
                 className={`px-4 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-1.5 ${
-                  activeTab === tab.id ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"
+                  activeTab === "web" ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"
                 }`}
               >
-                {tab.label}
-                {tab.id === "web" && webLoading && <Loader2 className="w-3 h-3 animate-spin" />}
+                🌐 Live Web Results
+                {webLoading && <Loader2 className="w-3 h-3 animate-spin" />}
               </button>
-            ))}
+            ) : (
+              <PlanGate locked inline feature="Live Web Results" description="Upgrade to Pro to search the live web" />
+            )}
           </div>
         )}
 
@@ -235,20 +249,30 @@ Indicate data_freshness (e.g. "Live - just now").`,
 
           <div className="flex items-center gap-2">
             {activeTab === "catalog" && (
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all ${
-                  showFilters || activeFilterCount > 0
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-secondary text-foreground hover:bg-secondary/80"
-                }`}
-              >
-                <SlidersHorizontal className="w-4 h-4" />
-                Filters
-                {activeFilterCount > 0 && (
-                  <span className="bg-primary-foreground/20 text-primary-foreground text-xs px-1.5 py-0.5 rounded-full">{activeFilterCount}</span>
-                )}
-              </button>
+              isPro ? (
+                <button
+                  onClick={() => setShowFilters(!showFilters)}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all ${
+                    showFilters || activeFilterCount > 0
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-secondary text-foreground hover:bg-secondary/80"
+                  }`}
+                >
+                  <SlidersHorizontal className="w-4 h-4" />
+                  Filters
+                  {activeFilterCount > 0 && (
+                    <span className="bg-primary-foreground/20 text-primary-foreground text-xs px-1.5 py-0.5 rounded-full">{activeFilterCount}</span>
+                  )}
+                </button>
+              ) : (
+                <Link
+                  to="/settings"
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400 border border-amber-200/60"
+                >
+                  <SlidersHorizontal className="w-4 h-4" />
+                  Filters 🔒
+                </Link>
+              )
             )}
 
             {activeTab === "web" && query && (
@@ -318,9 +342,40 @@ Indicate data_freshness (e.g. "Live - just now").`,
               {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)}
             </div>
           ) : sorted.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-              {sorted.map((shoe, i) => <ShoeCard key={shoe.id} shoe={shoe} index={i} />)}
-            </div>
+            <>
+              {/* Compare hint */}
+              <div className="flex items-center gap-2 mb-3 text-xs text-muted-foreground">
+                <GitCompare className="w-3.5 h-3.5" />
+                Select up to {limits.compareMax} shoes to compare side-by-side
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                {sorted.map((shoe, i) => {
+                  const inCompare = compareIds.includes(shoe.id);
+                  const atMax = !inCompare && compareIds.length >= limits.compareMax;
+                  return (
+                    <div key={shoe.id} className="relative">
+                      <ShoeCard shoe={shoe} index={i} />
+                      <button
+                        onClick={() => {
+                          if (!atMax || inCompare) toggleCompare(shoe);
+                        }}
+                        title={atMax && !inCompare ? `Max ${limits.compareMax} shoes on your plan` : inCompare ? "Remove from compare" : "Add to compare"}
+                        className={`absolute bottom-[72px] left-3 z-10 flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg font-semibold transition-all shadow-sm ${
+                          inCompare
+                            ? "bg-primary text-primary-foreground"
+                            : atMax
+                            ? "bg-secondary text-muted-foreground opacity-50 cursor-not-allowed"
+                            : "bg-card border border-border text-foreground hover:border-primary hover:text-primary"
+                        }`}
+                      >
+                        <GitCompare className="w-3 h-3" />
+                        {inCompare ? "✓ Compare" : "Compare"}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
           ) : (
             <div className="text-center py-16">
               <Search className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />

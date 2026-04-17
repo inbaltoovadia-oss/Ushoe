@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Check, Crown, Zap, Rocket, Star } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
+import { getPlan, setPlan, subscribePlan } from "@/lib/planStore";
+import { useEffect } from "react";
 
 const PLANS = [
   {
@@ -77,15 +79,15 @@ const PLANS = [
   },
 ];
 
-const PLAN_KEY = "ushoe_plan";
-
 export default function PlansSection() {
-  const [currentPlan, setCurrentPlan] = useState(() => localStorage.getItem(PLAN_KEY) || "free");
+  const [currentPlan, setCurrentPlan] = useState(getPlan);
+
+  useEffect(() => subscribePlan(setCurrentPlan), []);
 
   const handleSelectPlan = (planId) => {
     if (planId === currentPlan) return;
+    setPlan(planId);
     setCurrentPlan(planId);
-    localStorage.setItem(PLAN_KEY, planId);
     const plan = PLANS.find(p => p.id === planId);
     toast.success(`Switched to ${plan.name} plan! 🎉`);
   };

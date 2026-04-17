@@ -9,6 +9,9 @@ import InterestPicker from "../components/InterestPicker";
 import { getInterests, ALL_CATEGORIES } from "../lib/interestStore";
 import { getCached, setCache } from "../lib/searchCache";
 import { getLocation } from "../lib/locationStore";
+import { canSearch, incrementSearchCount, canUse, getPlan, getSearchesUsedToday, PLAN_LIMITS } from "../lib/planStore";
+import PlanGate from "../components/PlanGate";
+import { Link } from "react-router-dom";
 
 const CATEGORY_ICONS = {
   Running: "🏃", Basketball: "🏀", Soccer: "⚽", Tennis: "🎾",
@@ -28,6 +31,7 @@ export default function Discover() {
   const [showInterestPicker, setShowInterestPicker] = useState(false);
   const [interests, setInterestsState] = useState(getInterests());
   const [selectedCategory, setSelectedCategory] = useState("");
+  const [searchBlocked, setSearchBlocked] = useState(false);
   const inputRef = useRef(null);
   const fileRef = useRef(null);
   const resultsRef = useRef(null);
@@ -53,6 +57,13 @@ export default function Discover() {
   const handleSearch = async (text) => {
     const q = text || (selectedCategory ? `Best ${selectedCategory} shoes` : query);
     if (!q.trim() && !imageUrl) return;
+    // Free plan search limit
+    if (!canSearch()) {
+      setSearchBlocked(true);
+      return;
+    }
+    setSearchBlocked(false);
+    incrementSearchCount();
     const finalQ = q.trim() || (imageUrl ? "Find shoes matching this image" : "");
     setQuery(finalQ);
     setLoading(true);
@@ -229,6 +240,24 @@ For each provide: brand, name, price (as string like "$120"), retailer name, whe
               </div>
             )}
 
+            {/* Free plan search counter */}
+            {getPlan() === "free" && (
+              <div className="flex items-center justify-center gap-2 mb-3 text-xs text-muted-foreground">
+                {(() => {
+                  const used = getSearchesUsedToday();
+                  const max = PLAN_LIMITS.free.aiSearchesPerDay;
+                  const remaining = max - used;
+                  return remaining > 0 ? (
+                    <span>{remaining} of {max} free AI searches remaining today</span>
+                  ) : (
+                    <span className="text-amber-600 font-medium">
+                      Daily limit reached — <Link to="/settings" className="underline text-primary">Upgrade to Pro</Link> for unlimited
+                    </span>
+                  );
+                })()}
+              </div>
+            )}
+
             {/* Search Input */}
             <form onSubmit={(e) => { e.preventDefault(); handleSearch(); }} className="relative">
               <div className="flex items-center bg-card border border-border rounded-2xl px-4 py-3 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all shadow-lg shadow-primary/5">
@@ -264,6 +293,15 @@ For each provide: brand, name, price (as string like "$120"), retailer name, whe
 
       {/* Results */}
       <div ref={resultsRef} />
+      {searchBlocked && (
+        <div className="max-w-2xl mx-auto px-4 pb-8">
+          <PlanGate
+            locked
+            feature="Daily AI Search Limit Reached"
+            description="Free plan allows 5 AI searches per day. Upgrade to Pro for unlimited searches."
+          />
+        </div>
+      )}
       <AnimatePresence>
         {loading && (
           <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="max-w-7xl mx-auto px-4 sm:px-6 pb-16">
