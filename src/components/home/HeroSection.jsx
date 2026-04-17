@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import SearchBar from "../SearchBar";
-import { Sparkles, Ruler, Camera, TrendingUp, Star, Zap } from "lucide-react";
+import { Sparkles, Ruler, Camera, MapPin, TrendingUp, Star, Zap } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const STATS = [
@@ -9,149 +9,129 @@ const STATS = [
   { value: "Instant", label: "Web Results", icon: Zap },
 ];
 
-const HERO_IMAGES = [
-  "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&h=400&fit=crop",
-  "https://images.unsplash.com/photo-1608231387042-66d1773070a5?w=400&h=400&fit=crop",
-  "https://images.unsplash.com/photo-1600185365483-26d7a4cc7519?w=400&h=400&fit=crop",
+const QUICK_LINKS = [
+  { to: "/discover",       label: "AI Finder",      icon: Sparkles, primary: true },
+  { to: "/nearby-stores",  label: "Find Near Me",   icon: MapPin,   primary: false },
+  { to: "/fit-predictor",  label: "Fit Predictor",  icon: Ruler,    primary: false },
+  { to: "/outfit-matcher", label: "Outfit Matcher", icon: Camera,   primary: false },
 ];
 
 export default function HeroSection() {
   return (
-    <section className="relative min-h-[92vh] flex items-center overflow-hidden">
-      {/* Background */}
-      <div className="absolute inset-0 z-0">
+    <section className="relative min-h-[94vh] flex items-center overflow-hidden bg-black">
+      {/* Hero Background — high-res dark sneaker */}
+      <div className="absolute inset-0 z-0" aria-hidden="true">
         <img
-          src="https://images.unsplash.com/photo-1600185365926-3a2ce3cdb9eb?w=1920&h=1080&fit=crop"
-          alt="Hero"
-          className="w-full h-full object-cover scale-105"
-          style={{ filter: "brightness(0.35)" }}
+          src="https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=1920&h=1080&fit=crop&q=90"
+          alt=""
+          loading="eager"
+          className="w-full h-full object-cover object-center"
+          style={{ filter: "brightness(0.22) saturate(0.8)" }}
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-background/95 via-background/75 to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent" />
+        {/* Spotlight glow on shoe */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_70%_at_70%_55%,rgba(59,130,246,0.12)_0%,transparent_70%)]" />
+        {/* Left-to-content gradient for text readability */}
+        <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/60 to-transparent" />
+        {/* Bottom fade */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
       </div>
 
-      {/* Animated accent blobs */}
-      <div className="absolute top-20 right-1/3 w-96 h-96 bg-primary/15 rounded-full blur-3xl animate-pulse z-0" />
-      <div className="absolute bottom-20 right-1/4 w-64 h-64 bg-accent/10 rounded-full blur-3xl z-0" style={{ animationDelay: "1s" }} />
+      {/* Accent glow blobs */}
+      <div className="absolute top-1/4 right-1/3 w-80 h-80 bg-primary/10 rounded-full blur-3xl pointer-events-none z-0" aria-hidden="true" />
+      <div className="absolute bottom-1/4 right-1/4 w-56 h-56 bg-blue-500/8 rounded-full blur-3xl pointer-events-none z-0" aria-hidden="true" />
 
       {/* Content */}
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 w-full py-20">
-        <div className="grid lg:grid-cols-2 gap-12 items-center">
-          {/* Left */}
-          <div>
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-            >
-              <div className="inline-flex items-center gap-2 bg-primary/20 text-primary border border-primary/30 px-4 py-2 rounded-full text-sm font-semibold mb-6 backdrop-blur-sm">
-                <Sparkles className="w-3.5 h-3.5" />
-                AI-Powered Shoe Discovery
-              </div>
-            </motion.div>
+      <div className="relative z-10 max-w-7xl mx-auto px-5 sm:px-8 w-full py-24">
+        <div className="max-w-2xl">
 
-            <motion.h1
-              initial={{ opacity: 0, y: 25 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.1 }}
-              className="font-heading font-bold text-5xl sm:text-6xl lg:text-7xl leading-[1.05] tracking-tight"
-            >
-              Find Your
-              <br />
-              <span className="text-primary">Perfect</span>
-              <br />
-              Pair.
-            </motion.h1>
-
-            <motion.p
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-              className="text-muted-foreground text-lg mt-5 max-w-md leading-relaxed"
-            >
-              AI searches the web in real time. Compare prices, find nearby stores, get personalized picks.
-            </motion.p>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.3 }}
-              className="mt-8"
-            >
-              <SearchBar large />
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.6, delay: 0.45 }}
-              className="flex flex-wrap items-center gap-3 mt-6"
-            >
-              <Link
-                to="/discover"
-                className="flex items-center gap-2 bg-primary text-primary-foreground px-6 py-3 rounded-2xl font-semibold hover:opacity-90 transition-opacity shadow-lg shadow-primary/25"
-              >
-                <Sparkles className="w-4 h-4" />
-                AI Finder
-              </Link>
-              <Link
-                to="/fit-predictor"
-                className="flex items-center gap-2 bg-white/10 backdrop-blur-sm text-foreground border border-white/20 px-5 py-3 rounded-2xl font-medium hover:bg-white/20 transition-colors"
-              >
-                <Ruler className="w-4 h-4" />
-                Fit Predictor
-              </Link>
-              <Link
-                to="/outfit-matcher"
-                className="flex items-center gap-2 bg-white/10 backdrop-blur-sm text-foreground border border-white/20 px-5 py-3 rounded-2xl font-medium hover:bg-white/20 transition-colors"
-              >
-                <Camera className="w-4 h-4" />
-                Outfit Matcher
-              </Link>
-            </motion.div>
-
-            {/* Stats */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.6, delay: 0.6 }}
-              className="flex items-center gap-8 mt-10"
-            >
-              {STATS.map(({ value, label, icon: Icon }) => (
-                <div key={label} className="text-center">
-                  <p className="font-heading font-bold text-xl text-foreground">{value}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
-                </div>
-              ))}
-            </motion.div>
-          </div>
-
-          {/* Right — stacked shoe images */}
+          {/* Badge */}
           <motion.div
-            initial={{ opacity: 0, x: 40 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.9, delay: 0.35 }}
-            className="hidden lg:flex items-center justify-center relative h-[500px]"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
           >
-            <div className="absolute -inset-8 bg-primary/10 rounded-full blur-3xl" />
-            {HERO_IMAGES.map((src, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 20 + i * 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.7, delay: 0.5 + i * 0.15 }}
-                className="absolute"
-                style={{
-                  left: `${i * 28}%`,
-                  top: `${10 + i * 15}%`,
-                  zIndex: HERO_IMAGES.length - i,
-                  transform: `rotate(${(i - 1) * 6}deg)`,
-                }}
+            <div
+              className="inline-flex items-center gap-2 bg-white/10 text-white border border-white/20 px-4 py-2 rounded-full text-sm font-semibold mb-7 backdrop-blur-md"
+              aria-label="AI-Powered Shoe Discovery"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-primary" aria-hidden="true" />
+              AI-Powered Shoe Discovery
+            </div>
+          </motion.div>
+
+          {/* Headline */}
+          <motion.h1
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.65, delay: 0.1 }}
+            className="font-heading font-black text-5xl sm:text-6xl lg:text-7xl leading-[1.04] tracking-tight text-white"
+          >
+            Find Your
+            <br />
+            <span className="text-primary drop-shadow-[0_0_30px_rgba(59,130,246,0.6)]">Perfect</span>
+            <br />
+            Pair.
+          </motion.h1>
+
+          {/* Sub-headline */}
+          <motion.p
+            initial={{ opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="text-white/70 text-lg sm:text-xl mt-5 max-w-lg leading-relaxed"
+          >
+            AI searches the web in real time — compare prices, find nearby stores, and get picks made just for you.
+          </motion.p>
+
+          {/* Search bar */}
+          <motion.div
+            initial={{ opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.3 }}
+            className="mt-8"
+          >
+            <SearchBar large />
+          </motion.div>
+
+          {/* Quick-action buttons */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.6, delay: 0.45 }}
+            className="flex flex-wrap gap-3 mt-6"
+            role="navigation"
+            aria-label="Quick actions"
+          >
+            {QUICK_LINKS.map(({ to, label, icon: Icon, primary }) => (
+              <Link
+                key={to}
+                to={to}
+                aria-label={label}
+                className={`flex items-center gap-2 px-5 py-3 rounded-2xl font-semibold text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-black ${
+                  primary
+                    ? "bg-primary text-white shadow-lg shadow-primary/30 hover:opacity-90"
+                    : "bg-white/10 text-white border border-white/20 backdrop-blur-sm hover:bg-white/20"
+                }`}
               >
-                <div className="w-52 h-52 rounded-3xl overflow-hidden shadow-2xl border-2 border-white/10">
-                  <img src={src} alt="shoe" className="w-full h-full object-cover hover:scale-110 transition-transform duration-500" />
-                </div>
-              </motion.div>
+                <Icon className="w-4 h-4" aria-hidden="true" />
+                {label}
+              </Link>
+            ))}
+          </motion.div>
+
+          {/* Stats row */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.6, delay: 0.6 }}
+            className="flex items-center gap-8 mt-12 flex-wrap"
+            aria-label="Platform stats"
+          >
+            {STATS.map(({ value, label }) => (
+              <div key={label} className="text-center">
+                <p className="font-heading font-bold text-xl text-white">{value}</p>
+                <p className="text-xs text-white/50 mt-0.5">{label}</p>
+              </div>
             ))}
           </motion.div>
         </div>
