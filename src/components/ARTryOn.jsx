@@ -56,7 +56,8 @@ export default function ARTryOn({ shoe, onClose }) {
   const [dragStart, setDragStart] = useState(null);
   const [manualPos, setManualPos] = useState({ x: 50, y: 75 });
   const [shoePreview, setShoePreview] = useState(null);
-  const [facingMode, setFacingMode] = useState("environment"); // "environment" | "user"
+  const [facingMode, setFacingMode] = useState("environment");
+  const facingModeStateRef = useRef("environment"); // always in sync, used inside callbacks
   const [switching, setSwitching] = useState(false);
 
   // Keep refs in sync
@@ -312,7 +313,7 @@ export default function ARTryOn({ shoe, onClose }) {
   const flipCamera = useCallback(async () => {
     if (switching) return;
     setSwitching(true);
-    const newFacing = facingMode === "environment" ? "user" : "environment";
+    const newFacing = facingModeStateRef.current === "environment" ? "user" : "environment";
 
     try {
       // Stop everything first
@@ -327,6 +328,7 @@ export default function ARTryOn({ shoe, onClose }) {
       footsDetectedRef.current = false;
 
       setFacingMode(newFacing);
+      facingModeStateRef.current = newFacing;
       facingModeRef.current = newFacing;
 
       // Small delay to let browser release the camera
