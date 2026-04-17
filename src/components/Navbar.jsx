@@ -195,6 +195,16 @@ export default function Navbar() {
                 <Settings className="w-4 h-4" />
                 Settings
               </Link>
+              {user?.role === "admin" && (
+                <Link
+                  to="/admin"
+                  onClick={() => { setMobileOpen(false); handleNavClick(); }}
+                  className="flex items-center gap-2 w-full px-4 py-3 text-sm font-semibold text-amber-700 dark:text-amber-400 rounded-xl hover:bg-secondary"
+                >
+                  <ShieldCheck className="w-4 h-4" />
+                  Admin Panel
+                </Link>
+              )}
               <button
                 onClick={() => { setShowLocationPicker(true); setMobileOpen(false); }}
                 className="flex items-center gap-2 w-full px-4 py-3 text-sm text-muted-foreground rounded-xl hover:bg-secondary"
