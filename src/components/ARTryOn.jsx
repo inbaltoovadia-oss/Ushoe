@@ -14,14 +14,12 @@ function loadScript(src) {
 }
 
 const MEDIAPIPE_POSE_CDN = "https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js";
-const MEDIAPIPE_CAM_UTILS = "https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js";
 
 const LEFT_HEEL = 29;
 const RIGHT_HEEL = 30;
 const LEFT_FOOT_INDEX = 31;
 const RIGHT_FOOT_INDEX = 32;
 
-// Smooth landmark positions using exponential moving average
 function smoothLandmark(prev, next, alpha = 0.35) {
   if (!prev) return next;
   return {
@@ -37,13 +35,14 @@ export default function ARTryOn({ shoe, onClose }) {
   const shoeImgRef = useRef(null);
   const streamRef = useRef(null);
   const poseRef = useRef(null);
-  const cameraUtilRef = useRef(null);
+  const rafRef = useRef(null);
   const smoothedLandmarksRef = useRef(null);
   const manualPosRef = useRef({ x: 50, y: 75 });
   const manualScaleRef = useRef(1);
-  const facingModeRef = useRef("environment");
   const autoDetectRef = useRef(true);
   const footsDetectedRef = useRef(false);
+  const facingRef = useRef("environment"); // source of truth for current facing
+  const processingRef = useRef(false); // prevent overlapping pose sends
 
   const [cameraActive, setCameraActive] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -57,15 +56,14 @@ export default function ARTryOn({ shoe, onClose }) {
   const [manualPos, setManualPos] = useState({ x: 50, y: 75 });
   const [shoePreview, setShoePreview] = useState(null);
   const [facingMode, setFacingMode] = useState("environment");
-  const facingModeStateRef = useRef("environment"); // always in sync, used inside callbacks
   const [switching, setSwitching] = useState(false);
 
-  // Keep refs in sync
+  // Keep refs in sync with state
   useEffect(() => { manualPosRef.current = manualPos; }, [manualPos]);
   useEffect(() => { manualScaleRef.current = manualScale; }, [manualScale]);
   useEffect(() => { autoDetectRef.current = autoDetect; }, [autoDetect]);
 
-  // Preprocess shoe image — corner-based background removal
+  // Preprocess shoe image — remove background
   useEffect(() => {
     if (!shoe?.image_url) return;
     const img = new Image();
@@ -78,34 +76,32 @@ export default function ARTryOn({ shoe, onClose }) {
       ctx.drawImage(img, 0, 0);
       const imageData = ctx.getImageData(0, 0, c.width, c.height);
       const data = imageData.data;
-      const W = c.width, H = c.height;
+      const W = c.width;
+      const H = c.height;
 
-      // Sample corners + edges to determine background color
       const samplePx = (idx) => ({ r: data[idx], g: data[idx + 1], b: data[idx + 2] });
       const samples = [
         samplePx(0),
         samplePx((W - 1) * 4),
         samplePx((H - 1) * W * 4),
         samplePx(((H - 1) * W + W - 1) * 4),
-        samplePx(Math.floor(W / 2) * 4), // top center
-        samplePx(((H - 1) * W + Math.floor(W / 2)) * 4), // bottom center
+        samplePx(Math.floor(W / 2) * 4),
+        samplePx(((H - 1) * W + Math.floor(W / 2)) * 4),
       ];
-      const avgBg = samples.reduce((a, p) => ({ r: a.r + p.r / samples.length, g: a.g + p.g / samples.length, b: a.b + p.b / samples.length }), { r: 0, g: 0, b: 0 });
+      const avgBg = samples.reduce(
+        (a, p) => ({ r: a.r + p.r / samples.length, g: a.g + p.g / samples.length, b: a.b + p.b / samples.length }),
+        { r: 0, g: 0, b: 0 }
+      );
 
-      const HARD = 28;
-      const SOFT = 18;
-
+      const HARD = 28, SOFT = 18;
       for (let i = 0; i < data.length; i += 4) {
         const dist = Math.sqrt(
           Math.pow(data[i] - avgBg.r, 2) +
           Math.pow(data[i + 1] - avgBg.g, 2) +
           Math.pow(data[i + 2] - avgBg.b, 2)
         );
-        if (dist < HARD) {
-          data[i + 3] = 0;
-        } else if (dist < HARD + SOFT) {
-          data[i + 3] = Math.round(((dist - HARD) / SOFT) * 255);
-        }
+        if (dist < HARD) data[i + 3] = 0;
+        else if (dist < HARD + SOFT) data[i + 3] = Math.round(((dist - HARD) / SOFT) * 255);
       }
       ctx.putImageData(imageData, 0, 0);
       const dataUrl = c.toDataURL("image/png");
@@ -126,34 +122,35 @@ export default function ARTryOn({ shoe, onClose }) {
 
   const drawFrame = useCallback((results, isFrontCam) => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    const vw = results.image.width || canvas.width;
-    const vh = results.image.height || canvas.height;
-    canvas.width = vw;
-    canvas.height = vh;
+    const video = videoRef.current;
+    if (!canvas || !video) return;
 
+    const vw = video.videoWidth || 640;
+    const vh = video.videoHeight || 480;
+    if (canvas.width !== vw) canvas.width = vw;
+    if (canvas.height !== vh) canvas.height = vh;
+
+    const ctx = canvas.getContext("2d");
     ctx.clearRect(0, 0, vw, vh);
 
-    // Mirror front camera
+    // Draw mirrored for front cam
     if (isFrontCam) {
       ctx.save();
       ctx.translate(vw, 0);
       ctx.scale(-1, 1);
-      ctx.drawImage(results.image, 0, 0, vw, vh);
+      ctx.drawImage(video, 0, 0, vw, vh);
       ctx.restore();
     } else {
-      ctx.drawImage(results.image, 0, 0, vw, vh);
+      ctx.drawImage(video, 0, 0, vw, vh);
     }
 
     if (!shoeImgRef.current) return;
 
-    const landmarks = results.poseLandmarks;
+    const landmarks = results?.poseLandmarks;
     let leftFoot = null;
     let rightFoot = null;
 
     if (autoDetectRef.current && landmarks) {
-      // Smooth landmarks
       if (!smoothedLandmarksRef.current) {
         smoothedLandmarksRef.current = [...landmarks];
       } else {
@@ -162,30 +159,30 @@ export default function ARTryOn({ shoe, onClose }) {
         );
       }
       const sm = smoothedLandmarksRef.current;
-
       const lHeel = sm[LEFT_HEEL];
       const lToe = sm[LEFT_FOOT_INDEX];
       const rHeel = sm[RIGHT_HEEL];
       const rToe = sm[RIGHT_FOOT_INDEX];
 
       if (lHeel?.visibility > 0.45 && lToe?.visibility > 0.45) {
-        // Mirror x coords for front cam
         const lhx = isFrontCam ? 1 - lHeel.x : lHeel.x;
         const ltx = isFrontCam ? 1 - lToe.x : lToe.x;
-        const cx = ((lhx + ltx) / 2) * vw;
-        const cy = ((lHeel.y + lToe.y) / 2) * vh;
-        const len = Math.hypot((ltx - lhx) * vw, (lToe.y - lHeel.y) * vh);
-        const angle = Math.atan2((lToe.y - lHeel.y) * vh, (ltx - lhx) * vw);
-        leftFoot = { cx, cy, len, angle };
+        leftFoot = {
+          cx: ((lhx + ltx) / 2) * vw,
+          cy: ((lHeel.y + lToe.y) / 2) * vh,
+          len: Math.hypot((ltx - lhx) * vw, (lToe.y - lHeel.y) * vh),
+          angle: Math.atan2((lToe.y - lHeel.y) * vh, (ltx - lhx) * vw),
+        };
       }
       if (rHeel?.visibility > 0.45 && rToe?.visibility > 0.45) {
         const rhx = isFrontCam ? 1 - rHeel.x : rHeel.x;
         const rtx = isFrontCam ? 1 - rToe.x : rToe.x;
-        const cx = ((rhx + rtx) / 2) * vw;
-        const cy = ((rHeel.y + rToe.y) / 2) * vh;
-        const len = Math.hypot((rtx - rhx) * vw, (rToe.y - rHeel.y) * vh);
-        const angle = Math.atan2((rToe.y - rHeel.y) * vh, (rtx - rhx) * vw);
-        rightFoot = { cx, cy, len, angle };
+        rightFoot = {
+          cx: ((rhx + rtx) / 2) * vw,
+          cy: ((rHeel.y + rToe.y) / 2) * vh,
+          len: Math.hypot((rtx - rhx) * vw, (rToe.y - rHeel.y) * vh),
+          angle: Math.atan2((rToe.y - rHeel.y) * vh, (rtx - rhx) * vw),
+        };
       }
 
       const detected = !!(leftFoot || rightFoot);
@@ -200,7 +197,6 @@ export default function ARTryOn({ shoe, onClose }) {
       ctx.translate(cx, cy);
       ctx.rotate(angle);
       if (flipH) ctx.scale(-1, 1);
-      // Drop shadow for realism
       ctx.shadowColor = "rgba(0,0,0,0.5)";
       ctx.shadowBlur = 12;
       ctx.shadowOffsetY = 4;
@@ -221,7 +217,6 @@ export default function ARTryOn({ shoe, onClose }) {
         drawShoe(rightFoot.cx, rightFoot.cy, w, w * 0.45, rightFoot.angle, true);
       }
     } else {
-      // Manual fallback
       const cx = (manualPosRef.current.x / 100) * vw;
       const cy = (manualPosRef.current.y / 100) * vh;
       const w = vw * 0.30 * manualScaleRef.current;
@@ -229,118 +224,165 @@ export default function ARTryOn({ shoe, onClose }) {
     }
   }, []);
 
-  const initPose = useCallback(async (video, isFrontCam) => {
-    await Promise.all([
-      loadScript(MEDIAPIPE_POSE_CDN),
-      loadScript(MEDIAPIPE_CAM_UTILS),
-    ]);
+  // RAF-based loop — works on mobile without Camera utility
+  const startRAFLoop = useCallback((isFrontCam) => {
+    const loop = async () => {
+      const video = videoRef.current;
+      const pose = poseRef.current;
+      if (!video || !pose || video.readyState < 2 || video.videoWidth === 0) {
+        rafRef.current = requestAnimationFrame(loop);
+        return;
+      }
+      if (!processingRef.current) {
+        processingRef.current = true;
+        try {
+          await pose.send({ image: video });
+        } catch (_) {}
+        processingRef.current = false;
+      }
+      rafRef.current = requestAnimationFrame(loop);
+    };
+    rafRef.current = requestAnimationFrame(loop);
+  }, []);
 
-    if (poseRef.current) { poseRef.current.close(); poseRef.current = null; }
+  const stopRAFLoop = useCallback(() => {
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+    processingRef.current = false;
+  }, []);
+
+  const initPose = useCallback(async (isFrontCam) => {
+    await loadScript(MEDIAPIPE_POSE_CDN);
+
+    if (poseRef.current) {
+      try { poseRef.current.close(); } catch (_) {}
+      poseRef.current = null;
+    }
 
     const pose = new window.Pose({
       locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/${file}`,
     });
     pose.setOptions({
-      modelComplexity: 1,
+      modelComplexity: 0, // lighter for mobile
       smoothLandmarks: true,
       enableSegmentation: false,
-      minDetectionConfidence: 0.5,
-      minTrackingConfidence: 0.5,
+      minDetectionConfidence: 0.45,
+      minTrackingConfidence: 0.45,
     });
     pose.onResults((results) => drawFrame(results, isFrontCam));
     await pose.initialize();
     poseRef.current = pose;
-
-    if (cameraUtilRef.current) { cameraUtilRef.current.stop(); cameraUtilRef.current = null; }
-
-    const cam = new window.Camera(video, {
-      onFrame: async () => {
-        if (poseRef.current && video.videoWidth > 0 && video.videoHeight > 0 && video.readyState >= 2) {
-          await poseRef.current.send({ image: video });
-        }
-      },
-      width: 1280, height: 720,
-    });
-    await cam.start();
-    cameraUtilRef.current = cam;
-  }, [drawFrame]);
+    startRAFLoop(isFrontCam);
+  }, [drawFrame, startRAFLoop]);
 
   const startCamera = useCallback(async (facing) => {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: facing, width: { ideal: 1280 }, height: { ideal: 720 } },
-    });
-    if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
+    // Stop existing stream
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+    }
+
+    // Mobile-compatible constraints
+    const constraints = {
+      video: {
+        facingMode: { ideal: facing },
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+      },
+      audio: false,
+    };
+
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
     streamRef.current = stream;
+
     const video = videoRef.current;
     video.srcObject = stream;
-    await video.play();
-    return stream;
+    video.setAttribute("playsinline", "true"); // required for iOS
+    video.setAttribute("muted", "true");
+    video.muted = true;
+
+    await new Promise((resolve, reject) => {
+      video.onloadedmetadata = () => {
+        video.play().then(resolve).catch(reject);
+      };
+      video.onerror = reject;
+    });
   }, []);
 
   const startAR = useCallback(async (facing = "environment") => {
     setLoading(true);
     setError(null);
     smoothedLandmarksRef.current = null;
+    facingRef.current = facing;
+
     try {
       setLoadingMsg("Starting camera…");
       await startCamera(facing);
       setLoadingMsg("Loading AI model…");
-      await initPose(videoRef.current, facing === "user");
+      await initPose(facing === "user");
       setCameraActive(true);
     } catch (e) {
-      console.error(e);
-      setError(e.name === "NotAllowedError"
-        ? "Camera access denied. Please allow camera permissions."
-        : "Failed to start AR. " + (e.message || "Please try again."));
+      console.error("AR start error:", e);
+      setError(
+        e.name === "NotAllowedError"
+          ? "Camera access denied. Please allow camera permissions."
+          : e.name === "NotFoundError"
+          ? "No camera found on this device."
+          : "Failed to start AR. " + (e.message || "Please try again.")
+      );
     }
     setLoading(false);
     setLoadingMsg("");
   }, [startCamera, initPose]);
 
   const stopAR = useCallback(() => {
-    cameraUtilRef.current?.stop?.();
-    cameraUtilRef.current = null;
-    poseRef.current?.close?.();
-    poseRef.current = null;
-    streamRef.current?.getTracks().forEach(t => t.stop());
-    streamRef.current = null;
+    stopRAFLoop();
+    if (poseRef.current) {
+      try { poseRef.current.close(); } catch (_) {}
+      poseRef.current = null;
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+    }
     smoothedLandmarksRef.current = null;
+    processingRef.current = false;
     setCameraActive(false);
     setFootsDetected(false);
     footsDetectedRef.current = false;
-  }, []);
+  }, [stopRAFLoop]);
 
   const flipCamera = useCallback(async () => {
     if (switching) return;
     setSwitching(true);
-    const newFacing = facingModeStateRef.current === "environment" ? "user" : "environment";
+
+    const newFacing = facingRef.current === "environment" ? "user" : "environment";
 
     try {
-      // Stop everything first
-      cameraUtilRef.current?.stop?.();
-      cameraUtilRef.current = null;
-      poseRef.current?.close?.();
-      poseRef.current = null;
-      streamRef.current?.getTracks().forEach(t => t.stop());
-      streamRef.current = null;
+      stopRAFLoop();
+      if (poseRef.current) {
+        try { poseRef.current.close(); } catch (_) {}
+        poseRef.current = null;
+      }
       smoothedLandmarksRef.current = null;
+      processingRef.current = false;
       setFootsDetected(false);
       footsDetectedRef.current = false;
 
+      facingRef.current = newFacing;
       setFacingMode(newFacing);
-      facingModeStateRef.current = newFacing;
-      facingModeRef.current = newFacing;
 
-      // Small delay to let browser release the camera
       await new Promise(r => setTimeout(r, 300));
-
       await startCamera(newFacing);
-      await initPose(videoRef.current, newFacing === "user");
+      await initPose(newFacing === "user");
     } catch (e) {
-      console.error(e);
+      console.error("Flip camera error:", e);
     }
+
     setSwitching(false);
-  }, [facingMode, switching, startCamera, initPose]);
+  }, [switching, stopRAFLoop, startCamera, initPose]);
 
   useEffect(() => () => stopAR(), []);
 
@@ -357,20 +399,24 @@ export default function ARTryOn({ shoe, onClose }) {
     }, "image/jpeg", 0.92);
   };
 
-  // Drag to reposition (manual mode)
+  // Touch/pointer drag for manual mode
   const handlePointerDown = (e) => {
     if (footsDetected && autoDetect) return;
     e.preventDefault();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
     setDragging(true);
-    setDragStart({ x: e.clientX, y: e.clientY, ox: manualPos.x, oy: manualPos.y });
+    setDragStart({ x: clientX, y: clientY, ox: manualPos.x, oy: manualPos.y });
   };
   const handlePointerMove = (e) => {
     if (!dragging || !dragStart) return;
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
     const rect = canvasRef.current?.parentElement?.getBoundingClientRect();
     if (!rect) return;
     setManualPos({
-      x: Math.max(5, Math.min(95, dragStart.ox + ((e.clientX - dragStart.x) / rect.width) * 100)),
-      y: Math.max(5, Math.min(95, dragStart.oy + ((e.clientY - dragStart.y) / rect.height) * 100)),
+      x: Math.max(5, Math.min(95, dragStart.ox + ((clientX - dragStart.x) / rect.width) * 100)),
+      y: Math.max(5, Math.min(95, dragStart.oy + ((clientY - dragStart.y) / rect.height) * 100)),
     });
   };
   const handlePointerUp = () => setDragging(false);
@@ -384,19 +430,19 @@ export default function ARTryOn({ shoe, onClose }) {
     : "AI-powered foot detection & shoe overlay";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm">
       <motion.div
         initial={{ opacity: 0, scale: 0.94, y: 16 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.94 }}
         transition={{ duration: 0.25 }}
-        className="bg-card border border-border rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[96vh]"
+        className="bg-card border border-border sm:rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col h-full sm:h-auto sm:max-h-[96vh]"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-border flex-shrink-0 bg-card">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border flex-shrink-0 bg-card">
           <div className="flex items-center gap-3">
             {shoePreview && (
-              <img src={shoePreview} alt={shoe.name} className="h-10 w-10 object-contain rounded-lg bg-secondary p-1" />
+              <img src={shoePreview} alt={shoe.name} className="h-9 w-9 object-contain rounded-lg bg-secondary p-1" />
             )}
             <div>
               <h2 className="font-heading font-bold text-sm flex items-center gap-2">
@@ -414,24 +460,28 @@ export default function ARTryOn({ shoe, onClose }) {
 
         {/* Viewport */}
         <div
-          className="relative bg-black flex-shrink-0 overflow-hidden"
+          className="relative bg-black flex-1 sm:flex-shrink-0 overflow-hidden"
           style={{ aspectRatio: "4/3" }}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerLeave={handlePointerUp}
+          onTouchMove={handlePointerMove}
+          onTouchEnd={handlePointerUp}
         >
-          <video ref={videoRef} className="hidden" muted playsInline />
+          {/* Hidden video element — actual feed drawn to canvas */}
+          <video ref={videoRef} className="hidden" playsInline muted autoPlay />
+
           <canvas
             ref={canvasRef}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-contain"
             style={{ cursor: cameraActive && !(footsDetected && autoDetect) ? (dragging ? "grabbing" : "grab") : "default" }}
             onPointerDown={handlePointerDown}
+            onTouchStart={handlePointerDown}
           />
 
-          {/* Overlaid controls when camera is active */}
           {cameraActive && (
             <>
-              {/* Status pill — top left */}
+              {/* Status pill */}
               <div className="absolute top-3 left-3">
                 {footsDetected && autoDetect ? (
                   <div className="flex items-center gap-1.5 bg-green-500/90 text-white text-xs px-3 py-1.5 rounded-full font-semibold backdrop-blur-sm shadow-lg">
@@ -446,13 +496,12 @@ export default function ARTryOn({ shoe, onClose }) {
                 )}
               </div>
 
-              {/* Top-right buttons: flip + auto/manual */}
+              {/* Flip + Auto/Manual buttons */}
               <div className="absolute top-3 right-3 flex gap-2">
                 <button
                   onClick={flipCamera}
                   disabled={switching}
                   className="flex items-center gap-1.5 bg-black/60 text-white text-xs px-3 py-1.5 rounded-full font-semibold backdrop-blur-sm hover:bg-black/80 transition-all disabled:opacity-50"
-                  title="Flip camera"
                 >
                   {switching ? <Loader2 className="w-3 h-3 animate-spin" /> : <FlipHorizontal className="w-3 h-3" />}
                   {facingMode === "environment" ? "Back" : "Front"}
@@ -472,7 +521,7 @@ export default function ARTryOn({ shoe, onClose }) {
 
           {/* Pre-start / loading / error overlay */}
           {!cameraActive && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-white">
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-white bg-black">
               {loading ? (
                 <>
                   <div className="relative w-16 h-16 flex items-center justify-center">
@@ -481,7 +530,7 @@ export default function ARTryOn({ shoe, onClose }) {
                   </div>
                   <div className="text-center">
                     <p className="text-sm font-semibold">{loadingMsg}</p>
-                    <p className="text-xs text-white/40 mt-1">Hang tight…</p>
+                    <p className="text-xs text-white/40 mt-1">This may take a moment…</p>
                   </div>
                 </>
               ) : error ? (
@@ -489,7 +538,7 @@ export default function ARTryOn({ shoe, onClose }) {
                   <p className="text-4xl mb-3">⚠️</p>
                   <p className="text-sm text-red-300 leading-relaxed mb-4">{error}</p>
                   <button
-                    onClick={() => startAR(facingMode)}
+                    onClick={() => startAR(facingRef.current)}
                     className="text-xs bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl transition-colors"
                   >
                     Try Again
@@ -504,7 +553,7 @@ export default function ARTryOn({ shoe, onClose }) {
                   )}
                   <p className="font-heading font-bold text-base mb-1">{shoe.name}</p>
                   <p className="text-xs text-white/60 leading-relaxed">
-                    Point your camera at your feet — AI detects and overlays the shoe automatically
+                    Point camera at your feet — AI detects and overlays the shoe automatically
                   </p>
                 </div>
               )}
@@ -513,7 +562,7 @@ export default function ARTryOn({ shoe, onClose }) {
         </div>
 
         {/* Controls panel */}
-        <div className="px-5 py-4 space-y-3 flex-shrink-0 bg-card">
+        <div className="px-4 py-3 space-y-3 flex-shrink-0 bg-card">
           {cameraActive && (
             <div className="flex items-center gap-3">
               <ZoomOut className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
@@ -531,7 +580,7 @@ export default function ARTryOn({ shoe, onClose }) {
           <div className="flex gap-2">
             {!cameraActive ? (
               <button
-                onClick={() => startAR(facingMode)}
+                onClick={() => startAR(facingRef.current)}
                 disabled={loading}
                 className="flex-1 flex items-center justify-center gap-2 bg-primary text-primary-foreground py-3 rounded-2xl font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity text-sm"
               >
