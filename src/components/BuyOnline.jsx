@@ -57,7 +57,9 @@ Return up to 8 results sorted by price ascending.`,
       },
     });
 
-    const sorted = (res.retailers || []).sort((a, b) => (a.price || 0) - (b.price || 0));
+    // Only keep retailers that ship to the user's location
+    const all = (res.retailers || []).sort((a, b) => (a.price || 0) - (b.price || 0));
+    const sorted = all.filter(r => r.ships_to_location !== false);
     setRetailers(sorted);
 
     if (sorted.length > 1) {
@@ -85,8 +87,9 @@ Return up to 8 results sorted by price ascending.`,
   if (retailers.length === 0) {
     return (
       <div className="text-center py-8">
-        <Globe className="w-8 h-8 text-muted-foreground/30 mx-auto mb-3" />
-        <p className="text-sm text-muted-foreground">No online retailers found for this shoe.</p>
+        <Truck className="w-8 h-8 text-muted-foreground/30 mx-auto mb-3" />
+        <p className="text-sm font-medium text-foreground mb-1">No retailers ship to {loc.city}</p>
+        <p className="text-xs text-muted-foreground">We couldn't find any online stores that deliver this shoe to your location.</p>
         <button onClick={load} className="mt-3 text-xs text-primary hover:underline flex items-center gap-1 mx-auto">
           <RefreshCw className="w-3 h-3" /> Try again
         </button>
