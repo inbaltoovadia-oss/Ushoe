@@ -112,9 +112,8 @@ Write a short 1 sentence summary of what you found.`;
     const webPrompt = `Find 6 real shoes matching: "${finalQ}"${selectedCategory ? ` in category ${selectedCategory}` : ""} that are available to ship to ${loc.city}.
 CRITICAL rules:
 1. Only include retailers that ship to ${loc.city}.
-2. For search_url: provide the DIRECT product listing URL on the retailer's site (e.g. https://www.nike.com/t/..., https://www.adidas.com/us/...). It MUST be a real, working URL that goes directly to the product — NOT a search results page, NOT a homepage.
-3. For image_url: provide the actual product image URL from the retailer's CDN or a reliable source (e.g. https://static.nike.com/...). Must be a direct image link ending in .jpg, .png, or .webp.
-For each provide: brand, name, price (as string like "$120"), retailer name, ships_to_user (true), image_url (direct product image), and search_url (direct product page URL).`;
+2. For each shoe provide: brand (e.g. "Nike"), name (exact model name e.g. "Air Max 270"), price (as string like "$120"), retailer name, ships_to_user (true).
+Return ONLY these fields — do not include any URLs.`;
 
     const [catalogResponse, webResponse] = await Promise.all([
       base44.integrations.Core.InvokeLLM({
@@ -154,9 +153,6 @@ For each provide: brand, name, price (as string like "$120"), retailer name, shi
                   price: { type: "string" },
                   retailer: { type: "string" },
                   ships_to_user: { type: "boolean" },
-                  reason: { type: "string" },
-                  image_url: { type: "string" },
-                  search_url: { type: "string" },
                 },
               },
             },
@@ -388,15 +384,13 @@ For each provide: brand, name, price (as string like "$120"), retailer name, shi
                 </h2>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
                   {webResults.map((pick, i) => {
-                    // Prefer direct product URL, fall back to Google search
-                    const url = pick.search_url && pick.search_url.startsWith("http")
-                      ? pick.search_url
-                      : `https://www.google.com/search?q=${encodeURIComponent((pick.brand || "") + " " + (pick.name || "") + " buy")}`;
-                    // Use AI-provided image, fall back to branded Google Images search
-                    const imgSrc = pick.image_url && pick.image_url.startsWith("http")
-                      ? pick.image_url
-                      : `https://www.google.com/search?tbm=isch&q=${encodeURIComponent((pick.brand || "") + " " + (pick.name || ""))}`;
-                    const fallbackImg = `https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&h=400&fit=crop`;
+                    const searchQuery = encodeURIComponent(`${pick.brand || ""} ${pick.name || ""}`);
+                    // Google Shopping link — always works, never 404s
+                    const url = `https://www.google.com/search?tbm=shop&q=${searchQuery}`;
+                    // Use Google Images as a reliable proxy for matching shoe image
+                    const imgSrc = `https://www.google.com/search?tbm=isch&q=${searchQuery}`;
+                    // Bing image search returns a real image via their open graph
+                    const bingImg = `https://tse1.mm.bing.net/th?q=${searchQuery}&w=400&h=400&c=7&rs=1&p=0&dpr=2&pid=1.7&mkt=en-US&adlt=moderate`;
                     return (
                       <motion.a
                         key={i}
@@ -410,14 +404,14 @@ For each provide: brand, name, price (as string like "$120"), retailer name, shi
                       >
                         <div className="relative aspect-square overflow-hidden bg-secondary/40">
                           <img
-                            src={imgSrc}
+                            src={bingImg}
                             alt={pick.name}
-                            onError={(e) => { e.target.src = fallbackImg; }}
+                            onError={(e) => { e.target.src = "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&h=400&fit=crop"; }}
                             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                           />
                           <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-center pb-3">
                             <span className="text-white text-[11px] font-semibold bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full border border-white/30">
-                              Shop Now →
+                              Find on Google →
                             </span>
                           </div>
                           <div className="absolute top-2 left-2">
