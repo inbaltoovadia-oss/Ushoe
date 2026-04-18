@@ -27,11 +27,23 @@ const STOCK_CONFIG = {
 };
 
 function getDirectionsUrl(store) {
-  const query = encodeURIComponent(`${store.name} ${store.address}`);
   const isApple = /iPhone|iPad|Macintosh/.test(navigator.userAgent);
+  if (store.latitude && store.longitude) {
+    // Use coordinates for maximum accuracy
+    return isApple
+      ? `https://maps.apple.com/?daddr=${store.latitude},${store.longitude}&dirflg=d`
+      : `https://www.google.com/maps/dir/?api=1&destination=${store.latitude},${store.longitude}&travelmode=driving`;
+  }
+  // Fall back to address-based navigation
+  const dest = encodeURIComponent(`${store.name}, ${store.address}`);
   return isApple
-    ? `https://maps.apple.com/?q=${query}`
-    : `https://www.google.com/maps/search/${query}`;
+    ? `https://maps.apple.com/?daddr=${dest}&dirflg=d`
+    : `https://www.google.com/maps/dir/?api=1&destination=${dest}&travelmode=driving`;
+}
+
+function cleanPhone(phone) {
+  // Strip everything except digits, +, (, ), -, space
+  return phone ? phone.replace(/[^\d+\-().# ]/g, "").trim() : "";
 }
 
 export default function NearbyStoresPage() {
@@ -59,10 +71,12 @@ Search for real, physical shoe retail stores of ANY kind within a 25-mile radius
 For each store provide:
 - name: official store name
 - brand: the chain name or "Independent" for standalone stores
-- address: full street address
-- distance_miles: estimated distance from "${query}" in miles (must be ≤ 25)
-- rating: number 1-5
-- phone: real phone number if available
+- address: full street address including city and state/country
+- latitude: GPS latitude of the store (as accurate as possible)
+- longitude: GPS longitude of the store (as accurate as possible)
+- distance_miles: real driving/walking distance from "${query}" in miles (must be ≤ 25, be as accurate as possible using real geography)
+- rating: number 1-5 based on real reviews if available
+- phone: real, dialable phone number in local format (digits only with country code if international, e.g. +12125551234)
 - website: store or brand website URL if available
 - stock_status: one of "In Stock", "Low Stock", or "Out of Stock" (randomize realistically)
 - hours_today: store hours for today
@@ -83,6 +97,8 @@ Also return a short 1-sentence summary about the shoe store scene in that area.`
                 name:           { type: "string" },
                 brand:          { type: "string" },
                 address:        { type: "string" },
+                latitude:       { type: "number" },
+                longitude:      { type: "number" },
                 distance_miles: { type: "number" },
                 rating:         { type: "number" },
                 phone:          { type: "string" },
@@ -261,7 +277,7 @@ Also return a short 1-sentence summary about the shoe store scene in that area.`
                             <div className="flex gap-2">
                               {store.phone && (
                                 <a
-                                  href={`tel:${store.phone}`}
+                                  href={`tel:${cleanPhone(store.phone)}`}
                                   className="flex-1 flex items-center justify-center gap-1 text-xs px-3 py-2 bg-secondary rounded-xl hover:bg-secondary/80 transition-colors"
                                 >
                                   <Phone className="w-3.5 h-3.5" />
