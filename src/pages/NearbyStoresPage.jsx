@@ -42,8 +42,28 @@ function getDirectionsUrl(store) {
 }
 
 function cleanPhone(phone) {
-  // Strip everything except digits, +, (, ), -, space
   return phone ? phone.replace(/[^\d+\-().# ]/g, "").trim() : "";
+}
+
+// Haversine formula — returns straight-line distance in miles
+function haversineDistance(lat1, lon1, lat2, lon2) {
+  const R = 3958.8; // Earth radius in miles
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// Geocode a free-text location to lat/lng using Nominatim (no API key needed)
+async function geocodeLocation(query) {
+  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`;
+  const res = await fetch(url, { headers: { "Accept-Language": "en" } });
+  const data = await res.json();
+  if (data.length === 0) return null;
+  return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
 }
 
 export default function NearbyStoresPage() {
@@ -63,7 +83,9 @@ export default function NearbyStoresPage() {
     setAiSummary("");
     setSearchedCity(query);
 
-    const res = await base44.integrations.Core.InvokeLLM({
+    // Geocode user's input in parallel with the AI call
+    const [res, userCoords] = await Promise.all([
+      base44.integrations.Core.InvokeLLM({
       prompt: `You are a shoe store locator AI. The user entered this location: "${query}".
 
 Search for real, physical shoe retail stores of ANY kind within a 25-mile radius of that location. Include all types: major chains (Nike, Adidas, Foot Locker, DSW, JD Sports, Finish Line, DICK'S Sporting Goods, Shoe Carnival, New Balance, Skechers, Vans, Converse, Puma, Reebok), independent shoe stores, boutique sneaker shops, department stores with shoe departments, outlet stores, and any other physical store that primarily sells shoes or has a significant shoe section.
@@ -110,10 +132,20 @@ Also return a short 1-sentence summary about the shoe store scene in that area.`
           },
         },
       },
+    }),
+      geocodeLocation(query),
+    ]);
+
+    // Recalculate distances using real coordinates if we have the user's coords
+    const storesWithDistance = (res.stores || []).map(s => {
+      if (userCoords && s.latitude && s.longitude) {
+        return { ...s, distance_miles: haversineDistance(userCoords.lat, userCoords.lng, s.latitude, s.longitude) };
+      }
+      return s;
     });
 
-    const sorted = (res.stores || [])
-      .filter(s => s.distance_miles <= 25)
+    const sorted = storesWithDistance
+      .filter(s => s.distance_miles == null || s.distance_miles <= 25)
       .sort((a, b) => (a.distance_miles ?? 99) - (b.distance_miles ?? 99));
 
     setStores(sorted);
