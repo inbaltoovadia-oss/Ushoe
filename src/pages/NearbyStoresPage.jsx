@@ -5,12 +5,19 @@ import { base44 } from "@/api/base44Client";
 
 const BRAND_COLORS = {
   "Nike": "bg-black text-white",
+  "Adidas": "bg-blue-800 text-white",
   "Foot Locker": "bg-red-600 text-white",
   "Finish Line": "bg-blue-700 text-white",
   "DICK'S Sporting Goods": "bg-green-700 text-white",
   "JD Sports": "bg-yellow-400 text-black",
   "Shoe Carnival": "bg-orange-500 text-white",
   "DSW": "bg-purple-600 text-white",
+  "New Balance": "bg-gray-700 text-white",
+  "Skechers": "bg-blue-600 text-white",
+  "Vans": "bg-red-700 text-white",
+  "Converse": "bg-red-500 text-white",
+  "Puma": "bg-zinc-800 text-white",
+  "Reebok": "bg-red-800 text-white",
 };
 
 const STOCK_CONFIG = {
@@ -47,20 +54,20 @@ export default function NearbyStoresPage() {
     const res = await base44.integrations.Core.InvokeLLM({
       prompt: `You are a shoe store locator AI. The user entered this location: "${query}".
 
-Search for real, physical shoe retail stores within a 25-mile radius of that location. Only include these brands/chains: Nike, Foot Locker, Finish Line, DICK'S Sporting Goods, JD Sports, Shoe Carnival, DSW.
+Search for real, physical shoe retail stores of ANY kind within a 25-mile radius of that location. Include all types: major chains (Nike, Adidas, Foot Locker, DSW, JD Sports, Finish Line, DICK'S Sporting Goods, Shoe Carnival, New Balance, Skechers, Vans, Converse, Puma, Reebok), independent shoe stores, boutique sneaker shops, department stores with shoe departments, outlet stores, and any other physical store that primarily sells shoes or has a significant shoe section.
 
 For each store provide:
 - name: official store name
-- brand: one of the 7 chains above
+- brand: the chain name or "Independent" for standalone stores
 - address: full street address
 - distance_miles: estimated distance from "${query}" in miles (must be ≤ 25)
 - rating: number 1-5
-- phone: real phone number
-- website: brand's website URL
+- phone: real phone number if available
+- website: store or brand website URL if available
 - stock_status: one of "In Stock", "Low Stock", or "Out of Stock" (randomize realistically)
 - hours_today: store hours for today
 
-Sort results by distance ascending (closest first). Return up to 8 stores.
+Sort results by distance ascending (closest first). Return up to 10 stores.
 If none exist within 25 miles, return an empty stores array.
 Also return a short 1-sentence summary about the shoe store scene in that area.`,
       add_context_from_internet: true,
@@ -110,7 +117,7 @@ Also return a short 1-sentence summary about the shoe store scene in that area.`
             </div>
             <h1 className="font-heading font-bold text-3xl">Store Finder</h1>
           </div>
-          <p className="text-muted-foreground text-sm">Find Nike, Foot Locker, DSW, and more within 25 miles of you</p>
+          <p className="text-muted-foreground text-sm">Find any shoe store — chains, boutiques, outlets, and more — within 25 miles of you</p>
         </motion.div>
 
         {/* Location Search Bar */}
@@ -292,7 +299,7 @@ Also return a short 1-sentence summary about the shoe store scene in that area.`
             </div>
             <h3 className="font-heading font-bold text-xl mb-2">Find Shoe Stores Near You</h3>
             <p className="text-muted-foreground text-sm max-w-sm mx-auto">
-              Enter your city, zip code, or address above to find Nike, Foot Locker, DSW, and more within 25 miles.
+              Enter your city, zip code, or address above to find any shoe store — chains, boutiques, outlets, and more — within 25 miles.
             </p>
           </div>
         )}
