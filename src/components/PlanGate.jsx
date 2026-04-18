@@ -14,7 +14,7 @@ export default function PlanGate({ locked, feature, description, children, inlin
       <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-800/40 rounded-xl text-sm">
         <Lock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
         <span className="text-amber-800 dark:text-amber-300">{description || feature} — </span>
-        <Link to="/settings" className="font-semibold text-primary hover:underline flex items-center gap-1">
+        <Link to="/subscription" className="font-semibold text-primary hover:underline flex items-center gap-1">
           <Zap className="w-3 h-3" /> Upgrade
         </Link>
       </div>
@@ -35,7 +35,7 @@ export default function PlanGate({ locked, feature, description, children, inlin
         {description && <p className="text-sm text-muted-foreground mt-1">{description}</p>}
       </div>
       <Link
-        to="/settings"
+        to="/subscription"
         className="flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity mt-1"
       >
         <Zap className="w-4 h-4" />

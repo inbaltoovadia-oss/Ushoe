@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
-import { Search, MapPin, Sun, Moon, Sparkles, Menu, X, Wand2, ChevronDown, Settings, ShieldCheck, Ruler } from "lucide-react";
+import { Search, MapPin, Sun, Moon, Sparkles, Menu, X, Wand2, ChevronDown, Crown, ShieldCheck, Ruler } from "lucide-react";
 import { getLocation, subscribeLocation } from "../lib/locationStore";
 import LocationPicker from "./LocationPicker";
 import { useAuth } from "@/lib/AuthContext";
@@ -151,8 +151,17 @@ export default function Navbar() {
                   {sizeLabel || "Set size"}
                 </span>
               </button>
-              <Link to="/settings" onClick={handleNavClick} className="p-2 rounded-xl hover:bg-secondary transition-colors hidden sm:block">
-                <Settings className="w-5 h-5 text-muted-foreground" />
+              <Link
+                to="/subscription"
+                onClick={handleNavClick}
+                className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                  isActive("/subscription")
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-primary/10 text-primary hover:bg-primary/20"
+                }`}
+              >
+                <Crown className="w-3.5 h-3.5" />
+                Plans
               </Link>
               {user?.role === "admin" && (
                 <Link to="/admin" onClick={handleNavClick} className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 hover:opacity-80 transition-opacity">
@@ -206,12 +215,12 @@ export default function Navbar() {
                 ))}
               </div>
               <Link
-                to="/settings"
+                to="/subscription"
                 onClick={() => { setMobileOpen(false); handleNavClick(); }}
-                className="flex items-center gap-2 w-full px-4 py-3 text-sm text-muted-foreground rounded-xl hover:bg-secondary"
+                className="flex items-center gap-2 w-full px-4 py-3 text-sm font-semibold text-primary rounded-xl hover:bg-secondary"
               >
-                <Settings className="w-4 h-4" />
-                Settings
+                <Crown className="w-4 h-4" />
+                Plans & Subscription
               </Link>
               {user?.role === "admin" && (
                 <Link

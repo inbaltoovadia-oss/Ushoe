@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Sparkles, Send, Loader2, Globe, ImagePlus, X, Ruler } from "lucide-react";
+import { Sparkles, Send, Loader2, Globe, ImagePlus, X, Ruler, Trophy, Bell, Lock } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { base44 } from "@/api/base44Client";
 import ShoeCard from "../components/ShoeCard";
@@ -10,8 +10,9 @@ import { getInterests, ALL_CATEGORIES } from "../lib/interestStore";
 import { getSizeLabel, subscribeSize, getSize } from "../lib/sizeStore";
 import SizeSelector from "../components/SizeSelector";
 import { getCached, setCache } from "../lib/searchCache";
-import { getLocation } from "../lib/locationStore";
+import { getLocation, subscribeLocation } from "../lib/locationStore";
 import { canSearch, incrementSearchCount, canUse, getPlan, getSearchesUsedToday, PLAN_LIMITS } from "../lib/planStore";
+
 import PlanGate from "../components/PlanGate";
 import ShoeProblemSolver from "../components/ShoeProblemSolver";
 import { Link } from "react-router-dom";
@@ -37,12 +38,14 @@ export default function Discover() {
   const [sizeLabel, setSizeLabel] = useState(getSizeLabel());
   const [showSizePicker, setShowSizePicker] = useState(false);
   const [searchBlocked, setSearchBlocked] = useState(false);
+  const [loc, setLoc] = useState(getLocation());
   const inputRef = useRef(null);
   const fileRef = useRef(null);
   const resultsRef = useRef(null);
 
   useEffect(() => { inputRef.current?.focus(); }, []);
   useEffect(() => subscribeSize(() => setSizeLabel(getSizeLabel())), []);
+  useEffect(() => subscribeLocation(setLoc), []);
 
   const handleImageChange = async (e) => {
     const file = e.target.files?.[0];
@@ -112,7 +115,7 @@ Write a short 1 sentence summary of what you found.`;
     const webPrompt = `Find 6 real shoes matching: "${finalQ}"${selectedCategory ? ` in category ${selectedCategory}` : ""} that are available to ship to ${loc.city}.
 CRITICAL rules:
 1. Only include retailers that ship to ${loc.city}.
-2. For each shoe provide: brand (e.g. "Nike"), name (exact model name e.g. "Air Max 270"), price (as string like "$120"), retailer name, ships_to_user (true).
+2. For each shoe provide: brand (e.g. "Nike"), name (exact model name), price (as string like "$120"), retailer name, ships_to_user (true), is_best_deal (boolean — mark true for the SINGLE best value option considering price and availability, only ONE item should have this as true).
 Return ONLY these fields — do not include any URLs.`;
 
     const [catalogResponse, webResponse] = await Promise.all([
@@ -153,6 +156,7 @@ Return ONLY these fields — do not include any URLs.`;
                   price: { type: "string" },
                   retailer: { type: "string" },
                   ships_to_user: { type: "boolean" },
+                  is_best_deal: { type: "boolean" },
                 },
               },
             },
@@ -275,7 +279,7 @@ Return ONLY these fields — do not include any URLs.`;
                     <span>{remaining} of {max} free AI searches remaining today</span>
                   ) : (
                     <span className="text-amber-600 font-medium">
-                      Daily limit reached — <Link to="/settings" className="underline text-primary">Upgrade to Pro</Link> for unlimited
+                      Daily limit reached — <Link to="/subscription" className="underline text-primary">Upgrade to Pro</Link> for unlimited
                     </span>
                   );
                 })()}
@@ -382,14 +386,55 @@ Return ONLY these fields — do not include any URLs.`;
                   <Globe className="w-5 h-5 text-primary" />
                   Also Found on the Web
                 </h2>
+
+                {/* Best Option — full-width prominent card */}
+                {webResults.filter(p => p.is_best_deal).map((pick, i) => {
+                  const searchQuery = encodeURIComponent(`${pick.brand || ""} ${pick.name || ""}`);
+                  const url = `https://www.google.com/search?tbm=shop&q=${searchQuery}`;
+                  const bingImg = `https://tse1.mm.bing.net/th?q=${searchQuery}&w=600&h=600&c=7&rs=1&p=0&dpr=2&pid=1.7&mkt=en-US&adlt=moderate`;
+                  return (
+                    <motion.a
+                      key={`best-${i}`}
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      initial={{ opacity: 0, y: 16 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="group flex gap-4 bg-gradient-to-r from-primary/10 to-primary/5 border-2 border-primary rounded-2xl overflow-hidden hover:shadow-2xl hover:shadow-primary/20 hover:-translate-y-1 transition-all duration-300 mb-4 p-4"
+                    >
+                      <div className="w-24 h-24 flex-shrink-0 rounded-xl overflow-hidden bg-secondary">
+                        <img
+                          src={bingImg}
+                          alt={pick.name}
+                          onError={(e) => { e.target.src = "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=200&h=200&fit=crop"; }}
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <span className="flex items-center gap-1 bg-primary text-primary-foreground text-xs font-bold px-2.5 py-1 rounded-full">
+                            <Trophy className="w-3 h-3" />
+                            Best Option
+                          </span>
+                          <span className="text-[9px] font-bold text-green-700 bg-green-100 dark:bg-green-900/50 dark:text-green-400 px-2 py-0.5 rounded-full">
+                            ✓ Ships to {loc.city}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">{pick.brand}</p>
+                        <p className="font-heading font-bold text-base group-hover:text-primary transition-colors line-clamp-1">{pick.name}</p>
+                        <div className="flex items-center justify-between mt-1">
+                          {pick.price && <p className="text-primary font-bold text-xl">{pick.price}</p>}
+                          <span className="text-xs text-muted-foreground">{pick.retailer} →</span>
+                        </div>
+                      </div>
+                    </motion.a>
+                  );
+                })}
+
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-                  {webResults.map((pick, i) => {
+                  {webResults.filter(p => !p.is_best_deal).map((pick, i) => {
                     const searchQuery = encodeURIComponent(`${pick.brand || ""} ${pick.name || ""}`);
-                    // Google Shopping link — always works, never 404s
                     const url = `https://www.google.com/search?tbm=shop&q=${searchQuery}`;
-                    // Use Google Images as a reliable proxy for matching shoe image
-                    const imgSrc = `https://www.google.com/search?tbm=isch&q=${searchQuery}`;
-                    // Bing image search returns a real image via their open graph
                     const bingImg = `https://tse1.mm.bing.net/th?q=${searchQuery}&w=400&h=400&c=7&rs=1&p=0&dpr=2&pid=1.7&mkt=en-US&adlt=moderate`;
                     return (
                       <motion.a
@@ -432,6 +477,29 @@ Return ONLY these fields — do not include any URLs.`;
                     );
                   })}
                 </div>
+
+                {/* Soft premium prompt — price alerts */}
+                {!canUse("priceAlerts") && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mt-4 flex items-center justify-between gap-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 rounded-2xl px-4 py-3"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Bell className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+                      <p className="text-sm text-amber-800 dark:text-amber-300">
+                        <span className="font-semibold">Get notified when prices drop</span> — track these shoes and we'll alert you
+                      </p>
+                    </div>
+                    <Link
+                      to="/subscription"
+                      className="flex-shrink-0 flex items-center gap-1 text-xs font-semibold text-primary bg-primary/10 hover:bg-primary/20 px-3 py-1.5 rounded-xl transition-colors"
+                    >
+                      <Lock className="w-3 h-3" />
+                      Unlock Pro
+                    </Link>
+                  </motion.div>
+                )}
               </div>
             )}
 
