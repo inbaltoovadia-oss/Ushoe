@@ -24,6 +24,7 @@ import NearbyStoresPage from './pages/NearbyStoresPage';
 import Compare from './pages/Compare.jsx';
 import AdminDashboard from './pages/AdminDashboard';
 import Subscription from './pages/Subscription';
+import Assistant from './pages/Assistant';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -69,6 +70,7 @@ const AuthenticatedApp = () => {
         <Route path="/compare" element={<Compare />} />
         <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/subscription" element={<Subscription />} />
+        <Route path="/assistant" element={<Assistant />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>
     </Routes>

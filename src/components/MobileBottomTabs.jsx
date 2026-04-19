@@ -1,13 +1,13 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { Home, Compass, Flame, Heart, Settings } from "lucide-react";
+import { Home, Compass, Flame, Heart, Bot } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const TABS = [
-  { to: "/",         label: "Home",     icon: Home },
-  { to: "/discover", label: "Discover", icon: Compass },
-  { to: "/trending", label: "Trending", icon: Flame },
-  { to: "/wishlist", label: "Wishlist", icon: Heart },
-  { to: "/settings", label: "Settings", icon: Settings },
+  { to: "/",          label: "Home",      icon: Home },
+  { to: "/discover",  label: "Discover",  icon: Compass },
+  { to: "/assistant", label: "Assistant", icon: Bot },
+  { to: "/trending",  label: "Trending",  icon: Flame },
+  { to: "/wishlist",  label: "Wishlist",  icon: Heart },
 ];
 
 export default function MobileBottomTabs() {

@@ -9,7 +9,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import SizeSelector from "./SizeSelector";
 
 // Root tabs — show logo on these, back button on all others
-const ROOT_PATHS = ["/", "/discover", "/trending", "/wishlist", "/settings"];
+const ROOT_PATHS = ["/", "/discover", "/trending", "/wishlist", "/settings", "/assistant"];
 
 // Human-readable titles for child screens
 const PAGE_TITLES = {
@@ -25,6 +25,7 @@ const PAGE_TITLES = {
   "/survey": "Style Survey",
   "/subscription": "Plans",
   "/admin": "Admin",
+  "/assistant": "AI Assistant",
 };
 
 function getPageTitle(pathname) {
@@ -73,6 +74,7 @@ export default function Navbar() {
   const navLinks = [
     { to: "/", label: "Home" },
     { to: "/discover", label: "Discover" },
+    { to: "/assistant", label: "🤖 Assistant" },
     { to: "/trending", label: "Trending" },
     { to: "/deals", label: "Deals" },
     { to: "/nearby-stores", label: "Stores" },
