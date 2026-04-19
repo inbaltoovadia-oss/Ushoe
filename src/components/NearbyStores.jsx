@@ -148,11 +148,7 @@ const stockColors = {
 
 function StoreRow({ store }) {
   const isBest = store.is_best_option;
-  const distLabel = store.distance_km != null
-    ? `${store.distance_km < 1 ? (store.distance_km * 1000).toFixed(0) + " m" : store.distance_km.toFixed(1) + " km"} away`
-    : store.distance != null
-      ? `${typeof store.distance === "number" ? store.distance.toFixed(1) + " mi" : store.distance} away`
-      : null;
+  const distLabel = null;
 
   return (
     <div className={`bg-card rounded-2xl border flex gap-3 p-3 transition-all hover:shadow-md ${
@@ -188,12 +184,6 @@ function StoreRow({ store }) {
             <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
             <span className="text-xs text-muted-foreground">{store.rating}</span>
           </div>
-          {distLabel && (
-            <span className="text-xs font-medium text-primary flex items-center gap-0.5">
-              <MapPin className="w-3 h-3" />
-              {distLabel}
-            </span>
-          )}
           {store.pickup_today && (
             <span className="text-[10px] font-semibold text-green-600 dark:text-green-400 flex items-center gap-0.5 bg-green-50 dark:bg-green-950/30 px-1.5 py-0.5 rounded-full">
               <Zap className="w-2.5 h-2.5" />
