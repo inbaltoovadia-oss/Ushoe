@@ -1,6 +1,7 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import { Search, MapPin, Sun, Moon, Menu, X, Wand2, ChevronDown, Crown, ShieldCheck, Ruler, ArrowLeft } from "lucide-react";
+import LanguagePicker from "./LanguagePicker";
 import { getLocation, subscribeLocation } from "../lib/locationStore";
 import LocationPicker from "./LocationPicker";
 import { useAuth } from "@/lib/AuthContext";
@@ -201,6 +202,7 @@ export default function Navbar() {
               <Link to="/search" onClick={handleNavClick} className="p-2 rounded-xl hover:bg-secondary transition-colors">
                 <Search className="w-5 h-5 text-muted-foreground" />
               </Link>
+              <LanguagePicker compact />
               {/* Size badge */}
               <button
                 onClick={() => setShowSizePicker(true)}

@@ -7,7 +7,7 @@ Deno.serve(async (req) => {
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
     const body = await req.json();
-    const { message, conversationHistory = [], userProfile = {}, catalogSnapshot = [] } = body;
+    const { message, conversationHistory = [], userProfile = {}, catalogSnapshot = [], forcedLanguage } = body;
 
     // Build persona string
     const personaLines = [];
@@ -33,10 +33,9 @@ Deno.serve(async (req) => {
     const systemPrompt = `You are uShoe AI — a world-class shoe specialist and personal shopping assistant.
 
 LANGUAGE RULE (CRITICAL):
-- Detect the language of the user's message and reply in EXACTLY that language.
-- If the user writes in Hebrew, reply in Hebrew. If Spanish, reply in Spanish. If English, reply in English. And so on for any language.
-- Follow-up questions must also be in the same detected language.
-- Never switch languages mid-conversation unless the user switches first.
+- ${forcedLanguage ? `The user has explicitly selected "${forcedLanguage}" as their preferred language. You MUST reply in ${forcedLanguage} regardless of what language they write in.` : "Detect the language of the user's message and reply in EXACTLY that language."}
+- Follow-up questions must also be in the same language.
+- Never switch languages mid-conversation unless the user changes the language setting.
 
 PERSONALITY:
 - Confident, direct, expert. Talk like a real shoe consultant, not a chatbot.

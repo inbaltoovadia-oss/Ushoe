@@ -4,6 +4,8 @@ import { Send, Loader2, Sparkles, RefreshCw, Brain, Zap, ArrowRight, RotateCcw }
 import { base44 } from "@/api/base44Client";
 import { getUserProfile } from "../lib/userProfileStore";
 import { rankShoes } from "../lib/personalizationEngine";
+import { getLanguage, subscribeLanguage, LANGUAGES } from "../lib/languageStore";
+import LanguagePicker from "../components/LanguagePicker";
 import ShoeCard from "../components/ShoeCard";
 import ReactMarkdown from "react-markdown";
 
@@ -103,8 +105,11 @@ export default function Assistant() {
   const [catalogShoes, setCatalogShoes] = useState([]);
   const [userProfile, setUserProfile] = useState(null);
   const [profileLoaded, setProfileLoaded] = useState(false);
+  const [language, setLanguageState] = useState(getLanguage());
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
+
+  useEffect(() => subscribeLanguage(setLanguageState), []);
 
   useEffect(() => {
     init();
@@ -151,6 +156,7 @@ export default function Assistant() {
       message: q,
       conversationHistory,
       userProfile,
+      forcedLanguage: language.label,
       catalogSnapshot: catalogShoes.slice(0, 20).map(s => ({
         brand: s.brand,
         name: s.name,
@@ -211,13 +217,16 @@ export default function Assistant() {
             </p>
           </div>
         </div>
-        <button
-          onClick={reset}
-          className="p-2 rounded-xl hover:bg-secondary transition-colors"
-          title="New conversation"
-        >
-          <RotateCcw className="w-4 h-4 text-muted-foreground" />
-        </button>
+        <div className="flex items-center gap-2">
+          <LanguagePicker />
+          <button
+            onClick={reset}
+            className="p-2 rounded-xl hover:bg-secondary transition-colors"
+            title="New conversation"
+          >
+            <RotateCcw className="w-4 h-4 text-muted-foreground" />
+          </button>
+        </div>
       </div>
 
       {/* Profile signal badges */}
