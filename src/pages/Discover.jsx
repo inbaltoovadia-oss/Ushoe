@@ -31,6 +31,7 @@ export default function Discover() {
   const [results, setResults] = useState(null);
   const [webResults, setWebResults] = useState([]);
   const [aiExplanation, setAiExplanation] = useState("");
+  const [allShoes, setAllShoes] = useState([]);
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [imageUrl, setImageUrl] = useState(null);
@@ -91,12 +92,13 @@ export default function Discover() {
       }
     }
 
-    const [allShoes, userProfile] = await Promise.all([
+    const [allShoesData, userProfile] = await Promise.all([
       base44.entities.Shoe.list("-trending_score", 100),
       getUserProfile(),
     ]);
 
-    const rankedShoes = rankShoes(allShoes, userProfile, { limit: 80 });
+    setAllShoes(allShoesData);
+    const rankedShoes = rankShoes(allShoesData, userProfile, { limit: 80 });
     const sizePref = getSize();
     const sizeNote = sizePref.us ? `The user's shoe size is US ${sizePref.us} (EU ${sizePref.eu}, UK ${sizePref.uk}). Prefer shoes available in this size.` : "";
     const personaSummary = buildPersonaSummary(userProfile);
@@ -419,11 +421,11 @@ NOT Adidas, NOT Nike - ONLY Asics when user asks for Asics.`;
                       {/* Best Deal — Large Card */}
                       {bestPick && (() => {
                         // Try to find matching shoe in catalog for image fallback
-                        const catalogMatch = rankedShoes.find(
+                        const catalogMatch = allShoes.find(
                           s => s.brand.toLowerCase() === (bestPick.brand || "").toLowerCase() &&
                                s.name.toLowerCase().includes((bestPick.name || "").split(" ")[0].toLowerCase())
                         );
-                        const fallbackShoe = catalogMatch || rankedShoes.find(s => s.brand.toLowerCase() === (bestPick.brand || "").toLowerCase());
+                        const fallbackShoe = catalogMatch || allShoes.find(s => s.brand.toLowerCase() === (bestPick.brand || "").toLowerCase());
                         const displayImage = bestPick.image_url || fallbackShoe?.image_url;
 
                         return (
@@ -493,11 +495,11 @@ NOT Adidas, NOT Nike - ONLY Asics when user asks for Asics.`;
                           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
                             {otherPicks.map((pick, i) => {
                               // Try to find matching shoe in catalog for image fallback
-                              const catalogMatch = rankedShoes.find(
+                              const catalogMatch = allShoes.find(
                                 s => s.brand.toLowerCase() === (pick.brand || "").toLowerCase() &&
                                      s.name.toLowerCase().includes((pick.name || "").split(" ")[0].toLowerCase())
                               );
-                              const fallbackShoe = catalogMatch || rankedShoes.find(s => s.brand.toLowerCase() === (pick.brand || "").toLowerCase());
+                              const fallbackShoe = catalogMatch || allShoes.find(s => s.brand.toLowerCase() === (pick.brand || "").toLowerCase());
                               const displayImage = pick.image_url || fallbackShoe?.image_url;
 
                               return (
