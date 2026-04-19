@@ -21,7 +21,7 @@ import OutfitMatcher from './pages/OutfitMatcher';
 import Settings from './pages/Settings';
 import ShoeSurvey from './pages/ShoeSurvey';
 import NearbyStoresPage from './pages/NearbyStoresPage';
-import Compare from './pages/Compare';
+import Compare from './pages/Compare.jsx';
 import AdminDashboard from './pages/AdminDashboard';
 import Subscription from './pages/Subscription';
 

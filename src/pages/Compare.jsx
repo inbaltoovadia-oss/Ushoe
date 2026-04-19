@@ -1,18 +1,26 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { ArrowLeft, Star, X, TrendingDown, Trophy, GitCompare } from "lucide-react";
+import {
+  ArrowLeft, Star, X, TrendingDown, Trophy, GitCompare,
+  RefreshCw, Loader2, ExternalLink, CheckCircle, XCircle, Globe
+} from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { base44 } from "@/api/base44Client";
 import { getCompareShoes, clearCompare, subscribeCompare, toggleCompare } from "../lib/compareStore";
 import { getPlan, getLimits } from "../lib/planStore";
 import PlanGate from "../components/PlanGate";
-import { motion } from "framer-motion";
+import ShoeImage from "../components/ShoeImage";
 
-const ROWS = [
+// ─── Static rows from catalog data ───────────────────────────────────────────
+const CATALOG_ROWS = [
   { label: "Brand", key: "brand" },
+  { label: "Category", key: "category" },
+  { label: "Gender", key: "gender" },
   {
-    label: "Price",
+    label: "Our Price",
     key: "price",
     render: (v) => (v ? `$${v}` : "—"),
-    highlight: "lowest", // highlight the shoe with the lowest value
+    highlight: "lowest",
   },
   {
     label: "Original Price",
@@ -29,42 +37,39 @@ const ROWS = [
     render: (v) => (v > 0 ? `${v}% off` : "—"),
     highlight: "highest",
   },
-  { label: "Category", key: "category" },
-  { label: "Gender", key: "gender" },
   {
     label: "Rating",
     key: "rating",
     render: (v) =>
       v ? (
         <span className="flex items-center gap-1 justify-center">
-          <Star className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500" />
+          <Star className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500 inline" />
           {v}
         </span>
-      ) : (
-        "—"
-      ),
+      ) : "—",
     highlight: "highest",
   },
   {
-    label: "Available Sizes",
-    key: "sizes_available",
-    render: (v) => (v?.length ? v.join(", ") : "—"),
+    label: "Colorway",
+    key: "colorway",
+    render: (v) => v || "—",
   },
   {
-    label: "Colors",
+    label: "Available Colors",
     key: "colors_available",
     render: (v) =>
       v?.length ? (
         <div className="flex flex-wrap gap-1 justify-center">
           {v.map((c) => (
-            <span key={c} className="text-xs px-2 py-0.5 bg-secondary rounded-full">
-              {c}
-            </span>
+            <span key={c} className="text-[11px] px-2 py-0.5 bg-secondary rounded-full">{c}</span>
           ))}
         </div>
-      ) : (
-        "—"
-      ),
+      ) : "—",
+  },
+  {
+    label: "Sizes Available",
+    key: "sizes_available",
+    render: (v) => (v?.length ? v.join(", ") : "—"),
   },
   {
     label: "Features",
@@ -73,18 +78,33 @@ const ROWS = [
       v?.length ? (
         <div className="flex flex-wrap gap-1 justify-center">
           {v.map((f) => (
-            <span key={f} className="text-xs px-2 py-0.5 bg-primary/10 text-primary rounded-full">
-              {f}
-            </span>
+            <span key={f} className="text-[11px] px-2 py-0.5 bg-primary/10 text-primary rounded-full">{f}</span>
           ))}
         </div>
-      ) : (
-        "—"
-      ),
+      ) : "—",
   },
-  { label: "Colorway", key: "colorway" },
-  { label: "Release Date", key: "release_date" },
-  { label: "Is Trending", key: "is_trending", render: (v) => (v ? "🔥 Yes" : "No") },
+  {
+    label: "Release Date",
+    key: "release_date",
+    render: (v) => v || "—",
+  },
+  {
+    label: "Trending",
+    key: "is_trending",
+    render: (v) => (v ? "🔥 Yes" : "No"),
+  },
+];
+
+// ─── Live rows (from AI enrichment) ──────────────────────────────────────────
+const LIVE_ROWS = [
+  { label: "Current Market Price", key: "market_price", highlight: "lowest" },
+  { label: "Lowest Price Found", key: "lowest_price", highlight: "lowest" },
+  { label: "Best Retailer", key: "best_retailer" },
+  { label: "In Stock Online", key: "in_stock_online", render: (v) => v === true ? <span className="flex items-center gap-1 justify-center text-green-600"><CheckCircle className="w-3.5 h-3.5" />Yes</span> : v === false ? <span className="flex items-center gap-1 justify-center text-red-500"><XCircle className="w-3.5 h-3.5" />No</span> : "—" },
+  { label: "Colorways Available", key: "colorways_count", render: (v) => v ? `${v} colorways` : "—", highlight: "highest" },
+  { label: "Resale Value", key: "resale_value" },
+  { label: "Expert Rating", key: "expert_rating", highlight: "highest" },
+  { label: "Verdict", key: "verdict" },
 ];
 
 function getVal(shoe, row) {
@@ -95,147 +115,224 @@ function getVal(shoe, row) {
 function getBestIndex(shoes, row) {
   if (!row.highlight) return -1;
   const vals = shoes.map((s) => {
-    const v = getVal(s, row);
-    return typeof v === "number" ? v : null;
+    const raw = row.live ? s[row.key] : getVal(s, row);
+    if (typeof raw === "string") {
+      const parsed = parseFloat(raw.replace(/[^0-9.]/g, ""));
+      return isNaN(parsed) ? null : parsed;
+    }
+    return typeof raw === "number" ? raw : null;
   });
   if (vals.every((v) => v === null)) return -1;
-  if (row.highlight === "lowest") {
-    const min = Math.min(...vals.filter((v) => v !== null));
-    return vals.findIndex((v) => v === min);
-  }
-  if (row.highlight === "highest") {
-    const max = Math.max(...vals.filter((v) => v !== null));
-    return vals.findIndex((v) => v === max);
-  }
-  return -1;
+  const nonNull = vals.filter((v) => v !== null);
+  const target = row.highlight === "lowest" ? Math.min(...nonNull) : Math.max(...nonNull);
+  return vals.findIndex((v) => v === target);
 }
 
 export default function Compare() {
   const navigate = useNavigate();
   const [shoes, setShoes] = useState(getCompareShoes());
+  const [liveData, setLiveData] = useState({});   // { [shoeId]: enriched object }
+  const [loadingLive, setLoadingLive] = useState(false);
+  const [liveLoaded, setLiveLoaded] = useState(false);
   const limits = getLimits();
 
   useEffect(() => subscribeCompare(setShoes), []);
 
-  // Free plan: max 2 shoes in compare
   const maxCompare = limits.compareMax || 2;
-  const lockedShoes = shoes.slice(maxCompare);
-  const visibleShoes = shoes.slice(0, maxCompare);
-  const isPlanLocked = getPlan() === "free" && shoes.length > 2;
+  const visibleShoes = getPlan() === "free" ? shoes.slice(0, maxCompare) : shoes;
+  const isPlanLocked = getPlan() === "free" && shoes.length > maxCompare;
+
+  const fetchLiveData = async () => {
+    if (!visibleShoes.length) return;
+    setLoadingLive(true);
+    setLiveLoaded(false);
+    try {
+      const res = await base44.integrations.Core.InvokeLLM({
+        prompt: `You are a shoe market data expert. For EACH of the following shoes, search the web RIGHT NOW and provide accurate, up-to-date information.
+
+Shoes to research:
+${visibleShoes.map((s, i) => `${i + 1}. ${s.brand} ${s.name} (catalog price: $${s.price})`).join("\n")}
+
+For each shoe return:
+- shoe_index: number (1-based)
+- market_price: current typical retail price as string e.g. "$130"
+- lowest_price: lowest current price found online as string e.g. "$115"
+- best_retailer: name of retailer with the best current price
+- buy_url: direct URL to buy (prefer official brand site or Nike/Adidas/StockX/GOAT/Zappos/FootLocker)
+- in_stock_online: boolean — is it currently in stock online?
+- colorways_count: number of colorway options currently available
+- resale_value: StockX/GOAT resale value if available, as string
+- expert_rating: score out of 10 from expert reviews, as number
+- verdict: one sentence expert verdict
+
+Return data for ALL ${visibleShoes.length} shoes.`,
+        add_context_from_internet: true,
+        response_json_schema: {
+          type: "object",
+          properties: {
+            shoes: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  shoe_index: { type: "number" },
+                  market_price: { type: "string" },
+                  lowest_price: { type: "string" },
+                  best_retailer: { type: "string" },
+                  buy_url: { type: "string" },
+                  in_stock_online: { type: "boolean" },
+                  colorways_count: { type: "number" },
+                  resale_value: { type: "string" },
+                  expert_rating: { type: "number" },
+                  verdict: { type: "string" },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      const enriched = {};
+      (res.shoes || []).forEach((d) => {
+        const shoe = visibleShoes[d.shoe_index - 1];
+        if (shoe) enriched[shoe.id] = d;
+      });
+      setLiveData(enriched);
+    } catch (e) {
+      console.error(e);
+    }
+    setLoadingLive(false);
+    setLiveLoaded(true);
+  };
+
+  // Auto-fetch on mount
+  useEffect(() => {
+    if (visibleShoes.length > 0) fetchLiveData();
+  }, []); // eslint-disable-line
 
   if (shoes.length === 0) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center px-4">
-        <GitCompare className="w-14 h-14 text-muted-foreground/20 mb-4" />
-        <h2 className="font-heading font-bold text-2xl mb-2">No shoes selected</h2>
-        <p className="text-muted-foreground mb-6">Go back and select shoes to compare.</p>
-        <button
-          onClick={() => navigate(-1)}
-          className="flex items-center gap-2 text-primary hover:underline"
-        >
-          <ArrowLeft className="w-4 h-4" /> Go back
-        </button>
+      <div className="min-h-screen flex flex-col items-center justify-center px-4 text-center">
+        <div className="w-20 h-20 rounded-full bg-secondary flex items-center justify-center mx-auto mb-5">
+          <GitCompare className="w-9 h-9 text-muted-foreground/40" />
+        </div>
+        <h2 className="font-heading font-bold text-2xl mb-2">Nothing to compare yet</h2>
+        <p className="text-muted-foreground mb-6 max-w-sm">Browse shoes and click "Compare" on any shoe to add it here.</p>
+        <Link to="/search" className="flex items-center gap-2 bg-primary text-primary-foreground px-6 py-3 rounded-2xl font-semibold hover:opacity-90">
+          Browse Shoes
+        </Link>
       </div>
     );
   }
 
-  // Best value: lowest price among visible shoes
   const bestValueIdx = visibleShoes.reduce(
-    (bi, s, i) => (s.price < (visibleShoes[bi]?.price ?? Infinity) ? i : bi),
-    0
+    (bi, s, i) => (s.price < (visibleShoes[bi]?.price ?? Infinity) ? i : bi), 0
   );
 
   return (
-    <div className="min-h-screen pb-16">
+    <div className="min-h-screen pb-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+
+        {/* ── Header ── */}
+        <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate(-1)}
-              className="p-2 rounded-xl hover:bg-secondary transition-colors"
-            >
+            <button onClick={() => navigate(-1)} className="p-2 rounded-xl hover:bg-secondary transition-colors">
               <ArrowLeft className="w-5 h-5" />
             </button>
-            <h1 className="font-heading font-bold text-2xl sm:text-3xl">Compare Shoes</h1>
-            <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">
-              {visibleShoes.length} selected
-            </span>
+            <div>
+              <h1 className="font-heading font-bold text-2xl sm:text-3xl">Compare Shoes</h1>
+              <p className="text-xs text-muted-foreground mt-0.5">Live market data · Real prices · Expert verdicts</p>
+            </div>
           </div>
-          <button onClick={clearCompare} className="text-sm text-destructive hover:underline">
-            Clear all
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={fetchLiveData}
+              disabled={loadingLive}
+              className="flex items-center gap-1.5 text-xs px-3 py-2 bg-primary/10 text-primary rounded-xl hover:bg-primary/20 transition-colors font-semibold disabled:opacity-60"
+            >
+              {loadingLive ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+              {loadingLive ? "Fetching live data…" : "Refresh Live Data"}
+            </button>
+            <button onClick={clearCompare} className="text-xs text-destructive hover:underline px-2">
+              Clear all
+            </button>
+          </div>
         </div>
 
-        {/* Plan gate banner for >2 compare on free */}
+        {/* ── Plan lock banner ── */}
         {isPlanLocked && (
-          <div className="mb-5 bg-amber-50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-700/40 rounded-2xl p-4 flex items-center gap-3">
-            <Trophy className="w-5 h-5 text-amber-600 flex-shrink-0" />
-            <div className="flex-1 text-sm">
-              <span className="font-semibold text-amber-800 dark:text-amber-300">Free plan: compare up to 2 shoes.</span>
-              <span className="text-muted-foreground ml-1">{lockedShoes.length} shoe(s) hidden.</span>
-            </div>
-            <Link
-              to="/settings"
-              className="text-xs font-semibold text-primary hover:underline flex-shrink-0"
-            >
-              Upgrade →
-            </Link>
+          <div className="mb-5">
+            <PlanGate locked inline feature="Compare more than 2 shoes" description="Upgrade to Pro to compare up to 4 shoes at once" />
           </div>
         )}
 
-        {/* Price summary cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
+        {/* ── Shoe header cards ── */}
+        <div className={`grid gap-3 mb-8 ${visibleShoes.length === 2 ? "grid-cols-2" : visibleShoes.length === 3 ? "grid-cols-3" : "grid-cols-2 sm:grid-cols-4"}`}>
           {visibleShoes.map((shoe, i) => {
-            const savings =
-              shoe.original_price > shoe.price ? shoe.original_price - shoe.price : 0;
+            const live = liveData[shoe.id];
             const isBest = i === bestValueIdx;
+            const savings = shoe.original_price > shoe.price ? shoe.original_price - shoe.price : 0;
             return (
               <motion.div
                 key={shoe.id}
-                initial={{ opacity: 0, y: 10 }}
+                initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.07 }}
-                className={`relative rounded-2xl border-2 p-4 text-center ${
-                  isBest
-                    ? "border-green-400 bg-green-50 dark:bg-green-950/20"
-                    : "border-border bg-card"
-                }`}
+                className={`relative rounded-2xl border-2 overflow-hidden ${isBest ? "border-green-400" : "border-border"} bg-card`}
               >
                 {isBest && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-green-500 text-white text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1 whitespace-nowrap">
+                  <div className="absolute top-0 left-0 right-0 bg-green-500 text-white text-[10px] text-center py-1 font-bold flex items-center justify-center gap-1">
                     <TrendingDown className="w-2.5 h-2.5" /> Best Value
                   </div>
                 )}
-                <img
-                  src={shoe.image_url}
-                  alt={shoe.name}
-                  className="w-16 h-16 object-cover rounded-xl mx-auto mb-2 bg-secondary"
-                />
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium truncate">
-                  {shoe.brand}
-                </p>
-                <p className="font-heading font-semibold text-xs leading-tight line-clamp-2 mt-0.5">
-                  {shoe.name}
-                </p>
-                <p className="font-heading font-bold text-lg mt-2 text-primary">${shoe.price}</p>
-                {savings > 0 && (
-                  <p className="text-xs text-green-600 dark:text-green-400 font-medium">
-                    Save ${savings}
-                  </p>
-                )}
-                <button
-                  onClick={() => toggleCompare(shoe)}
-                  className="mt-2 text-[10px] text-muted-foreground hover:text-destructive transition-colors flex items-center gap-1 mx-auto"
-                >
-                  <X className="w-3 h-3" /> Remove
-                </button>
+                <div className={`aspect-square overflow-hidden bg-secondary/30 ${isBest ? "mt-5" : ""}`}>
+                  <ShoeImage
+                    brand={shoe.brand}
+                    name={shoe.name}
+                    size={400}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="p-3 text-center">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium truncate">{shoe.brand}</p>
+                  <p className="font-heading font-semibold text-sm leading-tight line-clamp-2 mt-0.5">{shoe.name}</p>
+                  <p className="font-heading font-bold text-xl mt-1.5 text-primary">${shoe.price}</p>
+                  {savings > 0 && (
+                    <p className="text-xs text-green-600 dark:text-green-400 font-medium">Save ${savings}</p>
+                  )}
+                  {/* Live buy button */}
+                  {live?.buy_url ? (
+                    <a
+                      href={live.buy_url.startsWith("http") ? live.buy_url : `https://www.google.com/search?q=${encodeURIComponent(shoe.brand + " " + shoe.name + " buy")}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-2 flex items-center justify-center gap-1 text-[11px] bg-primary text-primary-foreground px-3 py-1.5 rounded-xl font-semibold hover:opacity-90 w-full"
+                    >
+                      <ExternalLink className="w-3 h-3" /> Buy Now
+                    </a>
+                  ) : (
+                    <a
+                      href={`https://www.google.com/search?tbm=shop&q=${encodeURIComponent(shoe.brand + " " + shoe.name)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-2 flex items-center justify-center gap-1 text-[11px] bg-secondary text-foreground px-3 py-1.5 rounded-xl font-semibold hover:bg-secondary/80 w-full"
+                    >
+                      <Globe className="w-3 h-3" /> Find Online
+                    </a>
+                  )}
+                  <button
+                    onClick={() => toggleCompare(shoe)}
+                    className="mt-1.5 text-[10px] text-muted-foreground hover:text-destructive transition-colors flex items-center gap-1 mx-auto"
+                  >
+                    <X className="w-3 h-3" /> Remove
+                  </button>
+                </div>
               </motion.div>
             );
           })}
         </div>
 
-        {/* Price difference callout */}
+        {/* ── Price diff callout ── */}
         {visibleShoes.length >= 2 && (() => {
           const prices = visibleShoes.map(s => s.price).filter(Boolean);
           const diff = Math.max(...prices) - Math.min(...prices);
@@ -247,61 +344,52 @@ export default function Compare() {
               <TrendingDown className="w-4 h-4 text-primary flex-shrink-0" />
               <span>
                 <strong>{cheapest?.name}</strong> is{" "}
-                <span className="text-green-600 font-bold">${diff} cheaper</span> than{" "}
-                <strong>{priciest?.name}</strong>
-                {priciest?.original_price > priciest?.price && (
-                  <span className="text-muted-foreground">
-                    {" "}(even after {Math.round(((priciest.original_price - priciest.price) / priciest.original_price) * 100)}% discount)
-                  </span>
-                )}
+                <span className="text-green-600 font-bold">${diff} cheaper</span> than <strong>{priciest?.name}</strong>
               </span>
             </div>
           );
         })()}
 
-        {/* Comparison table */}
-        <div className="overflow-x-auto">
+        {/* ── Live data section ── */}
+        <div className="mb-2 flex items-center gap-2">
+          <Globe className="w-4 h-4 text-primary" />
+          <h2 className="font-heading font-bold text-base">Live Market Data</h2>
+          {loadingLive && <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />}
+          {liveLoaded && !loadingLive && <span className="text-xs text-green-600 bg-green-50 dark:bg-green-950/30 px-2 py-0.5 rounded-full">● Live</span>}
+        </div>
+        <div className="overflow-x-auto mb-8 rounded-2xl border border-border">
           <table className="w-full min-w-[480px]">
             <thead>
-              <tr>
-                <th className="w-36 text-left text-xs font-medium text-muted-foreground pb-4 pr-4 uppercase tracking-wider">
-                  Spec
-                </th>
+              <tr className="bg-secondary/60">
+                <th className="text-left text-xs font-semibold text-muted-foreground py-3 px-4 w-40 uppercase tracking-wider">Spec</th>
                 {visibleShoes.map((shoe) => (
-                  <th key={shoe.id} className="pb-4 px-2 text-center text-xs text-muted-foreground font-medium uppercase tracking-wider">
-                    {shoe.brand}
+                  <th key={shoe.id} className="py-3 px-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    {shoe.brand} {shoe.name.split(" ").slice(0, 2).join(" ")}
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {ROWS.map((row, ri) => {
-                const bestIdx = getBestIndex(visibleShoes, row);
+              {LIVE_ROWS.map((row, ri) => {
+                const enrichedShoes = visibleShoes.map(s => ({ ...s, ...(liveData[s.id] || {}) }));
+                const bestIdx = getBestIndex(enrichedShoes, { ...row, live: true });
                 return (
-                  <tr key={row.key} className={ri % 2 === 0 ? "bg-secondary/30" : ""}>
-                    <td className="py-3 pr-4 text-sm font-medium text-muted-foreground rounded-l-xl pl-3 whitespace-nowrap">
-                      {row.label}
-                    </td>
+                  <tr key={row.key} className={ri % 2 === 0 ? "bg-background" : "bg-secondary/20"}>
+                    <td className="py-3 px-4 text-sm font-medium text-muted-foreground whitespace-nowrap">{row.label}</td>
                     {visibleShoes.map((shoe, si) => {
-                      const val = getVal(shoe, row);
-                      const display = row.render ? row.render(val) : (val ?? "—");
-                      const isHighlighted = bestIdx === si;
+                      const d = liveData[shoe.id];
+                      const val = d ? d[row.key] : undefined;
+                      const display = loadingLive
+                        ? <span className="inline-block w-16 h-3 bg-secondary animate-pulse rounded-full" />
+                        : val !== undefined && val !== null
+                          ? row.render ? row.render(val) : String(val)
+                          : "—";
+                      const isHighlighted = !loadingLive && bestIdx === si && val !== undefined && val !== null;
                       return (
-                        <td
-                          key={shoe.id}
-                          className={`py-3 px-3 text-sm text-center last:rounded-r-xl transition-colors ${
-                            isHighlighted
-                              ? "bg-green-50 dark:bg-green-950/20 text-green-700 dark:text-green-400 font-semibold"
-                              : ""
-                          }`}
-                        >
+                        <td key={shoe.id} className={`py-3 px-3 text-sm text-center ${isHighlighted ? "bg-green-50 dark:bg-green-950/20 text-green-700 dark:text-green-400 font-semibold" : ""}`}>
                           {display}
-                          {isHighlighted && row.highlight === "lowest" && (
-                            <span className="ml-1 text-[9px] text-green-600 font-bold">▼ Best</span>
-                          )}
-                          {isHighlighted && row.highlight === "highest" && (
-                            <span className="ml-1 text-[9px] text-green-600 font-bold">▲ Best</span>
-                          )}
+                          {isHighlighted && row.highlight === "lowest" && <span className="ml-1 text-[9px] text-green-600 font-bold">▼ Best</span>}
+                          {isHighlighted && row.highlight === "highest" && <span className="ml-1 text-[9px] text-green-600 font-bold">▲ Best</span>}
                         </td>
                       );
                     })}
@@ -311,6 +399,58 @@ export default function Compare() {
             </tbody>
           </table>
         </div>
+
+        {/* ── Catalog specs ── */}
+        <div className="mb-2 flex items-center gap-2">
+          <GitCompare className="w-4 h-4 text-primary" />
+          <h2 className="font-heading font-bold text-base">Catalog Specs</h2>
+        </div>
+        <div className="overflow-x-auto rounded-2xl border border-border">
+          <table className="w-full min-w-[480px]">
+            <thead>
+              <tr className="bg-secondary/60">
+                <th className="text-left text-xs font-semibold text-muted-foreground py-3 px-4 w-40 uppercase tracking-wider">Spec</th>
+                {visibleShoes.map((shoe) => (
+                  <th key={shoe.id} className="py-3 px-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    {shoe.brand} {shoe.name.split(" ").slice(0, 2).join(" ")}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {CATALOG_ROWS.map((row, ri) => {
+                const bestIdx = getBestIndex(visibleShoes, row);
+                return (
+                  <tr key={row.key} className={ri % 2 === 0 ? "bg-background" : "bg-secondary/20"}>
+                    <td className="py-3 px-4 text-sm font-medium text-muted-foreground whitespace-nowrap">{row.label}</td>
+                    {visibleShoes.map((shoe, si) => {
+                      const val = getVal(shoe, row);
+                      const display = row.render ? row.render(val) : (val ?? "—");
+                      const isHighlighted = bestIdx === si;
+                      return (
+                        <td key={shoe.id} className={`py-3 px-3 text-sm text-center ${isHighlighted ? "bg-green-50 dark:bg-green-950/20 text-green-700 dark:text-green-400 font-semibold" : ""}`}>
+                          {display ?? "—"}
+                          {isHighlighted && row.highlight === "lowest" && <span className="ml-1 text-[9px] text-green-600 font-bold">▼ Best</span>}
+                          {isHighlighted && row.highlight === "highest" && <span className="ml-1 text-[9px] text-green-600 font-bold">▲ Best</span>}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {/* ── Add more shoes CTA ── */}
+        {shoes.length < 4 && (
+          <div className="mt-8 text-center">
+            <Link to="/search" className="inline-flex items-center gap-2 text-sm text-primary hover:underline font-medium">
+              <GitCompare className="w-4 h-4" />
+              Add more shoes to compare ({shoes.length}/4)
+            </Link>
+          </div>
+        )}
       </div>
     </div>
   );
