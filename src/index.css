@@ -127,3 +127,28 @@
   outline-offset: 2px;
   border-radius: 6px;
 }
+
+/* Apple Liquid Glass — dark mode overrides */
+.dark .liquid-glass-bar {
+  background: rgba(15, 15, 20, 0.72) !important;
+  border-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* Smooth 3D card hover lift */
+.card-3d {
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s ease;
+  transform-style: preserve-3d;
+}
+.card-3d:hover {
+  transform: perspective(600px) rotateX(2deg) translateY(-4px) scale(1.015);
+  box-shadow: 0 20px 40px -8px rgba(0,0,0,0.18), 0 8px 16px -4px rgba(0,0,0,0.10);
+}
+
+/* Scrollbar hide utility */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}

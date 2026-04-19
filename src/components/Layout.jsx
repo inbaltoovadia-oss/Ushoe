@@ -1,12 +1,45 @@
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigationType } from "react-router-dom";
 import { Outlet } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
+import { useRef } from "react";
 import Navbar from "./Navbar";
 import CompareBar from "./CompareBar";
 import MobileBottomTabs from "./MobileBottomTabs";
 
+// Root tabs navigate horizontally; child pages slide in from the right
+const ROOT_PATHS = ["/", "/discover", "/trending", "/wishlist", "/settings"];
+const ROOT_ORDER = ["/", "/discover", "/trending", "/wishlist", "/settings"];
+
 export default function Layout() {
   const location = useLocation();
+  const navType = useNavigationType();
+  const prevPath = useRef(location.pathname);
+
+  const isRoot = ROOT_PATHS.includes(location.pathname);
+  const wasRoot = ROOT_PATHS.includes(prevPath.current);
+
+  // Determine slide direction
+  let xIn = 40, xOut = -40;
+  if (isRoot && wasRoot) {
+    // Tab switch — slide left/right based on tab order
+    const prevIdx = ROOT_ORDER.indexOf(prevPath.current);
+    const nextIdx = ROOT_ORDER.indexOf(location.pathname);
+    if (nextIdx > prevIdx) { xIn = 40; xOut = -40; }
+    else { xIn = -40; xOut = 40; }
+  } else if (!isRoot && wasRoot) {
+    // Drill into child — slide in from right
+    xIn = 48; xOut = -24;
+  } else if (isRoot && !wasRoot) {
+    // Back to root — slide in from left
+    xIn = -24; xOut = 48;
+  } else if (navType === "POP") {
+    // Browser back
+    xIn = -40; xOut = 40;
+  }
+
+  // Update prevPath after computing direction
+  const key = location.pathname;
+  prevPath.current = location.pathname;
 
   return (
     <div className="min-h-screen bg-background overflow-x-hidden">
@@ -14,11 +47,12 @@ export default function Layout() {
       <main className="pt-16 pb-20 md:pb-20">
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
-            key={location.pathname}
-            initial={{ x: 24, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: -24, opacity: 0 }}
-            transition={{ duration: 0.18, ease: "easeInOut" }}
+            key={key}
+            initial={{ x: xIn, opacity: 0, scale: 0.98 }}
+            animate={{ x: 0, opacity: 1, scale: 1 }}
+            exit={{ x: xOut, opacity: 0, scale: 0.98 }}
+            transition={{ type: "spring", stiffness: 380, damping: 32, mass: 0.9 }}
+            style={{ willChange: "transform, opacity" }}
           >
             <Outlet />
           </motion.div>
