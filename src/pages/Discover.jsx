@@ -389,113 +389,65 @@ NOT Adidas, NOT Nike - ONLY Asics when user asks for Asics.`;
               </div>
             )}
 
-            {/* Web Picks */}
+            {/* Best Deal Only — Single Result from Web */}
             {webResults.length > 0 && (
               <div>
                 <h2 className="font-heading font-bold text-xl mb-4 flex items-center gap-2">
                   <Globe className="w-5 h-5 text-primary" />
-                  Also Found on the Web
+                  Best Deal Found on the Web
                 </h2>
 
-                {/* Best Option — full-width prominent card */}
-                {webResults.filter(p => p.is_best_deal).map((pick, i) => {
-                  const searchQuery = encodeURIComponent(`${pick.brand || ""} ${pick.name || ""}`);
+                {(() => {
+                  // Find the best deal (first one marked is_best_deal, or cheapest)
+                  let bestPick = webResults.find(p => p.is_best_deal);
+                  if (!bestPick && webResults.length > 0) {
+                    const prices = webResults.map(p => parseFloat((p.price || "0").replace(/[^0-9.]/g, "")) || Infinity);
+                    bestPick = webResults[prices.indexOf(Math.min(...prices))];
+                  }
+                  if (!bestPick) return null;
+
+                  const searchQuery = encodeURIComponent(`${bestPick.brand || ""} ${bestPick.name || ""}`);
                   const url = `https://www.google.com/search?tbm=shop&q=${searchQuery}`;
+
                   return (
                     <motion.a
-                      key={`best-${i}`}
                       href={url}
                       target="_blank"
                       rel="noopener noreferrer"
                       initial={{ opacity: 0, y: 16 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="group flex gap-4 bg-gradient-to-r from-primary/10 to-primary/5 border-2 border-primary rounded-2xl overflow-hidden hover:shadow-2xl hover:shadow-primary/20 hover:-translate-y-1 transition-all duration-300 mb-4 p-4"
+                      className="group block bg-gradient-to-r from-green-50 to-green-50/50 dark:from-green-950/30 dark:to-green-900/10 border-2 border-green-500 rounded-2xl overflow-hidden hover:shadow-2xl hover:shadow-green-500/20 hover:-translate-y-1 transition-all duration-300 p-5"
                     >
-                      <div className="w-24 h-24 flex-shrink-0 rounded-xl overflow-hidden bg-secondary">
-                        <ShoeImage brand={pick.brand} name={pick.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          <span className="flex items-center gap-1 bg-primary text-primary-foreground text-xs font-bold px-2.5 py-1 rounded-full">
-                            <Trophy className="w-3 h-3" />
-                            Best Option
-                          </span>
-                          <span className="text-[9px] font-bold text-green-700 bg-green-100 dark:bg-green-900/50 dark:text-green-400 px-2 py-0.5 rounded-full">
-                            ✓ Ships to {loc.city}
-                          </span>
+                      <div className="flex gap-5">
+                        <div className="w-32 h-32 flex-shrink-0 rounded-xl overflow-hidden bg-secondary relative">
+                          <ShoeImage brand={bestPick.brand} name={bestPick.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                          {/* BEST DEAL Badge */}
+                          <div className="absolute top-2 left-2 bg-green-500 text-white text-[10px] font-bold px-2 py-1 rounded-full flex items-center gap-1 shadow-lg">
+                            <Trophy className="w-2.5 h-2.5" />
+                            BEST DEAL
+                          </div>
                         </div>
-                        <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">{pick.brand}</p>
-                        <p className="font-heading font-bold text-base group-hover:text-primary transition-colors line-clamp-1">{pick.name}</p>
-                        <div className="flex items-center justify-between mt-1">
-                          {pick.price && <p className="text-primary font-bold text-xl">{pick.price}</p>}
-                          <span className="text-xs text-muted-foreground">{pick.retailer} →</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-2 flex-wrap">
+                            <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">{bestPick.brand}</span>
+                            <span className="text-[9px] font-bold text-green-700 bg-green-100 dark:bg-green-900/50 dark:text-green-400 px-2 py-0.5 rounded-full">
+                              ✓ Ships to {loc.city}
+                            </span>
+                          </div>
+                          <p className="font-heading font-bold text-lg group-hover:text-primary transition-colors line-clamp-1">{bestPick.name}</p>
+                          <div className="flex items-center gap-3 mt-2">
+                            {bestPick.price && <p className="text-green-600 dark:text-green-400 font-bold text-2xl">{bestPick.price}</p>}
+                            {bestPick.retailer && (
+                              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                at {bestPick.retailer} <span className="text-green-600">→</span>
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </motion.a>
                   );
-                })}
-
-                {/* Other web picks grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-                  {webResults.filter(p => !p.is_best_deal).map((pick, i) => {
-                    const searchQuery = encodeURIComponent(`${pick.brand || ""} ${pick.name || ""}`);
-                    const url = `https://www.google.com/search?tbm=shop&q=${searchQuery}`;
-                    return (
-                      <motion.a
-                        key={i}
-                        href={url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        initial={{ opacity: 0, y: 16 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: i * 0.07 }}
-                        className="group block bg-card border border-border rounded-2xl overflow-hidden hover:shadow-xl hover:shadow-primary/10 hover:border-primary/40 hover:-translate-y-1.5 transition-all duration-300"
-                      >
-                        <div className="relative aspect-square overflow-hidden bg-secondary/40">
-                          <ShoeImage brand={pick.brand} name={pick.name} size={400} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-center pb-3">
-                            <span className="text-white text-[11px] font-semibold bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full border border-white/30">
-                              Find on Google →
-                            </span>
-                          </div>
-                          <div className="absolute top-2 left-2">
-                            <span className="text-[9px] font-bold text-green-700 bg-green-100 dark:bg-green-900/50 dark:text-green-400 px-1.5 py-0.5 rounded-full">
-                              ✓ Ships to you
-                            </span>
-                          </div>
-                        </div>
-                        <div className="p-3">
-                          <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider truncate">{pick.brand}</p>
-                          <p className="font-heading font-semibold text-xs mt-0.5 line-clamp-2 group-hover:text-primary transition-colors leading-tight">{pick.name}</p>
-                          <div className="flex items-center justify-between mt-2">
-                            {pick.price && <p className="text-primary font-bold text-sm">{pick.price}</p>}
-                            {pick.retailer && <p className="text-[9px] text-muted-foreground truncate max-w-[50%] text-right">{pick.retailer}</p>}
-                          </div>
-                        </div>
-                      </motion.a>
-                    );
-                  })}
-                </div>
-
-                {/* Soft premium prompt — price alerts */}
-                {!canUse("priceAlerts") && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="mt-4 flex items-center justify-between gap-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 rounded-2xl px-4 py-3"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Bell className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
-                      <p className="text-sm text-amber-800 dark:text-amber-300">
-                        <span className="font-semibold">Get notified when prices drop</span>
-                      </p>
-                    </div>
-                    <Link to="/subscription" className="flex-shrink-0 flex items-center gap-1 text-xs font-semibold text-primary bg-primary/10 hover:bg-primary/20 px-3 py-1.5 rounded-xl transition-colors">
-                      <Lock className="w-3 h-3" />
-                      Unlock Pro
-                    </Link>
-                  </motion.div>
-                )}
+                })()}
               </div>
             )}
 
