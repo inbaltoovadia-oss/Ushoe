@@ -60,6 +60,15 @@ export default function ShoeCard({ shoe, index = 0, sponsored = false, onSponsor
                 imgLoaded ? "opacity-100" : "opacity-0"
               }`}
               onLoad={() => setImgLoaded(true)}
+              onError={(e) => {
+                e.target.onerror = null;
+                e.target.src = `https://tse1.mm.bing.net/th?q=${encodeURIComponent((shoe.brand || "") + " " + (shoe.name || "") + " shoe")}&w=400&h=400&c=7&rs=1&pid=1.7&mkt=en-US&adlt=moderate`;
+                e.target.onError = (e2) => {
+                  e2.target.onerror = null;
+                  e2.target.src = "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&h=400&fit=crop";
+                };
+                setImgLoaded(true);
+              }}
             />
 
             {/* Overlay Actions */}

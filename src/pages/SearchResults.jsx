@@ -7,6 +7,7 @@ import SkeletonCard from "../components/SkeletonCard";
 import AdvancedFilters from "../components/search/AdvancedFilters";
 import AISearchSuggestions from "../components/search/AISearchSuggestions";
 import PlanGate from "../components/PlanGate";
+import ShoeImage from "../components/ShoeImage";
 import { canUse, getLimits, getPlan } from "../lib/planStore";
 import { toggleCompare, isInCompare, subscribeCompare, getCompareShoes } from "../lib/compareStore";
 import { Link } from "react-router-dom";
@@ -409,8 +410,17 @@ Indicate data_freshness (e.g. "Live - just now").`,
                     transition={{ delay: i * 0.06 }}
                     href={item.buy_url && item.buy_url.startsWith("http") ? item.buy_url : `https://www.google.com/search?q=${encodeURIComponent((item.brand || "") + " " + (item.name || "") + " buy")}`}
                     target="_blank" rel="noopener noreferrer"
-                    className="block bg-card border border-border rounded-2xl p-4 hover:shadow-lg hover:border-primary/30 transition-all group"
+                    className="block bg-card border border-border rounded-2xl overflow-hidden hover:shadow-lg hover:border-primary/30 transition-all group"
                   >
+                    <div className="aspect-video w-full overflow-hidden bg-secondary/40">
+                      <ShoeImage
+                        brand={item.brand}
+                        name={item.name}
+                        size={400}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                    </div>
+                    <div className="p-4">
                     <div className="flex justify-between items-start gap-2">
                       <div>
                         <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">{item.brand}{item.retailer ? ` · ${item.retailer}` : ""}</p>
@@ -430,6 +440,7 @@ Indicate data_freshness (e.g. "Live - just now").`,
                     </div>
                     {item.release_date && <p className="text-xs text-muted-foreground mt-1">Released: {item.release_date}</p>}
                     <span className="text-xs text-primary mt-3 inline-block font-medium group-hover:underline">View →</span>
+                    </div>
                   </motion.a>
                 ))}
               </div>
