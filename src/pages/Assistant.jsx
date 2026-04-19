@@ -6,6 +6,7 @@ import { getUserProfile } from "../lib/userProfileStore";
 import { rankShoes } from "../lib/personalizationEngine";
 import { getLanguage, subscribeLanguage, LANGUAGES } from "../lib/languageStore";
 import LanguagePicker from "../components/LanguagePicker";
+import { t } from "../lib/translations";
 import ShoeCard from "../components/ShoeCard";
 import ReactMarkdown from "react-markdown";
 
@@ -209,10 +210,10 @@ export default function Assistant() {
               {profileLoaded ? (
                 <>
                   <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                  {hasSignals ? "Personalized to you · learning from your behavior" : "Shoe expert · ready to help"}
+                  {hasSignals ? t("personalizedTo", language) : t("shoeExpertReady", language)}
                 </>
               ) : (
-                <><Loader2 className="w-3 h-3 animate-spin" /> Loading your profile…</>
+                <><Loader2 className="w-3 h-3 animate-spin" /> {t("loadingProfile", language)}</>
               )}
             </p>
           </div>
@@ -222,7 +223,7 @@ export default function Assistant() {
           <button
             onClick={reset}
             className="p-2 rounded-xl hover:bg-secondary transition-colors"
-            title="New conversation"
+            title={t("newConversation", language)}
           >
             <RotateCcw className="w-4 h-4 text-muted-foreground" />
           </button>
@@ -244,7 +245,7 @@ export default function Assistant() {
             </span>
           )}
           <span className="text-[10px] px-2.5 py-1 bg-green-50 dark:bg-green-950/30 text-green-600 dark:text-green-400 rounded-full flex items-center gap-1">
-            <Sparkles className="w-2.5 h-2.5" /> personalized
+            <Sparkles className="w-2.5 h-2.5" /> {t("personalized", language)}
           </span>
         </div>
       )}
@@ -271,7 +272,7 @@ export default function Assistant() {
             </div>
             <div className="bg-card border border-border rounded-2xl px-4 py-3 flex items-center gap-2">
               <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">Thinking like a shoe expert…</span>
+              <span className="text-sm text-muted-foreground">{t("thinking", language)}</span>
             </div>
           </motion.div>
         )}
@@ -282,7 +283,7 @@ export default function Assistant() {
       {/* Starter prompts (only at start) */}
       {messages.length <= 1 && !loading && (
         <div className="flex-shrink-0 pb-2">
-          <p className="text-xs text-muted-foreground mb-2">Try asking:</p>
+          <p className="text-xs text-muted-foreground mb-2">{t("tryAsking", language)}</p>
           <div className="flex flex-wrap gap-2">
             {STARTER_PROMPTS.slice(3).map((prompt) => (
               <button
@@ -307,7 +308,7 @@ export default function Assistant() {
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask me anything about shoes…"
+            placeholder={t("askMeAnything", language)}
             className="flex-1 bg-transparent outline-none text-sm placeholder:text-muted-foreground/50"
             disabled={loading || !profileLoaded}
             dir={isRTL(input) ? "rtl" : "ltr"}
@@ -321,7 +322,7 @@ export default function Assistant() {
           </button>
         </form>
         <p className="text-center text-[10px] text-muted-foreground mt-2">
-          Learns from your searches · improves with every conversation
+          {t("learnsFromSearches", language)}
         </p>
       </div>
     </div>

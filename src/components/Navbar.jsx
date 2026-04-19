@@ -2,6 +2,8 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import { Search, MapPin, Sun, Moon, Menu, X, Wand2, ChevronDown, Crown, ShieldCheck, Ruler, ArrowLeft } from "lucide-react";
 import LanguagePicker from "./LanguagePicker";
+import { getLanguage, subscribeLanguage } from "../lib/languageStore";
+import { t } from "../lib/translations";
 import { getLocation, subscribeLocation } from "../lib/locationStore";
 import LocationPicker from "./LocationPicker";
 import { useAuth } from "@/lib/AuthContext";
@@ -48,9 +50,11 @@ export default function Navbar() {
   const [showToolsMenu, setShowToolsMenu] = useState(false);
   const [showSizePicker, setShowSizePicker] = useState(false);
   const [sizeLabel, setSizeLabel] = useState(getSizeLabel());
+  const [lang, setLang] = useState(getLanguage());
   const toolsRef = useRef(null);
 
   useEffect(() => subscribeSize(() => setSizeLabel(getSizeLabel())), []);
+  useEffect(() => subscribeLanguage(setLang), []);
 
   useEffect(() => subscribeLocation(setLoc), []);
 

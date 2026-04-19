@@ -14,6 +14,8 @@ import { getLocation, subscribeLocation } from "../lib/locationStore";
 import { getUserProfile } from "../lib/userProfileStore";
 import { buildPersonaSummary, rankShoes } from "../lib/personalizationEngine";
 import { canSearch, incrementSearchCount, canUse, getPlan, getSearchesUsedToday, PLAN_LIMITS } from "../lib/planStore";
+import { getLanguage, subscribeLanguage } from "../lib/languageStore";
+import { t } from "../lib/translations";
 
 import PlanGate from "../components/PlanGate";
 import ShoeProblemSolver from "../components/ShoeProblemSolver";
@@ -42,6 +44,7 @@ export default function Discover() {
   const [showSizePicker, setShowSizePicker] = useState(false);
   const [searchBlocked, setSearchBlocked] = useState(false);
   const [loc, setLoc] = useState(getLocation());
+  const [lang, setLang] = useState(getLanguage());
   const inputRef = useRef(null);
   const fileRef = useRef(null);
   const resultsRef = useRef(null);
@@ -49,6 +52,7 @@ export default function Discover() {
   useEffect(() => { inputRef.current?.focus(); }, []);
   useEffect(() => subscribeSize(() => setSizeLabel(getSizeLabel())), []);
   useEffect(() => subscribeLocation(setLoc), []);
+  useEffect(() => subscribeLanguage(setLang), []);
 
   const handleImageChange = async (e) => {
     const file = e.target.files?.[0];
@@ -220,14 +224,14 @@ Return ONLY these fields — do not include any URLs.`;
             <div className="flex items-center justify-center gap-3 mb-4 flex-wrap">
               <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-full text-sm font-medium">
                 <Globe className="w-4 h-4" />
-                AI + Web Search
+                {t("aiWebSearch", lang)}
               </div>
               <button
                 onClick={() => setShowInterestPicker(true)}
                 className="inline-flex items-center gap-2 bg-accent/10 text-accent px-4 py-2 rounded-full text-sm font-medium hover:bg-accent/20 transition-colors"
               >
                 <Sparkles className="w-4 h-4" />
-                My Interests
+                {t("myInterests", lang)}
               </button>
               <button
                 onClick={() => setShowSizePicker(true)}
@@ -238,14 +242,14 @@ Return ONLY these fields — do not include any URLs.`;
                 }`}
               >
                 <Ruler className="w-4 h-4" />
-                {sizeLabel ? `Size: ${sizeLabel}` : "Set My Size"}
+                {sizeLabel ? `${t("size", lang)}: ${sizeLabel}` : t("setMySize", lang)}
               </button>
             </div>
             <h1 className="font-heading font-bold text-3xl sm:text-4xl lg:text-5xl mb-3">
-              What are you looking for?
+              {t("whatAreYouLookingFor", lang)}
             </h1>
             <p className="text-muted-foreground text-lg mb-6">
-              Describe, upload a photo, or pick a category — AI searches the web for you
+              {t("discoverSubtitle", lang)}
             </p>
           </motion.div>
 
@@ -290,10 +294,10 @@ Return ONLY these fields — do not include any URLs.`;
                   const max = PLAN_LIMITS.free.aiSearchesPerDay;
                   const remaining = max - used;
                   return remaining > 0 ? (
-                    <span>{remaining} of {max} free AI searches remaining today</span>
+                    <span>{t("searchesRemaining", lang, { remaining, max })}</span>
                   ) : (
                     <span className="text-amber-600 font-medium">
-                      Daily limit reached — <Link to="/subscription" className="underline text-primary">Upgrade to Pro</Link> for unlimited
+                      <Link to="/subscription" className="underline text-primary">{t("upgradeToProUnlimited", lang)}</Link>
                     </span>
                   );
                 })()}
@@ -328,7 +332,7 @@ Return ONLY these fields — do not include any URLs.`;
                   ref={inputRef}
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder={selectedCategory ? `Search ${selectedCategory} shoes…` : "I need comfortable running shoes under $160..."}
+                  placeholder={selectedCategory ? t("searchPlaceholderCategory", lang, { category: selectedCategory }) : t("searchPlaceholder", lang)}
                   className="flex-1 bg-transparent border-none outline-none mx-3 text-base placeholder:text-muted-foreground/50"
                   dir={/[\u0590-\u05FF\u0600-\u06FF]/.test(query) ? "rtl" : "ltr"}
                 />
@@ -373,7 +377,7 @@ Return ONLY these fields — do not include any URLs.`;
           <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="max-w-7xl mx-auto px-4 sm:px-6 pb-16">
             <div className="flex items-center gap-3 mb-6">
               <Globe className="w-5 h-5 animate-pulse text-primary" />
-              <span className="text-muted-foreground">AI is searching the web for you…</span>
+              <span className="text-muted-foreground">{t("aiSearchingWeb", lang)}</span>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
               {Array.from({ length: 5 }).map((_, i) => <SkeletonCard key={i} />)}
@@ -388,7 +392,7 @@ Return ONLY these fields — do not include any URLs.`;
               <div className="bg-primary/5 border border-primary/10 rounded-2xl p-5">
                 <div className="flex items-center gap-2 mb-2">
                   <Globe className="w-4 h-4 text-primary" />
-                  <span className="text-sm font-semibold text-primary">AI Web Summary</span>
+                  <span className="text-sm font-semibold text-primary">{t("aiWebSummary", lang)}</span>
                 </div>
                 <p className="text-foreground text-sm leading-relaxed">{aiExplanation}</p>
               </div>
@@ -399,7 +403,7 @@ Return ONLY these fields — do not include any URLs.`;
               <div>
                 <h2 className="font-heading font-bold text-xl mb-4 flex items-center gap-2">
                   <Globe className="w-5 h-5 text-primary" />
-                  Also Found on the Web
+                  {t("alsoFoundOnWeb", lang)}
                 </h2>
 
                 {/* Best Option — full-width prominent card */}
@@ -427,10 +431,10 @@ Return ONLY these fields — do not include any URLs.`;
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
                           <span className="flex items-center gap-1 bg-primary text-primary-foreground text-xs font-bold px-2.5 py-1 rounded-full">
                             <Trophy className="w-3 h-3" />
-                            Best Option
+                            {t("bestOption", lang)}
                           </span>
                           <span className="text-[9px] font-bold text-green-700 bg-green-100 dark:bg-green-900/50 dark:text-green-400 px-2 py-0.5 rounded-full">
-                            ✓ Ships to {loc.city}
+                            ✓ {t("shipsTo", lang, { city: loc.city })}
                           </span>
                         </div>
                         <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">{pick.brand}</p>
@@ -468,12 +472,12 @@ Return ONLY these fields — do not include any URLs.`;
                           />
                           <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-center pb-3">
                             <span className="text-white text-[11px] font-semibold bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full border border-white/30">
-                              Find on Google →
+                              {t("findOnGoogle", lang)}
                             </span>
                           </div>
                           <div className="absolute top-2 left-2">
                             <span className="text-[9px] font-bold text-green-700 bg-green-100 dark:bg-green-900/50 dark:text-green-400 px-1.5 py-0.5 rounded-full">
-                              ✓ Ships to you
+                              ✓ {t("shipsToYou", lang)}
                             </span>
                           </div>
                         </div>
@@ -500,7 +504,7 @@ Return ONLY these fields — do not include any URLs.`;
                     <div className="flex items-center gap-2">
                       <Bell className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
                       <p className="text-sm text-amber-800 dark:text-amber-300">
-                        <span className="font-semibold">Get notified when prices drop</span> — track these shoes and we'll alert you
+                        <span className="font-semibold">{t("getPriceAlerts", lang)}</span>
                       </p>
                     </div>
                     <Link
@@ -508,7 +512,7 @@ Return ONLY these fields — do not include any URLs.`;
                       className="flex-shrink-0 flex items-center gap-1 text-xs font-semibold text-primary bg-primary/10 hover:bg-primary/20 px-3 py-1.5 rounded-xl transition-colors"
                     >
                       <Lock className="w-3 h-3" />
-                      Unlock Pro
+                      {t("unlockPro", lang)}
                     </Link>
                   </motion.div>
                 )}
@@ -519,8 +523,8 @@ Return ONLY these fields — do not include any URLs.`;
             {results.length > 0 && (
               <div>
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="font-heading font-bold text-xl">Best Matches In Our Catalog</h2>
-                  <span className="text-xs text-muted-foreground bg-secondary px-3 py-1.5 rounded-full">{results.length} match{results.length !== 1 ? "es" : ""} found</span>
+                  <h2 className="font-heading font-bold text-xl">{t("bestMatchesInCatalog", lang)}</h2>
+                  <span className="text-xs text-muted-foreground bg-secondary px-3 py-1.5 rounded-full">{results.length !== 1 ? t("matchesFound", lang, { count: results.length }) : t("matchFound", lang, { count: results.length })}</span>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                   {results.map((result, i) => (
@@ -539,7 +543,7 @@ Return ONLY these fields — do not include any URLs.`;
                         to={`/shoe/${result.shoe.id}`}
                         className="mt-2 mx-1 flex items-center justify-center gap-2 w-[calc(100%-8px)] py-2 rounded-xl border border-border text-sm font-medium text-muted-foreground hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-all"
                       >
-                        Quick View
+                        {t("quickView", lang)}
                       </Link>
                     </motion.div>
                   ))}
