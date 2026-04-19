@@ -1,8 +1,22 @@
 import { useState } from "react";
 import { X, SlidersHorizontal, ChevronDown, ChevronUp } from "lucide-react";
 
-const CATEGORIES = ["Running", "Casual", "Basketball", "Lifestyle", "Training", "Walking"];
+const CATEGORIES = ["Running", "Casual", "Basketball", "Lifestyle", "Training", "Walking", "Sport", "Tennis"];
 const BRANDS = ["Nike", "Adidas", "New Balance", "Jordan", "Puma", "Reebok", "ASICS", "Hoka", "Saucony", "Vans", "Converse"];
+const COLORS = [
+  { name: "Black", hex: "#111" },
+  { name: "White", hex: "#f5f5f5", border: true },
+  { name: "Red", hex: "#ef4444" },
+  { name: "Blue", hex: "#3b82f6" },
+  { name: "Green", hex: "#22c55e" },
+  { name: "Grey", hex: "#9ca3af" },
+  { name: "Brown", hex: "#92400e" },
+  { name: "Pink", hex: "#ec4899" },
+  { name: "Yellow", hex: "#eab308" },
+  { name: "Orange", hex: "#f97316" },
+  { name: "Purple", hex: "#a855f7" },
+  { name: "Multi", hex: "linear-gradient(135deg,#ef4444,#3b82f6,#22c55e)" },
+];
 
 function Section({ title, children }) {
   const [open, setOpen] = useState(true);
@@ -145,6 +159,27 @@ export default function ShoeListingSidebar({ filters, onChange, onClose }) {
             </label>
           ))}
         </div>
+      </Section>
+
+      {/* Colors */}
+      <Section title="Color">
+        <div className="flex flex-wrap gap-2">
+          {COLORS.map(color => {
+            const active = (filters.colors || []).includes(color.name);
+            return (
+              <button
+                key={color.name}
+                onClick={() => toggle("colors", color.name)}
+                title={color.name}
+                className={`w-7 h-7 rounded-full border-2 transition-all ${active ? "border-primary scale-110 ring-2 ring-primary/40" : color.border ? "border-border" : "border-transparent"}`}
+                style={{ background: color.hex }}
+              />
+            );
+          })}
+        </div>
+        {(filters.colors || []).length > 0 && (
+          <p className="text-[10px] text-muted-foreground mt-2">{(filters.colors).join(", ")}</p>
+        )}
       </Section>
 
       {/* On Sale */}

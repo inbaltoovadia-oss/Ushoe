@@ -13,11 +13,21 @@ import { getWishlistIds } from "../../lib/wishlistStore";
 const DEFAULT_FILTERS = {
   brands: [],
   categories: [],
+  colors: [],
   minPrice: 0,
   maxPrice: 500,
   onSaleOnly: false,
   sort: "personalized",
 };
+
+const HOME_CATEGORIES = [
+  { label: "Sport", emoji: "⚽" },
+  { label: "Casual", emoji: "👟" },
+  { label: "Running", emoji: "🏃" },
+  { label: "Basketball", emoji: "🏀" },
+  { label: "Tennis", emoji: "🎾" },
+  { label: "Lifestyle", emoji: "✨" },
+];
 
 const SPONSORED_INDICES = [3, 11, 19];
 const SPONSORED_PLAN_TIERS = ["brand", "featured", "starter"];
@@ -61,6 +71,16 @@ export default function ForYouSection() {
       if (shoe.price < filters.minPrice) return false;
       if (filters.maxPrice < 500 && shoe.price > filters.maxPrice) return false;
       if (filters.onSaleOnly && !(shoe.original_price > shoe.price)) return false;
+      // Color filter — check colorway or colors_available fields
+      if (filters.colors?.length) {
+        const colorwayStr = (shoe.colorway || "").toLowerCase();
+        const colorsAvail = (shoe.colors_available || []).map(c => c.toLowerCase());
+        const matches = filters.colors.some(c => {
+          const cl = c.toLowerCase();
+          return colorwayStr.includes(cl) || colorsAvail.some(ca => ca.includes(cl));
+        });
+        if (!matches) return false;
+      }
       return true;
     });
   };
@@ -86,6 +106,7 @@ export default function ForYouSection() {
   const displayedShoes = [...sponsoredShoes, ...regularShoes];
 
   const activeFilterCount = filters.brands.length + filters.categories.length +
+    (filters.colors?.length || 0) +
     (filters.onSaleOnly ? 1 : 0) + (filters.maxPrice < 500 || filters.minPrice > 0 ? 1 : 0);
 
   const hasProfile = profile?.survey_completed || profile?.recent_queries?.length > 0;
@@ -132,6 +153,30 @@ export default function ForYouSection() {
               )}
             </button>
           </div>
+        </div>
+
+        {/* Category quick-picks */}
+        <div className="flex flex-wrap gap-2 mb-4">
+          {HOME_CATEGORIES.map(({ label, emoji }) => {
+            const active = filters.categories.includes(label);
+            return (
+              <button
+                key={label}
+                onClick={() => {
+                  const current = filters.categories;
+                  const updated = active ? current.filter(c => c !== label) : [...current, label];
+                  setFilters(f => ({ ...f, categories: updated }));
+                }}
+                className={`flex items-center gap-1.5 text-sm px-3.5 py-1.5 rounded-full font-medium transition-all border ${
+                  active
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "border-border text-muted-foreground hover:text-foreground hover:border-primary/40 bg-card"
+                }`}
+              >
+                <span>{emoji}</span>{label}
+              </button>
+            );
+          })}
         </div>
 
         {/* Active filter chips */}

@@ -99,12 +99,12 @@ export default function Discover() {
     }
 
     const [allShoes, userProfile] = await Promise.all([
-      base44.entities.Shoe.list("-trending_score", 50),
+      base44.entities.Shoe.list("-trending_score", 100),
       getUserProfile(),
     ]);
 
     // Pre-rank catalog by personalization before sending to AI
-    const rankedShoes = rankShoes(allShoes, userProfile, { limit: 50 });
+    const rankedShoes = rankShoes(allShoes, userProfile, { limit: 80 });
 
     // Run catalog matching and web search in parallel with separate simple schemas
     const sizePref = getSize();
@@ -119,13 +119,14 @@ ${sizeNote}
 USER PROFILE (use this to make picks more relevant):
 ${personaSummary}
 
-From the catalog below (pre-ranked by relevance), pick up to 5 best matches by index number:
+From the catalog below (pre-ranked by relevance), pick up to 10 best matches by index number. Return diverse results across different brands, price ranges, and styles:
 ${rankedShoes.map((s, i) => `${i}: ${s.brand} ${s.name} $${s.price} ${s.category} trending=${s.is_trending ? "yes" : "no"} sizes:${(s.sizes_available||[]).join(",")}`).join("\n")}
 
 Write a short 1-sentence expert summary of what you found and why these match the user.`;
 
     const loc = getLocation();
-    const webPrompt = `Find 6 real shoes matching: "${finalQ}"${selectedCategory ? ` in category ${selectedCategory}` : ""} that are available to ship to ${loc.city}.
+    const webPrompt = `Find 10 real shoes matching: "${finalQ}"${selectedCategory ? ` in category ${selectedCategory}` : ""} that are available to ship to ${loc.city}.
+Return a DIVERSE set across different brands (Nike, Adidas, New Balance, etc.) and price points.
 CRITICAL rules:
 1. Only include retailers that ship to ${loc.city}.
 2. For each shoe provide: brand (e.g. "Nike"), name (exact model name), price (as string like "$120"), retailer name, ships_to_user (true), is_best_deal (boolean — mark true for the SINGLE best value option considering price and availability, only ONE item should have this as true).

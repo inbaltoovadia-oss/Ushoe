@@ -88,7 +88,7 @@ export default function ShoeCard({ shoe, index = 0, sponsored = false, onSponsor
             />
 
             {/* Top-right actions */}
-            <div className="absolute top-2.5 right-2.5 flex flex-col gap-1.5">
+            <div className="absolute top-2.5 right-2.5 flex flex-col gap-1.5 z-10">
               <button
                 onClick={toggleWishlist}
                 className={`p-2 rounded-full backdrop-blur-sm transition-all duration-200 shadow-sm ${
@@ -133,7 +133,7 @@ export default function ShoeCard({ shoe, index = 0, sponsored = false, onSponsor
             <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-widest truncate">
               {shoe.brand}
             </p>
-            <h3 className="font-heading font-semibold text-sm text-foreground mt-0.5 group-hover:text-primary transition-colors line-clamp-1 leading-snug">
+            <h3 className="font-heading font-semibold text-sm text-foreground mt-0.5 group-hover:text-primary transition-colors line-clamp-2 leading-snug min-h-[2.5rem]">
               {shoe.name}
             </h3>
 
