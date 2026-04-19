@@ -1,12 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Loader2, Sparkles, RefreshCw, Brain, Zap, ArrowRight, RotateCcw } from "lucide-react";
+import { Send, Loader2, Sparkles, Brain, Zap, ArrowRight, RotateCcw } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { getUserProfile } from "../lib/userProfileStore";
 import { rankShoes } from "../lib/personalizationEngine";
-import { getLanguage, subscribeLanguage, LANGUAGES } from "../lib/languageStore";
-import LanguagePicker from "../components/LanguagePicker";
-import { t } from "../lib/translations";
 import ShoeCard from "../components/ShoeCard";
 import ReactMarkdown from "react-markdown";
 
@@ -19,7 +16,6 @@ const STARTER_PROMPTS = [
   "What shoes should I get for a gym and street combo?",
 ];
 
-// Detect if text is RTL (Hebrew, Arabic, etc.)
 function isRTL(text) {
   return /[\u0590-\u05FF\u0600-\u06FF]/.test(text);
 }
@@ -40,9 +36,7 @@ function MessageBubble({ msg, bestPickShoe }) {
       <div className={`max-w-[80%] space-y-3 ${isUser ? "items-end flex flex-col" : ""}`}>
         <div
           className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-            isUser
-              ? "bg-primary text-primary-foreground"
-              : "bg-card border border-border text-foreground"
+            isUser ? "bg-primary text-primary-foreground" : "bg-card border border-border text-foreground"
           }`}
           dir={isRTL(msg.content) ? "rtl" : "ltr"}
         >
@@ -63,7 +57,6 @@ function MessageBubble({ msg, bestPickShoe }) {
           )}
         </div>
 
-        {/* Best Pick shoe card */}
         {!isUser && bestPickShoe && (
           <div className="w-full max-w-xs">
             <p className="text-[10px] text-muted-foreground mb-1.5 flex items-center gap-1">
@@ -73,7 +66,6 @@ function MessageBubble({ msg, bestPickShoe }) {
           </div>
         )}
 
-        {/* Follow-up suggestions */}
         {!isUser && msg.followUps?.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
             {msg.followUps.map((q, i) => (
@@ -106,15 +98,10 @@ export default function Assistant() {
   const [catalogShoes, setCatalogShoes] = useState([]);
   const [userProfile, setUserProfile] = useState(null);
   const [profileLoaded, setProfileLoaded] = useState(false);
-  const [language, setLanguageState] = useState(getLanguage());
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
 
-  useEffect(() => subscribeLanguage(setLanguageState), []);
-
-  useEffect(() => {
-    init();
-  }, []);
+  useEffect(() => { init(); }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -130,7 +117,6 @@ export default function Assistant() {
     setUserProfile(profile);
     setProfileLoaded(true);
 
-    // Welcome message
     const hasProfile = profile?.survey_completed || profile?.recent_queries?.length > 0;
     const welcomeText = hasProfile
       ? `Hey! I'm your uShoe AI — I've been learning your style. You seem to like **${
@@ -157,7 +143,6 @@ export default function Assistant() {
       message: q,
       conversationHistory,
       userProfile,
-      forcedLanguage: language.label,
       catalogSnapshot: catalogShoes.slice(0, 20).map(s => ({
         brand: s.brand,
         name: s.name,
@@ -181,7 +166,6 @@ export default function Assistant() {
       onFollowUp: (q) => sendMessage(q),
     };
 
-    // Save search to history
     await base44.entities.SearchHistory.create({ query: q, results_count: bestPick ? 1 : 0 });
 
     setMessages(prev => [...prev, assistantMsg]);
@@ -210,24 +194,21 @@ export default function Assistant() {
               {profileLoaded ? (
                 <>
                   <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                  {hasSignals ? t("personalizedTo", language) : t("shoeExpertReady", language)}
+                  {hasSignals ? "Personalized to you · learning from your behavior" : "Shoe expert · ready to help"}
                 </>
               ) : (
-                <><Loader2 className="w-3 h-3 animate-spin" /> {t("loadingProfile", language)}</>
+                <><Loader2 className="w-3 h-3 animate-spin" /> Loading your profile…</>
               )}
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <LanguagePicker />
-          <button
-            onClick={reset}
-            className="p-2 rounded-xl hover:bg-secondary transition-colors"
-            title={t("newConversation", language)}
-          >
-            <RotateCcw className="w-4 h-4 text-muted-foreground" />
-          </button>
-        </div>
+        <button
+          onClick={reset}
+          className="p-2 rounded-xl hover:bg-secondary transition-colors"
+          title="New conversation"
+        >
+          <RotateCcw className="w-4 h-4 text-muted-foreground" />
+        </button>
       </div>
 
       {/* Profile signal badges */}
@@ -245,7 +226,7 @@ export default function Assistant() {
             </span>
           )}
           <span className="text-[10px] px-2.5 py-1 bg-green-50 dark:bg-green-950/30 text-green-600 dark:text-green-400 rounded-full flex items-center gap-1">
-            <Sparkles className="w-2.5 h-2.5" /> {t("personalized", language)}
+            <Sparkles className="w-2.5 h-2.5" /> personalized
           </span>
         </div>
       )}
@@ -254,14 +235,7 @@ export default function Assistant() {
       <div className="flex-1 overflow-y-auto space-y-4 py-2 scrollbar-hide">
         <AnimatePresence initial={false}>
           {messages.map((msg, i) => (
-            <MessageBubble
-              key={i}
-              msg={{
-                ...msg,
-                onFollowUp: sendMessage,
-              }}
-              bestPickShoe={msg.bestPickShoe}
-            />
+            <MessageBubble key={i} msg={{ ...msg, onFollowUp: sendMessage }} bestPickShoe={msg.bestPickShoe} />
           ))}
         </AnimatePresence>
 
@@ -272,7 +246,7 @@ export default function Assistant() {
             </div>
             <div className="bg-card border border-border rounded-2xl px-4 py-3 flex items-center gap-2">
               <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">{t("thinking", language)}</span>
+              <span className="text-sm text-muted-foreground">Thinking like a shoe expert…</span>
             </div>
           </motion.div>
         )}
@@ -280,10 +254,10 @@ export default function Assistant() {
         <div ref={bottomRef} />
       </div>
 
-      {/* Starter prompts (only at start) */}
+      {/* Starter prompts */}
       {messages.length <= 1 && !loading && (
         <div className="flex-shrink-0 pb-2">
-          <p className="text-xs text-muted-foreground mb-2">{t("tryAsking", language)}</p>
+          <p className="text-xs text-muted-foreground mb-2">Try asking:</p>
           <div className="flex flex-wrap gap-2">
             {STARTER_PROMPTS.slice(3).map((prompt) => (
               <button
@@ -308,7 +282,7 @@ export default function Assistant() {
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={t("askMeAnything", language)}
+            placeholder="Ask me anything about shoes…"
             className="flex-1 bg-transparent outline-none text-sm placeholder:text-muted-foreground/50"
             disabled={loading || !profileLoaded}
             dir={isRTL(input) ? "rtl" : "ltr"}
@@ -322,7 +296,7 @@ export default function Assistant() {
           </button>
         </form>
         <p className="text-center text-[10px] text-muted-foreground mt-2">
-          {t("learnsFromSearches", language)}
+          Learns from your searches · improves with every conversation
         </p>
       </div>
     </div>

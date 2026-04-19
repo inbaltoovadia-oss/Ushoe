@@ -1,9 +1,6 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import { Search, MapPin, Sun, Moon, Menu, X, Wand2, ChevronDown, Crown, ShieldCheck, Ruler, ArrowLeft } from "lucide-react";
-import LanguagePicker from "./LanguagePicker";
-import { getLanguage, subscribeLanguage } from "../lib/languageStore";
-import { t } from "../lib/translations";
 import { getLocation, subscribeLocation } from "../lib/locationStore";
 import LocationPicker from "./LocationPicker";
 import { useAuth } from "@/lib/AuthContext";
@@ -11,10 +8,8 @@ import { getSizeLabel, subscribeSize } from "../lib/sizeStore";
 import { AnimatePresence, motion } from "framer-motion";
 import SizeSelector from "./SizeSelector";
 
-// Root tabs — show logo on these, back button on all others
 const ROOT_PATHS = ["/", "/discover", "/trending", "/wishlist", "/settings", "/assistant"];
 
-// Human-readable titles for child screens
 const PAGE_TITLES = {
   "/search": "Search",
   "/shoe": "Shoe Details",
@@ -33,7 +28,6 @@ const PAGE_TITLES = {
 
 function getPageTitle(pathname) {
   if (PAGE_TITLES[pathname]) return PAGE_TITLES[pathname];
-  // Match prefix (e.g. /shoe/123 → "Shoe Details")
   const prefix = Object.keys(PAGE_TITLES).find(k => pathname.startsWith(k + "/"));
   return prefix ? PAGE_TITLES[prefix] : "";
 }
@@ -50,15 +44,11 @@ export default function Navbar() {
   const [showToolsMenu, setShowToolsMenu] = useState(false);
   const [showSizePicker, setShowSizePicker] = useState(false);
   const [sizeLabel, setSizeLabel] = useState(getSizeLabel());
-  const [lang, setLang] = useState(getLanguage());
   const toolsRef = useRef(null);
 
   useEffect(() => subscribeSize(() => setSizeLabel(getSizeLabel())), []);
-  useEffect(() => subscribeLanguage(setLang), []);
-
   useEffect(() => subscribeLocation(setLoc), []);
 
-  // Close tools menu on outside click
   useEffect(() => {
     const handler = (e) => {
       if (toolsRef.current && !toolsRef.current.contains(e.target)) setShowToolsMenu(false);
@@ -73,7 +63,6 @@ export default function Navbar() {
   };
 
   const handleNavClick = () => window.scrollTo({ top: 0, behavior: "smooth" });
-
   const isActive = (path) => location.pathname === path;
 
   const navLinks = [
@@ -130,7 +119,7 @@ export default function Navbar() {
               )}
             </div>
 
-            {/* Desktop: always show logo */}
+            {/* Desktop logo */}
             <Link to="/" className="hidden md:flex items-center gap-2" onClick={handleNavClick}>
               <span className="text-2xl">👟</span>
               <span className="font-heading font-bold text-lg tracking-tight">
@@ -146,9 +135,7 @@ export default function Navbar() {
                   to={link.to}
                   onClick={handleNavClick}
                   className={`px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
-                    isActive(link.to)
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                    isActive(link.to) ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-secondary"
                   }`}
                 >
                   {link.label}
@@ -206,7 +193,7 @@ export default function Navbar() {
               <Link to="/search" onClick={handleNavClick} className="p-2 rounded-xl hover:bg-secondary transition-colors">
                 <Search className="w-5 h-5 text-muted-foreground" />
               </Link>
-              <LanguagePicker compact />
+
               {/* Size badge */}
               <button
                 onClick={() => setShowSizePicker(true)}
@@ -218,18 +205,18 @@ export default function Navbar() {
                   {sizeLabel || "Set size"}
                 </span>
               </button>
+
               <Link
                 to="/subscription"
                 onClick={handleNavClick}
                 className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                  isActive("/subscription")
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-primary/10 text-primary hover:bg-primary/20"
+                  isActive("/subscription") ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary hover:bg-primary/20"
                 }`}
               >
                 <Crown className="w-3.5 h-3.5" />
                 Plans
               </Link>
+
               {user?.role === "admin" && (
                 <Link to="/admin" onClick={handleNavClick} className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 hover:opacity-80 transition-opacity">
                   <ShieldCheck className="w-3.5 h-3.5" />
