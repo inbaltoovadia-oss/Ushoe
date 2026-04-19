@@ -123,11 +123,11 @@ CRITICAL RULES - FOLLOW EXACTLY:
 3. For each shoe, find the LOWEST price available across all retailers. Convert any foreign currency to USD and return the price in USD (e.g. "$120").
 4. Mark is_best_deal: true for exactly ONE shoe — the single best value considering price, brand quality, and relevance. All others must be false.
 5. If the search is broad (e.g. "running shoes"), return diverse models across different brands (Nike, Adidas, Asics, New Balance, etc.). If specific (e.g. "Nike Air Max 90"), return variants/colorways of that model only.
-6. For each result return: brand (EXACT brand name), name (exact model name), price (cheapest USD price as string like "$120"), retailer (best price source), ships_to_user (true), is_best_deal (boolean).
+6. For each result return: brand (EXACT brand name), name (exact model name), price (cheapest USD price as string like "$120"), retailer (best price source), ships_to_user (true), is_best_deal (boolean), image_url (direct image URL of the shoe - must be a real product photo URL from the retailer or Google Shopping).
 
 Example for "Asics running shoes":
-- brand: "Asics", name: "Gel-Kayano 30", price: "$160", ...
-- brand: "Asics", name: "Gel-Nimbus 25", price: "$150", ...
+- brand: "Asics", name: "Gel-Kayano 30", price: "$160", image_url: "https://...", ...
+- brand: "Asics", name: "Gel-Nimbus 25", price: "$150", image_url: "https://...", ...
 NOT Adidas, NOT Nike - ONLY Asics when user asks for Asics.`;
 
     const [catalogResponse, webResponse] = await Promise.all([
@@ -417,87 +417,131 @@ NOT Adidas, NOT Nike - ONLY Asics when user asks for Asics.`;
                   return (
                     <div className="space-y-4">
                       {/* Best Deal — Large Card */}
-                      {bestPick && (
-                        <motion.a
-                          href={`https://www.google.com/search?tbm=shop&q=${encodeURIComponent(`${bestPick.brand} ${bestPick.name}`)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          initial={{ opacity: 0, y: 16 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          className="group block bg-gradient-to-r from-green-50 to-green-50/50 dark:from-green-950/30 dark:to-green-900/10 border-2 border-green-500 rounded-2xl overflow-hidden hover:shadow-2xl hover:shadow-green-500/20 hover:-translate-y-1 transition-all duration-300 p-5"
-                        >
-                          <div className="flex gap-5">
-                            <div className="w-32 h-32 flex-shrink-0 rounded-xl overflow-hidden bg-white relative">
-                              <img
-                                src={`https://www.google.com/s2/favicons?domain=google.com&sz=128`}
-                                alt="Search on Google"
-                                className="w-full h-full object-contain p-4"
-                              />
-                              {/* BEST DEAL Badge */}
-                              <div className="absolute top-2 left-2 bg-green-500 text-white text-[10px] font-bold px-2 py-1 rounded-full flex items-center gap-1 shadow-lg">
-                                <Trophy className="w-2.5 h-2.5" />
-                                BEST DEAL
+                      {bestPick && (() => {
+                        // Try to find matching shoe in catalog for image fallback
+                        const catalogMatch = rankedShoes.find(
+                          s => s.brand.toLowerCase() === (bestPick.brand || "").toLowerCase() &&
+                               s.name.toLowerCase().includes((bestPick.name || "").split(" ")[0].toLowerCase())
+                        );
+                        const fallbackShoe = catalogMatch || rankedShoes.find(s => s.brand.toLowerCase() === (bestPick.brand || "").toLowerCase());
+                        const displayImage = bestPick.image_url || fallbackShoe?.image_url;
+
+                        return (
+                          <motion.a
+                            href={`https://www.google.com/search?tbm=shop&q=${encodeURIComponent(`${bestPick.brand} ${bestPick.name}`)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            initial={{ opacity: 0, y: 16 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="group block bg-gradient-to-r from-green-50 to-green-50/50 dark:from-green-950/30 dark:to-green-900/10 border-2 border-green-500 rounded-2xl overflow-hidden hover:shadow-2xl hover:shadow-green-500/20 hover:-translate-y-1 transition-all duration-300 p-5"
+                          >
+                            <div className="flex gap-5">
+                              <div className="w-32 h-32 flex-shrink-0 rounded-xl overflow-hidden bg-white relative">
+                                {displayImage ? (
+                                  <img
+                                    src={displayImage}
+                                    alt={`${bestPick.brand} ${bestPick.name}`}
+                                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                    onError={(e) => {
+                                      e.currentTarget.src = `https://www.google.com/s2/favicons?domain=google.com&sz=128`;
+                                    }}
+                                  />
+                                ) : (
+                                  <img
+                                    src={`https://www.google.com/s2/favicons?domain=google.com&sz=128`}
+                                    alt="Search on Google"
+                                    className="w-full h-full object-contain p-4"
+                                  />
+                                )}
+                                {/* BEST DEAL Badge */}
+                                <div className="absolute top-2 left-2 bg-green-500 text-white text-[10px] font-bold px-2 py-1 rounded-full flex items-center gap-1 shadow-lg">
+                                  <Trophy className="w-2.5 h-2.5" />
+                                  BEST DEAL
+                                </div>
                               </div>
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-2 flex-wrap">
-                                <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">{bestPick.brand}</span>
-                                <span className="text-[9px] font-bold text-green-700 bg-green-100 dark:bg-green-900/50 dark:text-green-400 px-2 py-0.5 rounded-full">
-                                  ✓ Ships to {loc.city}
-                                </span>
-                              </div>
-                              <p className="font-heading font-bold text-lg group-hover:text-primary transition-colors line-clamp-1">{bestPick.name}</p>
-                              <div className="flex items-center gap-3 mt-2">
-                                {bestPick.price && <p className="text-green-600 dark:text-green-400 font-bold text-2xl">{bestPick.price}</p>}
-                                {bestPick.retailer && (
-                                  <span className="text-xs text-muted-foreground flex items-center gap-1">
-                                    at {bestPick.retailer} <span className="text-green-600">→</span>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-2 flex-wrap">
+                                  <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">{bestPick.brand}</span>
+                                  <span className="text-[9px] font-bold text-green-700 bg-green-100 dark:bg-green-900/50 dark:text-green-400 px-2 py-0.5 rounded-full">
+                                    ✓ Ships to {loc.city}
                                   </span>
+                                </div>
+                                <p className="font-heading font-bold text-lg group-hover:text-primary transition-colors line-clamp-1">{bestPick.name}</p>
+                                <div className="flex items-center gap-3 mt-2">
+                                  {bestPick.price && <p className="text-green-600 dark:text-green-400 font-bold text-2xl">{bestPick.price}</p>}
+                                  {bestPick.retailer && (
+                                    <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                      at {bestPick.retailer} <span className="text-green-600">→</span>
+                                    </span>
+                                  )}
+                                </div>
+                                {!bestPick.image_url && (
+                                  <p className="text-[10px] text-muted-foreground mt-2 flex items-center gap-1">
+                                    <Globe className="w-2.5 h-2.5" /> Click to see real photos and buy on Google
+                                  </p>
                                 )}
                               </div>
-                              <p className="text-[10px] text-muted-foreground mt-2 flex items-center gap-1">
-                                <Globe className="w-2.5 h-2.5" /> Click to see real photos and buy on Google
-                              </p>
                             </div>
-                          </div>
-                        </motion.a>
-                      )}
+                          </motion.a>
+                        );
+                      })()}
 
                       {/* Other Unique Models — Grid */}
                       {otherPicks.length > 0 && (
                         <div>
                           <p className="text-xs text-muted-foreground mb-3">Other models available:</p>
                           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-                            {otherPicks.map((pick, i) => (
-                              <motion.a
-                                key={i}
-                                href={`https://www.google.com/search?tbm=shop&q=${encodeURIComponent(`${pick.brand} ${pick.name}`)}&tbm=isch`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                initial={{ opacity: 0, y: 16 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: i * 0.05 }}
-                                className="group block bg-card border border-border rounded-2xl overflow-hidden hover:shadow-xl hover:shadow-primary/10 hover:border-primary/40 hover:-translate-y-1.5 transition-all duration-300"
-                              >
-                                <div className="relative aspect-square overflow-hidden bg-white">
-                                  <img
-                                    src={`https://www.google.com/s2/favicons?domain=google.com&sz=128`}
-                                    alt="View on Google"
-                                    className="w-full h-full object-contain p-6 group-hover:scale-110 transition-transform duration-500"
-                                  />
-                                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-center pb-3">
-                                    <span className="text-white text-[10px] font-semibold bg-white/20 backdrop-blur-sm px-2.5 py-1 rounded-full border border-white/30">
-                                      See Photos →
-                                    </span>
+                            {otherPicks.map((pick, i) => {
+                              // Try to find matching shoe in catalog for image fallback
+                              const catalogMatch = rankedShoes.find(
+                                s => s.brand.toLowerCase() === (pick.brand || "").toLowerCase() &&
+                                     s.name.toLowerCase().includes((pick.name || "").split(" ")[0].toLowerCase())
+                              );
+                              const fallbackShoe = catalogMatch || rankedShoes.find(s => s.brand.toLowerCase() === (pick.brand || "").toLowerCase());
+                              const displayImage = pick.image_url || fallbackShoe?.image_url;
+
+                              return (
+                                <motion.a
+                                  key={i}
+                                  href={`https://www.google.com/search?tbm=shop&q=${encodeURIComponent(`${pick.brand} ${pick.name}`)}&tbm=isch`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  initial={{ opacity: 0, y: 16 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  transition={{ delay: i * 0.05 }}
+                                  className="group block bg-card border border-border rounded-2xl overflow-hidden hover:shadow-xl hover:shadow-primary/10 hover:border-primary/40 hover:-translate-y-1.5 transition-all duration-300"
+                                >
+                                  <div className="relative aspect-square overflow-hidden bg-white">
+                                    {displayImage ? (
+                                      <img
+                                        src={displayImage}
+                                        alt={`${pick.brand} ${pick.name}`}
+                                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                        onError={(e) => {
+                                          e.currentTarget.src = `https://www.google.com/s2/favicons?domain=google.com&sz=128`;
+                                        }}
+                                      />
+                                    ) : (
+                                      <img
+                                        src={`https://www.google.com/s2/favicons?domain=google.com&sz=128`}
+                                        alt="View on Google"
+                                        className="w-full h-full object-contain p-6 group-hover:scale-110 transition-transform duration-500"
+                                      />
+                                    )}
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-center pb-3">
+                                      <span className="text-white text-[10px] font-semibold bg-white/20 backdrop-blur-sm px-2.5 py-1 rounded-full border border-white/30">
+                                        See Photos →
+                                      </span>
+                                    </div>
                                   </div>
-                                </div>
-                                <div className="p-3">
-                                  <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider truncate">{pick.brand}</p>
-                                  <p className="font-heading font-semibold text-xs mt-0.5 line-clamp-2 group-hover:text-primary transition-colors leading-tight">{pick.name}</p>
-                                  {pick.price && <p className="text-primary font-bold text-sm mt-1.5">{pick.price}</p>}
-                                </div>
-                              </motion.a>
-                            ))}
+                                  <div className="p-3">
+                                    <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider truncate">{pick.brand}</p>
+                                    <p className="font-heading font-semibold text-xs mt-0.5 line-clamp-2 group-hover:text-primary transition-colors leading-tight">{pick.name}</p>
+                                    {pick.price && <p className="text-primary font-bold text-sm mt-1.5">{pick.price}</p>}
+                                  </div>
+                                </motion.a>
+                              );
+                            })}
                           </div>
                         </div>
                       )}
