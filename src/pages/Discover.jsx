@@ -115,15 +115,14 @@ ${rankedShoes.map((s, i) => `${i}: ${s.brand} ${s.name} $${s.price} ${s.category
 Write a short 1-sentence expert summary of what you found.`;
 
     const currentLoc = getLocation();
-    const webPrompt = `Find 10 real shoes matching: "${finalQ}"${selectedCategory ? ` in category ${selectedCategory}` : ""} that are available to ship to ${currentLoc.city}.
+    const webPrompt = `Find up to 10 DISTINCT shoe models matching: "${finalQ}"${selectedCategory ? ` in category ${selectedCategory}` : ""} available to buy online.
 
-IMPORTANT: If the same shoe model appears at multiple retailers with different prices, include it MULTIPLE TIMES — once per retailer with the exact price from that retailer. This lets users compare prices across stores.
-
-Return a DIVERSE set across different brands (Nike, Adidas, New Balance, etc.) and price points.
-Rules:
-1. Only include retailers that ship to ${currentLoc.city}.
-2. For each result: brand (e.g. "Nike"), name (exact model), price (as string like "$120" — use the ACTUAL price from that retailer), retailer name, ships_to_user (true), is_best_deal (boolean — mark true for the SINGLE best value considering price and availability, only ONE item total should be true).
-Return ONLY these fields.`;
+STRICT RULES:
+1. NEVER repeat the same shoe model — each entry must be a completely different shoe model. One entry per model, no duplicates.
+2. For each shoe, find the LOWEST price available across all retailers. Convert any foreign currency to USD and return the price in USD (e.g. "$120").
+3. Mark is_best_deal: true for exactly ONE shoe — the single best value considering price, brand quality, and relevance. All others must be false.
+4. If the search is broad (e.g. "running shoes"), return diverse models across different brands. If specific (e.g. "Nike Air Max 90"), return variants/colorways of that model only.
+5. For each result return: brand, name (exact model name), price (cheapest USD price as string like "$120"), retailer (best price source), ships_to_user (true), is_best_deal (boolean).`;
 
     const [catalogResponse, webResponse] = await Promise.all([
       base44.integrations.Core.InvokeLLM({
@@ -176,14 +175,13 @@ Return ONLY these fields.`;
       .filter((r) => r.index >= 0 && r.index < rankedShoes.length)
       .map((r) => ({ shoe: rankedShoes[r.index], match_score: r.match_score, explanation: r.explanation }));
 
-    const filteredWebResults = (webResponse.web_picks || []).filter(p => p.ships_to_user !== false);
+    const filteredWebResults = (webResponse.web_picks || []);
 
-    // Ensure exactly one best deal is marked
+    // Fallback: if AI didn't mark any best deal, mark the cheapest
     const hasBestDeal = filteredWebResults.some(p => p.is_best_deal);
     if (!hasBestDeal && filteredWebResults.length > 0) {
-      // Mark the cheapest as best deal
-      const prices = filteredWebResults.map(p => parseFloat((p.price || "0").replace(/[^0-9.]/g, "")) || 0);
-      const minIdx = prices.indexOf(Math.min(...prices.filter(x => x > 0)));
+      const prices = filteredWebResults.map(p => parseFloat((p.price || "0").replace(/[^0-9.]/g, "")) || Infinity);
+      const minIdx = prices.indexOf(Math.min(...prices));
       if (minIdx >= 0) filteredWebResults[minIdx] = { ...filteredWebResults[minIdx], is_best_deal: true };
     }
 
