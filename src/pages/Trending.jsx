@@ -6,6 +6,7 @@ import ShoeCard from "../components/ShoeCard";
 import SkeletonCard from "../components/SkeletonCard";
 import InterestPicker from "../components/InterestPicker";
 import { getInterests, subscribeInterests } from "../lib/interestStore";
+import PullToRefresh from "../components/PullToRefresh";
 
 const SPORT_CATEGORIES = ["Running", "Basketball", "Soccer", "Tennis", "Training", "Hiking", "Skateboarding"];
 const ALL_TABS = ["For You", "All", "Running", "Basketball", "Soccer", "Tennis", "Training", "Casual", "Lifestyle", "Walking", "Hiking"];
@@ -48,6 +49,7 @@ export default function Trending() {
   const filtered = getFiltered();
 
   return (
+    <PullToRefresh onRefresh={loadShoes}>
     <div className="min-h-screen py-8 px-4 sm:px-6">
       {showInterestPicker && (
         <InterestPicker
@@ -185,5 +187,6 @@ export default function Trending() {
         )}
       </div>
     </div>
+    </PullToRefresh>
   );
 }

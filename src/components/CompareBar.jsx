@@ -18,7 +18,7 @@ export default function CompareBar() {
         initial={{ y: 100, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 100, opacity: 0 }}
-        className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border shadow-2xl px-4 py-3"
+        className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border shadow-2xl px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
       >
         <div className="max-w-7xl mx-auto flex items-center gap-3">
           <div className="flex items-center gap-2 flex-1 overflow-x-auto">

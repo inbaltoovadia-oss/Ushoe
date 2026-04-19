@@ -1,7 +1,8 @@
 import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Camera, ImagePlus, Loader2, Ruler, X, Sparkles, ChevronRight } from "lucide-react";
+import { Camera, ImagePlus, Loader2, Ruler, X, Sparkles, ChevronDown } from "lucide-react";
 import { base44 } from "@/api/base44Client";
+import BottomSheet from "../components/BottomSheet";
 
 const BRANDS = ["Nike", "Adidas", "New Balance", "ASICS", "Puma", "Converse", "Vans", "Jordan", "On Running", "Salomon", "Reebok", "Hoka"];
 const SIZES_US = [5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10, 10.5, 11, 11.5, 12, 13, 14];
@@ -10,6 +11,8 @@ export default function FitPredictor() {
   const [knownBrand, setKnownBrand] = useState("Nike");
   const [knownSize, setKnownSize] = useState(10);
   const [width, setWidth] = useState("normal");
+  const [brandSheetOpen, setBrandSheetOpen] = useState(false);
+  const [sizeSheetOpen, setSizeSheetOpen] = useState(false);
   const [footLength, setFootLength] = useState("");
   const [imagePreview, setImagePreview] = useState(null);
   const [imageUrl, setImageUrl] = useState(null);
@@ -109,25 +112,42 @@ Also output:
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="text-sm font-medium mb-2 block">Brand you know your size in</label>
-              <select
-                value={knownBrand}
-                onChange={(e) => setKnownBrand(e.target.value)}
-                className="w-full bg-secondary border-none rounded-xl px-4 py-3 text-sm outline-none"
+              <button
+                onClick={() => setBrandSheetOpen(true)}
+                className="w-full bg-secondary rounded-xl px-4 py-3 text-sm text-left flex items-center justify-between"
               >
-                {BRANDS.map((b) => <option key={b} value={b}>{b}</option>)}
-              </select>
+                <span>{knownBrand}</span>
+                <ChevronDown className="w-4 h-4 text-muted-foreground" />
+              </button>
             </div>
             <div>
               <label className="text-sm font-medium mb-2 block">Your size (US)</label>
-              <select
-                value={knownSize}
-                onChange={(e) => setKnownSize(Number(e.target.value))}
-                className="w-full bg-secondary border-none rounded-xl px-4 py-3 text-sm outline-none"
+              <button
+                onClick={() => setSizeSheetOpen(true)}
+                className="w-full bg-secondary rounded-xl px-4 py-3 text-sm text-left flex items-center justify-between"
               >
-                {SIZES_US.map((s) => <option key={s} value={s}>US {s}</option>)}
-              </select>
+                <span>US {knownSize}</span>
+                <ChevronDown className="w-4 h-4 text-muted-foreground" />
+              </button>
             </div>
           </div>
+
+          <BottomSheet
+            open={brandSheetOpen}
+            onClose={() => setBrandSheetOpen(false)}
+            title="Select Brand"
+            options={BRANDS.map(b => ({ label: b, value: b }))}
+            value={knownBrand}
+            onChange={setKnownBrand}
+          />
+          <BottomSheet
+            open={sizeSheetOpen}
+            onClose={() => setSizeSheetOpen(false)}
+            title="Select Size (US)"
+            options={SIZES_US.map(s => ({ label: `US ${s}`, value: s }))}
+            value={knownSize}
+            onChange={(v) => setKnownSize(Number(v))}
+          />
 
           {/* Width */}
           <div>
