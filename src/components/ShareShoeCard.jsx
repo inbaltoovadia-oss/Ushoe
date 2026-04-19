@@ -2,7 +2,6 @@ import { useState, useRef } from "react";
 import { X, Download, Instagram, MessageCircle, Share2, Copy, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
-import html2canvas from "html2canvas";
 
 const FALLBACK_IMG = "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600&h=600&fit=crop";
 
@@ -21,6 +20,7 @@ export default function ShareShoeCard({ shoe, onClose }) {
   const generateImage = async () => {
     if (!cardRef.current) return null;
     setGenerating(true);
+    const { default: html2canvas } = await import("html2canvas");
     const canvas = await html2canvas(cardRef.current, {
       scale: 2,
       useCORS: true,
