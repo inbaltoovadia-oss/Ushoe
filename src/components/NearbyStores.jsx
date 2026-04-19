@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { MapPin, Loader2, Star, Navigation, Sparkles, Zap, Phone } from "lucide-react";
+import { MapPin, Loader2, Star, Navigation, Sparkles, Zap } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { getLocation, subscribeLocation } from "../lib/locationStore";
 import { sortStoresByLocation } from "../lib/storeUtils";
@@ -211,11 +211,7 @@ function StoreRow({ store }) {
             <Navigation className="w-3 h-3" />
             {isBest ? "Go Now" : "Maps"}
           </a>
-          {store.phone && (
-            <a href={`tel:${store.phone}`} className="flex items-center gap-1 text-xs px-2.5 py-1 bg-secondary text-foreground rounded-lg hover:bg-secondary/80">
-              <Phone className="w-3 h-3" /> Call
-            </a>
-          )}
+
         </div>
       </div>
     </div>

@@ -1,5 +1,5 @@
 import { useState, lazy, Suspense } from "react";
-import { MapPin, Search, Loader2, Star, Navigation, Phone, Globe, CheckCircle, AlertTriangle, XCircle, List, Map } from "lucide-react";
+import { MapPin, Search, Loader2, Star, Navigation, Globe, CheckCircle, AlertTriangle, XCircle, List, Map } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { base44 } from "@/api/base44Client";
 
@@ -39,10 +39,6 @@ function getDirectionsUrl(store) {
   return isApple
     ? `https://maps.apple.com/?daddr=${dest}&dirflg=d`
     : `https://www.google.com/maps/dir/?api=1&destination=${dest}&travelmode=driving`;
-}
-
-function cleanPhone(phone) {
-  return phone ? phone.replace(/[^\d+\-().# ]/g, "").trim() : "";
 }
 
 // Haversine formula — returns straight-line distance in miles
@@ -387,26 +383,16 @@ Also return a short 1-sentence summary about the shoe store scene in that area.`
                                 <Navigation className="w-3.5 h-3.5" />
                                 Get Directions
                               </a>
-                              <div className="flex gap-2">
-                                {store.phone && (
-                                  <a
-                                    href={`tel:${cleanPhone(store.phone)}`}
-                                    className="flex-1 flex items-center justify-center gap-1 text-xs px-3 py-2 bg-secondary rounded-xl hover:bg-secondary/80 transition-colors"
-                                  >
-                                    <Phone className="w-3.5 h-3.5" /> Call
-                                  </a>
-                                )}
-                                {store.website && (
-                                  <a
-                                    href={store.website.startsWith("http") ? store.website : `https://${store.website}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex-1 flex items-center justify-center gap-1 text-xs px-3 py-2 bg-secondary rounded-xl hover:bg-secondary/80 transition-colors"
-                                  >
-                                    <Globe className="w-3.5 h-3.5" /> Web
-                                  </a>
-                                )}
-                              </div>
+                              {store.website && (
+                                <a
+                                  href={store.website.startsWith("http") ? store.website : `https://${store.website}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center justify-center gap-1 text-xs px-3 py-2 bg-secondary rounded-xl hover:bg-secondary/80 transition-colors"
+                                >
+                                  <Globe className="w-3.5 h-3.5" /> Website
+                                </a>
+                              )}
                             </div>
                           </div>
                         </motion.div>
