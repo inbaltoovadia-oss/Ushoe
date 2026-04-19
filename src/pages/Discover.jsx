@@ -109,7 +109,7 @@ ${sizeNote}
 USER PROFILE:
 ${personaSummary}
 
-From the catalog below (pre-ranked by relevance), pick up to 10 best matches by index number:
+From the catalog below (pre-ranked by relevance), pick up to 10 DIFFERENT shoes by index number. Each index must be unique - NO duplicates allowed.
 ${rankedShoes.map((s, i) => `${i}: ${s.brand} ${s.name} $${s.price} ${s.category} trending=${s.is_trending ? "yes" : "no"} sizes:${(s.sizes_available||[]).join(",")}`).join("\n")}
 
 Write a short 1-sentence expert summary of what you found.`;
@@ -117,12 +117,18 @@ Write a short 1-sentence expert summary of what you found.`;
     const currentLoc = getLocation();
     const webPrompt = `Find up to 10 DISTINCT shoe models matching: "${finalQ}"${selectedCategory ? ` in category ${selectedCategory}` : ""} available to buy online.
 
-STRICT RULES:
-1. NEVER repeat the same shoe model — each entry must be a completely different shoe model. One entry per model, no duplicates.
-2. For each shoe, find the LOWEST price available across all retailers. Convert any foreign currency to USD and return the price in USD (e.g. "$120").
-3. Mark is_best_deal: true for exactly ONE shoe — the single best value considering price, brand quality, and relevance. All others must be false.
-4. If the search is broad (e.g. "running shoes"), return diverse models across different brands. If specific (e.g. "Nike Air Max 90"), return variants/colorways of that model only.
-5. For each result return: brand, name (exact model name), price (cheapest USD price as string like "$120"), retailer (best price source), ships_to_user (true), is_best_deal (boolean).`;
+CRITICAL RULES - FOLLOW EXACTLY:
+1. EACH shoe must be a completely DIFFERENT model from a DIFFERENT brand when possible. NO duplicates of the same shoe.
+2. Match the brand EXACTLY to the shoe name - if searching for "Asics", show ONLY Asics shoes. If searching for "Adidas", show ONLY Adidas shoes. NEVER mix brands.
+3. For each shoe, find the LOWEST price available across all retailers. Convert any foreign currency to USD and return the price in USD (e.g. "$120").
+4. Mark is_best_deal: true for exactly ONE shoe — the single best value considering price, brand quality, and relevance. All others must be false.
+5. If the search is broad (e.g. "running shoes"), return diverse models across different brands (Nike, Adidas, Asics, New Balance, etc.). If specific (e.g. "Nike Air Max 90"), return variants/colorways of that model only.
+6. For each result return: brand (EXACT brand name), name (exact model name), price (cheapest USD price as string like "$120"), retailer (best price source), ships_to_user (true), is_best_deal (boolean).
+
+Example for "Asics running shoes":
+- brand: "Asics", name: "Gel-Kayano 30", price: "$160", ...
+- brand: "Asics", name: "Gel-Nimbus 25", price: "$150", ...
+NOT Adidas, NOT Nike - ONLY Asics when user asks for Asics.`;
 
     const [catalogResponse, webResponse] = await Promise.all([
       base44.integrations.Core.InvokeLLM({
@@ -171,11 +177,25 @@ STRICT RULES:
       }),
     ]);
 
+    // Deduplicate catalog recommendations by index
+    const seenIndices = new Set();
     const recs = (catalogResponse.recommendations || [])
-      .filter((r) => r.index >= 0 && r.index < rankedShoes.length)
+      .filter((r) => {
+        if (r.index < 0 || r.index >= rankedShoes.length) return false;
+        if (seenIndices.has(r.index)) return false;
+        seenIndices.add(r.index);
+        return true;
+      })
       .map((r) => ({ shoe: rankedShoes[r.index], match_score: r.match_score, explanation: r.explanation }));
 
-    const filteredWebResults = (webResponse.web_picks || []);
+    // Deduplicate web results by brand+name combination
+    const seenWeb = new Set();
+    const filteredWebResults = (webResponse.web_picks || []).filter((p) => {
+      const key = `${(p.brand || "").toLowerCase()}-${(p.name || "").toLowerCase()}`;
+      if (seenWeb.has(key)) return false;
+      seenWeb.add(key);
+      return true;
+    });
 
     // Fallback: if AI didn't mark any best deal, mark the cheapest
     const hasBestDeal = filteredWebResults.some(p => p.is_best_deal);
