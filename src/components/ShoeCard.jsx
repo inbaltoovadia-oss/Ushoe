@@ -54,7 +54,7 @@ export default function ShoeCard({ shoe, index = 0, sponsored = false, onSponsor
               <div className="absolute inset-0 bg-secondary animate-pulse" />
             )}
             <img
-              src={shoe.image_url || `https://tse1.mm.bing.net/th?q=${encodeURIComponent((shoe.brand || "") + " " + (shoe.name || "") + " sneaker")}&w=400&h=400&c=7&rs=1&pid=1.7&mkt=en-US&adlt=moderate`}
+              src={shoe.image_url || "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&h=400&fit=crop"}
               alt={shoe.name}
               className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 ${
                 imgLoaded ? "opacity-100" : "opacity-0"
@@ -62,17 +62,7 @@ export default function ShoeCard({ shoe, index = 0, sponsored = false, onSponsor
               onLoad={() => setImgLoaded(true)}
               onError={(e) => {
                 e.target.onerror = null;
-                const brand = encodeURIComponent((shoe.brand || "") + " " + (shoe.name || "") + " sneaker");
-                const tried = e.target.getAttribute("data-fallback") || "0";
-                if (tried === "0") {
-                  e.target.setAttribute("data-fallback", "1");
-                  e.target.src = `https://tse4.mm.bing.net/th?q=${brand}&w=400&h=400&c=7&rs=1&pid=1.7&mkt=en-US&adlt=moderate`;
-                } else if (tried === "1") {
-                  e.target.setAttribute("data-fallback", "2");
-                  e.target.src = `https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&h=400&fit=crop&auto=format`;
-                } else {
-                  e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400' viewBox='0 0 400 400'%3E%3Crect fill='%23f1f5f9' width='400' height='400'/%3E%3Ctext x='50%25' y='50%25' font-size='60' text-anchor='middle' dominant-baseline='middle'%3E👟%3C/text%3E%3C/svg%3E";
-                }
+                e.target.src = "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&h=400&fit=crop";
                 setImgLoaded(true);
               }}
             />
