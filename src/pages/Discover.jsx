@@ -92,29 +92,28 @@ export default function Discover() {
       }
     }
 
+    // Load shoes in parallel with cache check
     const [allShoesData, userProfile] = await Promise.all([
-      base44.entities.Shoe.list("-trending_score", 100),
+      base44.entities.Shoe.list("-trending_score", 60),
       getUserProfile(),
     ]);
 
     setAllShoes(allShoesData);
-    const rankedShoes = rankShoes(allShoesData, userProfile, { limit: 80 });
+    const rankedShoes = rankShoes(allShoesData, userProfile, { limit: 50 });
     const sizePref = getSize();
-    const sizeNote = sizePref.us ? `The user's shoe size is US ${sizePref.us} (EU ${sizePref.eu}, UK ${sizePref.uk}). Prefer shoes available in this size.` : "";
+    const sizeNote = sizePref.us ? `Size: US ${sizePref.us}` : "";
     const personaSummary = buildPersonaSummary(userProfile);
 
-    const catalogPrompt = `You are an expert shoe specialist AI. The user is looking for: "${finalQ}"
+    const catalogPrompt = `Expert shoe AI. User wants: "${finalQ}"
 ${selectedCategory ? `Category: ${selectedCategory}.` : ""}
-${imageUrl ? "The user uploaded an image — identify the shoe style/type from it." : ""}
 ${sizeNote}
 
-USER PROFILE:
-${personaSummary}
+USER PROFILE: ${personaSummary}
 
-From the catalog below (pre-ranked by relevance), pick up to 10 DIFFERENT shoes by index number. Each index must be unique - NO duplicates allowed.
-${rankedShoes.map((s, i) => `${i}: ${s.brand} ${s.name} $${s.price} ${s.category} trending=${s.is_trending ? "yes" : "no"} sizes:${(s.sizes_available||[]).join(",")}`).join("\n")}
+Pick up to 8 UNIQUE shoes (no duplicates) from this catalog:
+${rankedShoes.map((s, i) => `${i}: ${s.brand} ${s.name} $${s.price} ${s.category}`).join("\n")}
 
-Write a short 1-sentence expert summary of what you found.`;
+1-sentence summary:`;
 
     const currentLoc = getLocation();
     const webPrompt = `Find up to 10 DISTINCT shoe models matching: "${finalQ}"${selectedCategory ? ` in category ${selectedCategory}` : ""} available to buy online.
@@ -136,6 +135,7 @@ NOT Adidas, NOT Nike - ONLY Asics when user asks for Asics.`;
       base44.integrations.Core.InvokeLLM({
         prompt: catalogPrompt,
         file_urls: imageUrl ? [imageUrl] : undefined,
+        model: "automatic",
         response_json_schema: {
           type: "object",
           properties: {
@@ -157,6 +157,7 @@ NOT Adidas, NOT Nike - ONLY Asics when user asks for Asics.`;
       base44.integrations.Core.InvokeLLM({
         prompt: webPrompt,
         add_context_from_internet: true,
+        model: "gemini_3_flash",
         response_json_schema: {
           type: "object",
           properties: {
@@ -171,6 +172,7 @@ NOT Adidas, NOT Nike - ONLY Asics when user asks for Asics.`;
                   retailer: { type: "string" },
                   ships_to_user: { type: "boolean" },
                   is_best_deal: { type: "boolean" },
+                  image_url: { type: "string" },
                 },
               },
             },
