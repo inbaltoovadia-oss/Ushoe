@@ -15,6 +15,7 @@ import { canSearch, incrementSearchCount, canUse, getPlan, getSearchesUsedToday,
 
 import PlanGate from "../components/PlanGate";
 import ShoeProblemSolver from "../components/ShoeProblemSolver";
+import ShoeImage from "../components/ShoeImage";
 import { Link } from "react-router-dom";
 
 const CATEGORY_ICONS = {
@@ -391,7 +392,6 @@ Return ONLY these fields — do not include any URLs.`;
                 {webResults.filter(p => p.is_best_deal).map((pick, i) => {
                   const searchQuery = encodeURIComponent(`${pick.brand || ""} ${pick.name || ""}`);
                   const url = `https://www.google.com/search?tbm=shop&q=${searchQuery}`;
-                  const bingImg = `https://tse1.mm.bing.net/th?q=${searchQuery}&w=600&h=600&c=7&rs=1&p=0&dpr=2&pid=1.7&mkt=en-US&adlt=moderate`;
                   return (
                     <motion.a
                       key={`best-${i}`}
@@ -403,10 +403,10 @@ Return ONLY these fields — do not include any URLs.`;
                       className="group flex gap-4 bg-gradient-to-r from-primary/10 to-primary/5 border-2 border-primary rounded-2xl overflow-hidden hover:shadow-2xl hover:shadow-primary/20 hover:-translate-y-1 transition-all duration-300 mb-4 p-4"
                     >
                       <div className="w-24 h-24 flex-shrink-0 rounded-xl overflow-hidden bg-secondary">
-                        <img
-                          src={bingImg}
-                          alt={pick.name}
-                          onError={(e) => { e.target.src = "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=200&h=200&fit=crop"; }}
+                        <ShoeImage
+                          brand={pick.brand}
+                          name={pick.name}
+                          size={200}
                           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                         />
                       </div>
@@ -435,7 +435,6 @@ Return ONLY these fields — do not include any URLs.`;
                   {webResults.filter(p => !p.is_best_deal).map((pick, i) => {
                     const searchQuery = encodeURIComponent(`${pick.brand || ""} ${pick.name || ""}`);
                     const url = `https://www.google.com/search?tbm=shop&q=${searchQuery}`;
-                    const bingImg = `https://tse1.mm.bing.net/th?q=${searchQuery}&w=400&h=400&c=7&rs=1&p=0&dpr=2&pid=1.7&mkt=en-US&adlt=moderate`;
                     return (
                       <motion.a
                         key={i}
@@ -448,10 +447,10 @@ Return ONLY these fields — do not include any URLs.`;
                         className="group block bg-card border border-border rounded-2xl overflow-hidden hover:shadow-xl hover:shadow-primary/10 hover:border-primary/40 hover:-translate-y-1.5 transition-all duration-300"
                       >
                         <div className="relative aspect-square overflow-hidden bg-secondary/40">
-                          <img
-                            src={bingImg}
-                            alt={pick.name}
-                            onError={(e) => { e.target.src = "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&h=400&fit=crop"; }}
+                          <ShoeImage
+                            brand={pick.brand}
+                            name={pick.name}
+                            size={400}
                             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                           />
                           <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-center pb-3">
