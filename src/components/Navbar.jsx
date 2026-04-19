@@ -1,6 +1,6 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
-import { Search, MapPin, Sun, Moon, Sparkles, Menu, X, Wand2, ChevronDown, Crown, ShieldCheck, Ruler } from "lucide-react";
+import { Search, MapPin, Sun, Moon, Menu, X, Wand2, ChevronDown, Crown, ShieldCheck, Ruler, ArrowLeft } from "lucide-react";
 import { getLocation, subscribeLocation } from "../lib/locationStore";
 import LocationPicker from "./LocationPicker";
 import { useAuth } from "@/lib/AuthContext";
@@ -8,9 +8,37 @@ import { getSizeLabel, subscribeSize } from "../lib/sizeStore";
 import { AnimatePresence, motion } from "framer-motion";
 import SizeSelector from "./SizeSelector";
 
+// Root tabs — show logo on these, back button on all others
+const ROOT_PATHS = ["/", "/discover", "/trending", "/wishlist", "/settings"];
+
+// Human-readable titles for child screens
+const PAGE_TITLES = {
+  "/search": "Search",
+  "/shoe": "Shoe Details",
+  "/nearby-stores": "Store Finder",
+  "/compare": "Compare",
+  "/price-drops": "Price Drops",
+  "/deals": "Deals",
+  "/style-quiz": "Style Quiz",
+  "/fit-predictor": "Fit Predictor",
+  "/outfit-matcher": "Outfit Matcher",
+  "/survey": "Style Survey",
+  "/subscription": "Plans",
+  "/admin": "Admin",
+};
+
+function getPageTitle(pathname) {
+  if (PAGE_TITLES[pathname]) return PAGE_TITLES[pathname];
+  // Match prefix (e.g. /shoe/123 → "Shoe Details")
+  const prefix = Object.keys(PAGE_TITLES).find(k => pathname.startsWith(k + "/"));
+  return prefix ? PAGE_TITLES[prefix] : "";
+}
+
 export default function Navbar() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { user } = useAuth();
+  const isRootScreen = ROOT_PATHS.includes(location.pathname);
   const [dark, setDark] = useState(() => document.documentElement.classList.contains("dark"));
   const [loc, setLoc] = useState(getLocation());
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -64,8 +92,32 @@ export default function Navbar() {
       <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border/50 pt-[env(safe-area-inset-top)]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-16">
-            {/* Logo */}
-            <Link to="/" className="flex items-center gap-2" onClick={handleNavClick}>
+            {/* Mobile: back button on child screens / logo on root screens */}
+            <div className="md:hidden flex items-center">
+              {isRootScreen ? (
+                <Link to="/" className="flex items-center gap-2" onClick={handleNavClick}>
+                  <span className="text-2xl">👟</span>
+                  <span className="font-heading font-bold text-lg tracking-tight">
+                    u<span className="text-primary font-black">shoe</span>
+                  </span>
+                </Link>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => navigate(-1)}
+                    className="flex items-center gap-1 p-1.5 rounded-xl hover:bg-secondary transition-colors -ml-1"
+                  >
+                    <ArrowLeft className="w-5 h-5" />
+                  </button>
+                  <span className="font-heading font-semibold text-base">
+                    {getPageTitle(location.pathname)}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Desktop: always show logo */}
+            <Link to="/" className="hidden md:flex items-center gap-2" onClick={handleNavClick}>
               <span className="text-2xl">👟</span>
               <span className="font-heading font-bold text-lg tracking-tight">
                 u<span className="text-primary font-black">shoe</span>

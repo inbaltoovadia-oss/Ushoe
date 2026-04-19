@@ -1,4 +1,4 @@
-import { Link, useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Home, Compass, Flame, Heart, Settings } from "lucide-react";
 
 const TABS = [
@@ -11,6 +11,7 @@ const TABS = [
 
 export default function MobileBottomTabs() {
   const location = useLocation();
+  const navigate = useNavigate();
 
   return (
     <nav
@@ -20,16 +21,16 @@ export default function MobileBottomTabs() {
       {TABS.map(({ to, label, icon: Icon }) => {
         const active = location.pathname === to;
         return (
-          <Link
+          <button
             key={to}
-            to={to}
+            onClick={() => navigate(to, { replace: active })}
             className={`flex-1 flex flex-col items-center justify-center gap-1 py-2.5 transition-colors ${
               active ? "text-primary" : "text-muted-foreground"
             }`}
           >
             <Icon className={`w-5 h-5 ${active ? "text-primary" : ""}`} style={{ pointerEvents: "none" }} />
             <span className={`text-[10px] font-medium ${active ? "text-primary" : ""}`}>{label}</span>
-          </Link>
+          </button>
         );
       })}
     </nav>
