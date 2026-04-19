@@ -10,6 +10,8 @@ import {
   Flame,
   Loader2,
 } from "lucide-react";
+import { AnimatePresence } from "framer-motion";
+import ShareShoeCard from "../components/ShareShoeCard";
 import { motion } from "framer-motion";
 import { base44 } from "@/api/base44Client";
 import NearbyStores from "../components/NearbyStores";
@@ -37,6 +39,7 @@ export default function ShoeDetail() {
   const [selectedSize, setSelectedSize] = useState(null);
   const [selectedColor, setSelectedColor] = useState(null);
   const [activeTab, setActiveTab] = useState(null); // null | "nearby" | "online"
+  const [showShare, setShowShare] = useState(false);
 
   useEffect(() => {
     loadShoe();
@@ -105,6 +108,9 @@ export default function ShoeDetail() {
 
   return (
     <div className="min-h-screen pb-16">
+      <AnimatePresence>
+        {showShare && <ShareShoeCard shoe={shoe} onClose={() => setShowShare(false)} />}
+      </AnimatePresence>
       {/* Back Nav */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
         <Link
@@ -325,8 +331,9 @@ export default function ShoeDetail() {
                 {wishlisted ? "Saved" : "Save"}
               </button>
               <button
-                onClick={() => { navigator.clipboard.writeText(window.location.href); toast.success("Link copied!"); }}
+                onClick={() => setShowShare(true)}
                 className="p-3 rounded-xl bg-secondary hover:bg-secondary/80 transition-colors"
+                title="Share this shoe"
               >
                 <Share2 className="w-4 h-4" />
               </button>
