@@ -54,7 +54,9 @@ export default function AIRecommendations() {
       .join("\n");
 
     const aiRes = await base44.integrations.Core.InvokeLLM({
-      prompt: `You are a world-class shoe expert AI. Your job is to make one single BEST shoe recommendation and explain why.
+      prompt: `You are a world-class shoe expert AI. Detect the user's preferred language from their recent searches and respond in that language if it is not English. If searches are in Hebrew, write reasoning in Hebrew; if Spanish, in Spanish; otherwise use English.
+
+Your job is to make one single BEST shoe recommendation and explain why.
 
 USER PROFILE:
 ${personaSummary}

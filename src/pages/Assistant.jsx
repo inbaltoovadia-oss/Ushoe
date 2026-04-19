@@ -16,6 +16,11 @@ const STARTER_PROMPTS = [
   "What shoes should I get for a gym and street combo?",
 ];
 
+// Detect if text is RTL (Hebrew, Arabic, etc.)
+function isRTL(text) {
+  return /[\u0590-\u05FF\u0600-\u06FF]/.test(text);
+}
+
 function MessageBubble({ msg, bestPickShoe }) {
   const isUser = msg.role === "user";
   return (
@@ -30,11 +35,14 @@ function MessageBubble({ msg, bestPickShoe }) {
         </div>
       )}
       <div className={`max-w-[80%] space-y-3 ${isUser ? "items-end flex flex-col" : ""}`}>
-        <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-          isUser
-            ? "bg-primary text-primary-foreground"
-            : "bg-card border border-border text-foreground"
-        }`}>
+        <div
+          className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+            isUser
+              ? "bg-primary text-primary-foreground"
+              : "bg-card border border-border text-foreground"
+          }`}
+          dir={isRTL(msg.content) ? "rtl" : "ltr"}
+        >
           {isUser ? (
             <p>{msg.content}</p>
           ) : (
@@ -293,6 +301,7 @@ export default function Assistant() {
             placeholder="Ask me anything about shoes…"
             className="flex-1 bg-transparent outline-none text-sm placeholder:text-muted-foreground/50"
             disabled={loading || !profileLoaded}
+            dir={isRTL(input) ? "rtl" : "ltr"}
           />
           <button
             type="submit"

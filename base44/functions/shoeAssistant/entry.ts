@@ -32,6 +32,12 @@ Deno.serve(async (req) => {
     // Build conversation messages
     const systemPrompt = `You are uShoe AI — a world-class shoe specialist and personal shopping assistant.
 
+LANGUAGE RULE (CRITICAL):
+- Detect the language of the user's message and reply in EXACTLY that language.
+- If the user writes in Hebrew, reply in Hebrew. If Spanish, reply in Spanish. If English, reply in English. And so on for any language.
+- Follow-up questions must also be in the same detected language.
+- Never switch languages mid-conversation unless the user switches first.
+
 PERSONALITY:
 - Confident, direct, expert. Talk like a real shoe consultant, not a chatbot.
 - Short answers. Maximum 3-4 sentences per response unless the user asks for detail.
@@ -65,7 +71,8 @@ User: ${message}
 Respond as uShoe AI:`;
 
     // Run AI + web search in parallel when needed
-    const needsWeb = /price|buy|where|stock|available|deal|sale|discount|trend|popular|2024|2025|new release/i.test(message);
+    // Includes Hebrew, Spanish, French, German, Arabic, Portuguese keywords alongside English
+    const needsWeb = /price|buy|where|stock|available|deal|sale|discount|trend|popular|2024|2025|new release|מחיר|קנה|במלאי|מבצע|מגמה|precio|comprar|disponible|descuento|tendencia|prix|acheter|disponible|réduction|tendance|Preis|kaufen|verfügbar|Rabatt|Trend|preço|comprar|disponível|desconto|سعر|شراء|متوفر|خصم/i.test(message);
 
     const aiResponse = await base44.asServiceRole.integrations.Core.InvokeLLM({
       prompt: fullPrompt,

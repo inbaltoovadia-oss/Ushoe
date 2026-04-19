@@ -111,7 +111,7 @@ export default function Discover() {
     const sizeNote = sizePref.us ? `The user's shoe size is US ${sizePref.us} (EU ${sizePref.eu}, UK ${sizePref.uk}). Prefer shoes available in this size.` : "";
     const personaSummary = buildPersonaSummary(userProfile);
 
-    const catalogPrompt = `You are an expert shoe specialist AI. The user is looking for: "${finalQ}"
+    const catalogPrompt = `You are an expert shoe specialist AI. CRITICAL: Detect the language of the user's query and write your summary in that exact same language. The user is looking for: "${finalQ}"
 ${selectedCategory ? `Category: ${selectedCategory}.` : ""}
 ${imageUrl ? "The user uploaded an image — identify the shoe style/type from it." : ""}
 ${sizeNote}
@@ -330,6 +330,7 @@ Return ONLY these fields — do not include any URLs.`;
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder={selectedCategory ? `Search ${selectedCategory} shoes…` : "I need comfortable running shoes under $160..."}
                   className="flex-1 bg-transparent border-none outline-none mx-3 text-base placeholder:text-muted-foreground/50"
+                  dir={/[\u0590-\u05FF\u0600-\u06FF]/.test(query) ? "rtl" : "ltr"}
                 />
                 <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
                 <button
