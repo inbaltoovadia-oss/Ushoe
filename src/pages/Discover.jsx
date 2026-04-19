@@ -11,6 +11,8 @@ import { getSizeLabel, subscribeSize, getSize } from "../lib/sizeStore";
 import SizeSelector from "../components/SizeSelector";
 import { getCached, setCache } from "../lib/searchCache";
 import { getLocation, subscribeLocation } from "../lib/locationStore";
+import { getUserProfile } from "../lib/userProfileStore";
+import { buildPersonaSummary, rankShoes } from "../lib/personalizationEngine";
 import { canSearch, incrementSearchCount, canUse, getPlan, getSearchesUsedToday, PLAN_LIMITS } from "../lib/planStore";
 
 import PlanGate from "../components/PlanGate";
@@ -96,21 +98,31 @@ export default function Discover() {
       }
     }
 
-    const allShoes = await base44.entities.Shoe.list("-trending_score", 50);
+    const [allShoes, userProfile] = await Promise.all([
+      base44.entities.Shoe.list("-trending_score", 50),
+      getUserProfile(),
+    ]);
+
+    // Pre-rank catalog by personalization before sending to AI
+    const rankedShoes = rankShoes(allShoes, userProfile, { limit: 50 });
 
     // Run catalog matching and web search in parallel with separate simple schemas
     const sizePref = getSize();
     const sizeNote = sizePref.us ? `The user's shoe size is US ${sizePref.us} (EU ${sizePref.eu}, UK ${sizePref.uk}). Prefer shoes available in this size.` : "";
+    const personaSummary = buildPersonaSummary(userProfile);
 
-    const catalogPrompt = `You are a shoe recommendation AI. The user is looking for: "${finalQ}"
+    const catalogPrompt = `You are an expert shoe specialist AI. The user is looking for: "${finalQ}"
 ${selectedCategory ? `Category: ${selectedCategory}.` : ""}
 ${imageUrl ? "The user uploaded an image — identify the shoe style/type from it." : ""}
 ${sizeNote}
 
-From the catalog below, pick up to 5 best matches by index number:
-${allShoes.map((s, i) => `${i}: ${s.brand} ${s.name} $${s.price} ${s.category} sizes:${(s.sizes_available||[]).join(",")}`).join("\n")}
+USER PROFILE (use this to make picks more relevant):
+${personaSummary}
 
-Write a short 1 sentence summary of what you found.`;
+From the catalog below (pre-ranked by relevance), pick up to 5 best matches by index number:
+${rankedShoes.map((s, i) => `${i}: ${s.brand} ${s.name} $${s.price} ${s.category} trending=${s.is_trending ? "yes" : "no"} sizes:${(s.sizes_available||[]).join(",")}`).join("\n")}
+
+Write a short 1-sentence expert summary of what you found and why these match the user.`;
 
     const loc = getLocation();
     const webPrompt = `Find 6 real shoes matching: "${finalQ}"${selectedCategory ? ` in category ${selectedCategory}` : ""} that are available to ship to ${loc.city}.
@@ -167,8 +179,8 @@ Return ONLY these fields — do not include any URLs.`;
     ]);
 
     const recs = (catalogResponse.recommendations || [])
-      .filter((r) => r.index >= 0 && r.index < allShoes.length)
-      .map((r) => ({ shoe: allShoes[r.index], match_score: r.match_score, explanation: r.explanation }));
+      .filter((r) => r.index >= 0 && r.index < rankedShoes.length)
+      .map((r) => ({ shoe: rankedShoes[r.index], match_score: r.match_score, explanation: r.explanation }));
 
     setResults(recs);
     // Only keep results that ship to user

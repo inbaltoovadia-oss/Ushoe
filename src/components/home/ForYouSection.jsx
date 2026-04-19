@@ -1,11 +1,14 @@
 import { useState, useEffect } from "react";
-import { Sparkles, ArrowRight, SlidersHorizontal, X } from "lucide-react";
+import { Sparkles, ArrowRight, SlidersHorizontal, X, Brain, TrendingUp } from "lucide-react";
 import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import ShoeCard from "../ShoeCard";
 import SkeletonCard from "../SkeletonCard";
 import ShoeListingSidebar from "./ShoeListingSidebar";
 import SponsoredModal from "../SponsoredModal";
+import { getUserProfile } from "../../lib/userProfileStore";
+import { rankShoes, buildExplanation } from "../../lib/personalizationEngine";
+import { getWishlistIds } from "../../lib/wishlistStore";
 
 const DEFAULT_FILTERS = {
   brands: [],
@@ -13,60 +16,44 @@ const DEFAULT_FILTERS = {
   minPrice: 0,
   maxPrice: 500,
   onSaleOnly: false,
-  sort: "trending",
+  sort: "personalized",
 };
+
+const SPONSORED_INDICES = [3, 11, 19];
+const SPONSORED_PLAN_TIERS = ["brand", "featured", "starter"];
 
 export default function ForYouSection() {
   const [allShoes, setAllShoes] = useState([]);
+  const [rankedShoes, setRankedShoes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);
+  const [explanation, setExplanation] = useState("");
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [showSidebar, setShowSidebar] = useState(false);
   const [sponsorModal, setSponsorModal] = useState(null);
 
   useEffect(() => {
-    loadPersonalized();
+    load();
   }, []);
 
-  const loadPersonalized = async () => {
+  const load = async () => {
     setLoading(true);
-    let profiles = [];
-    let shoes = [];
+    const [shoes, userProfile] = await Promise.all([
+      base44.entities.Shoe.list("-trending_score", 150),
+      getUserProfile(),
+    ]);
 
-    try {
-      [profiles, shoes] = await Promise.all([
-        base44.entities.UserProfile.list("-created_date", 1),
-        base44.entities.Shoe.list("-trending_score", 100),
-      ]);
-    } catch {
-      try {
-        shoes = await base44.entities.Shoe.list("-trending_score", 100);
-      } catch {
-        setLoading(false);
-        return;
-      }
-    }
+    const wishlistIds = Array.from(getWishlistIds());
+    const ranked = rankShoes(shoes, userProfile, { excludeIds: [], limit: 150 });
 
-    const p = profiles[0] || null;
-    setProfile(p);
     setAllShoes(shoes);
+    setRankedShoes(ranked);
+    setProfile(userProfile);
+    setExplanation(buildExplanation(userProfile));
     setLoading(false);
   };
 
-  // Personalization scoring (unchanged from original)
-  const getBaseShoes = () => {
-    if (!profile?.survey_completed) return allShoes;
-    return allShoes.map((shoe) => {
-      let score = 0;
-      if (profile.main_use?.includes(shoe.category)) score += 40;
-      if (profile.preferred_brands?.includes(shoe.brand)) score += 30;
-      if (profile.budget_max && shoe.price <= profile.budget_max) score += 20;
-      if (profile.gender && (shoe.gender === profile.gender || shoe.gender === "Unisex")) score += 10;
-      score += (shoe.trending_score || 0) * 0.1;
-      return { ...shoe, _score: score };
-    }).sort((a, b) => b._score - a._score);
-  };
-
+  // Apply manual filters on top of the personalized ranking
   const applyFilters = (shoes) => {
     return shoes.filter(shoe => {
       if (filters.brands.length && !filters.brands.includes(shoe.brand)) return false;
@@ -89,40 +76,36 @@ export default function ForYouSection() {
     if (filters.sort === "price_asc") return sorted.sort((a, b) => a.price - b.price);
     if (filters.sort === "price_desc") return sorted.sort((a, b) => b.price - a.price);
     if (filters.sort === "rating") return sorted.sort((a, b) => (b.rating || 0) - (a.rating || 0));
-    return sorted; // trending — already sorted by score / trending_score
+    // default: personalized — already sorted by _score
+    return sorted;
   };
 
-  const SPONSORED_INDICES = [3, 11, 19]; // positions that get sponsored treatment
-  const SPONSORED_PLAN_TIERS = ["brand", "featured", "starter"]; // mock tiers per slot
-
-  const rawDisplayed = applySort(applyFilters(getBaseShoes()));
-
-  // Inject sponsored shoes at the front based on "plan" (mocked: every 7th shoe is sponsored)
+  const rawDisplayed = applySort(applyFilters(rankedShoes));
   const sponsoredShoes = rawDisplayed.filter((_, i) => SPONSORED_INDICES.includes(i));
   const regularShoes = rawDisplayed.filter((_, i) => !SPONSORED_INDICES.includes(i));
-  // Brand-tier sponsored go first, then regular
   const displayedShoes = [...sponsoredShoes, ...regularShoes];
 
   const activeFilterCount = filters.brands.length + filters.categories.length +
     (filters.onSaleOnly ? 1 : 0) + (filters.maxPrice < 500 || filters.minPrice > 0 ? 1 : 0);
 
+  const hasProfile = profile?.survey_completed || profile?.recent_queries?.length > 0;
+
   return (
     <section className="py-12 px-4 sm:px-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-primary/10 rounded-xl">
-              <Sparkles className="w-5 h-5 text-primary" />
+              {hasProfile ? <Brain className="w-5 h-5 text-primary" /> : <Sparkles className="w-5 h-5 text-primary" />}
             </div>
             <div>
               <h2 className="font-heading font-bold text-2xl">
-                {profile?.survey_completed ? "Picked For You" : "Trending Now"}
+                {hasProfile ? "Picked For You" : "Trending Now"}
               </h2>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {profile?.survey_completed
-                  ? `Based on your style: ${[...(profile.main_use || []), ...(profile.style_preference || [])].slice(0, 3).join(", ")}`
-                  : "The hottest shoes right now"}
+              <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5">
+                {hasProfile && <TrendingUp className="w-3 h-3" />}
+                {explanation}
               </p>
             </div>
           </div>
@@ -179,13 +162,10 @@ export default function ForYouSection() {
 
         {/* Layout: sidebar + grid */}
         <div className="flex gap-6">
-          {/* Sidebar */}
+          {/* Desktop Sidebar */}
           {showSidebar && (
             <aside className="w-64 flex-shrink-0 hidden lg:block">
-              <ShoeListingSidebar
-                filters={filters}
-                onChange={setFilters}
-              />
+              <ShoeListingSidebar filters={filters} onChange={setFilters} />
             </aside>
           )}
 
@@ -194,11 +174,7 @@ export default function ForYouSection() {
             <div className="lg:hidden fixed inset-0 z-40 flex">
               <div className="absolute inset-0 bg-black/40" onClick={() => setShowSidebar(false)} />
               <div className="relative ml-auto w-72 h-full bg-background overflow-y-auto p-4 shadow-xl">
-                <ShoeListingSidebar
-                  filters={filters}
-                  onChange={setFilters}
-                  onClose={() => setShowSidebar(false)}
-                />
+                <ShoeListingSidebar filters={filters} onChange={setFilters} onClose={() => setShowSidebar(false)} />
               </div>
             </div>
           )}
@@ -211,8 +187,12 @@ export default function ForYouSection() {
               </div>
             ) : displayedShoes.length > 0 ? (
               <>
-                <p className="text-xs text-muted-foreground mb-3">{rawDisplayed.length} shoe{rawDisplayed.length !== 1 ? "s" : ""}</p>
-                {/* Sponsored featured row — brand-tier shoes shown larger */}
+                <p className="text-xs text-muted-foreground mb-3">
+                  {rawDisplayed.length} shoe{rawDisplayed.length !== 1 ? "s" : ""}
+                  {hasProfile && <span className="ml-1 text-primary">· personalized</span>}
+                </p>
+
+                {/* Featured / Sponsored row */}
                 {sponsoredShoes.length > 0 && (
                   <div className="mb-6">
                     <div className="flex items-center gap-2 mb-3">
@@ -224,7 +204,7 @@ export default function ForYouSection() {
                           key={shoe.id + "-sp"}
                           shoe={shoe}
                           index={i}
-                          sponsored={true}
+                          sponsored
                           sponsorTier={SPONSORED_PLAN_TIERS[i] || "starter"}
                           onSponsorClick={() => setSponsorModal(shoe)}
                         />
@@ -234,22 +214,22 @@ export default function ForYouSection() {
                   </div>
                 )}
 
-                <div className={`grid gap-4 sm:gap-6 ${showSidebar ? "grid-cols-2 lg:grid-cols-3" : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4"}`}>
+                <div className={`grid gap-4 sm:gap-5 ${showSidebar ? "grid-cols-2 lg:grid-cols-3" : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4"}`}>
                   {regularShoes.map((shoe, i) => (
                     <ShoeCard
                       key={shoe.id}
                       shoe={shoe}
                       index={i}
-                      sponsored={false}
                       onSponsorClick={() => setSponsorModal(shoe)}
                     />
                   ))}
                 </div>
+
                 {sponsorModal && (
                   <SponsoredModal
                     shoe={sponsorModal}
                     onClose={() => setSponsorModal(null)}
-                    onSponsorComplete={loadPersonalized}
+                    onSponsorComplete={load}
                   />
                 )}
               </>
@@ -257,10 +237,7 @@ export default function ForYouSection() {
               <div className="text-center py-16">
                 <Sparkles className="w-12 h-12 text-muted-foreground/20 mx-auto mb-4" />
                 <h3 className="font-heading font-semibold text-lg">No shoes match your filters</h3>
-                <button
-                  onClick={() => setFilters(DEFAULT_FILTERS)}
-                  className="mt-4 text-sm text-primary hover:underline"
-                >
+                <button onClick={() => setFilters(DEFAULT_FILTERS)} className="mt-4 text-sm text-primary hover:underline">
                   Clear all filters
                 </button>
               </div>

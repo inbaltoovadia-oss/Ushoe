@@ -1,96 +1,98 @@
 import { useState, useEffect } from "react";
-import { Sparkles, RefreshCw, Brain, ArrowRight } from "lucide-react";
+import { Sparkles, RefreshCw, Brain, ArrowRight, Trophy, Zap } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { base44 } from "@/api/base44Client";
 import { getWishlistIds } from "../../lib/wishlistStore";
+import { getUserProfile } from "../../lib/userProfileStore";
+import { rankShoes, buildPersonaSummary } from "../../lib/personalizationEngine";
 import ShoeCard from "../ShoeCard";
 import SkeletonCard from "../SkeletonCard";
+import { Link } from "react-router-dom";
 
 export default function AIRecommendations() {
+  const [bestPick, setBestPick] = useState(null);
   const [shoes, setShoes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [reasoning, setReasoning] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
   const [hasSignals, setHasSignals] = useState(false);
 
-  useEffect(() => {
-    load();
-  }, [refreshKey]);
+  useEffect(() => { load(); }, [refreshKey]);
 
   const load = async () => {
     setLoading(true);
     setReasoning("");
+    setBestPick(null);
 
-    try {
-      // Gather signals in parallel
-      const [allShoes, searchHistory, wishlistItems] = await Promise.all([
-        base44.entities.Shoe.list("-trending_score", 80),
-        base44.entities.SearchHistory.list("-created_date", 10),
-        base44.entities.WishlistItem.list("-created_date", 20),
-      ]);
+    const [allShoes, userProfile] = await Promise.all([
+      base44.entities.Shoe.list("-trending_score", 100),
+      getUserProfile(true), // force-refresh on each load
+    ]);
 
-      const wishlistIds = Array.from(getWishlistIds());
-      const wishlistNames = wishlistItems.map(w => `${w.shoe_brand} ${w.shoe_name}`);
-      const recentSearches = searchHistory.map(s => s.query);
+    const wishlistIds = Array.from(getWishlistIds());
+    const anySignal = userProfile.survey_completed ||
+      userProfile.recent_queries?.length > 0 ||
+      userProfile.wishlist_brands?.length > 0;
 
-      const hasAnySignal = wishlistNames.length > 0 || recentSearches.length > 0;
-      setHasSignals(hasAnySignal);
+    setHasSignals(anySignal);
 
-      if (!hasAnySignal) {
-        // Fall back to top trending
-        setShoes(allShoes.slice(0, 6));
-        setReasoning("Start saving shoes to your wishlist or searching to get personalized picks!");
-        setLoading(false);
-        return;
-      }
-
-      const catalog = allShoes
-        .filter(s => !wishlistIds.includes(s.id))
-        .map((s, i) => `${i}: ${s.brand} ${s.name} $${s.price} [${s.category}]`)
-        .join("\n");
-
-      const aiRes = await base44.integrations.Core.InvokeLLM({
-        prompt: `You are a personal shoe stylist AI. Based on the user's behavior, recommend 6 shoes from the catalog.
-
-User's Wishlist (shoes they love):
-${wishlistNames.length ? wishlistNames.join(", ") : "None yet"}
-
-User's Recent Searches:
-${recentSearches.length ? recentSearches.join(", ") : "None yet"}
-
-Shoe Catalog (index: brand name price [category]):
-${catalog}
-
-Instructions:
-- Pick exactly 6 shoes from the catalog by their index number.
-- Infer the user's style, budget range, and preferred categories from their wishlist and searches.
-- Vary the picks — don't pick all the same brand/category.
-- Write a short 1-sentence personalized reasoning (e.g. "Based on your love of running shoes and Nike...").
-- Prioritize shoes they haven't seen or saved yet.`,
-        response_json_schema: {
-          type: "object",
-          properties: {
-            reasoning: { type: "string" },
-            picks: {
-              type: "array",
-              items: { type: "number" },
-            },
-          },
-        },
-      });
-
-      const picked = (aiRes.picks || [])
-        .filter(i => i >= 0 && i < allShoes.filter(s => !wishlistIds.includes(s.id)).length)
-        .slice(0, 6)
-        .map(i => allShoes.filter(s => !wishlistIds.includes(s.id))[i])
-        .filter(Boolean);
-
-      setShoes(picked.length >= 3 ? picked : allShoes.slice(0, 6));
-      setReasoning(aiRes.reasoning || "");
-    } catch {
-      setShoes([]);
+    if (!anySignal) {
+      // No signals — show trending, no AI call needed
+      setShoes(allShoes.slice(0, 6));
+      setReasoning("Start saving shoes or searching to get personalized AI picks!");
+      setLoading(false);
+      return;
     }
 
+    // Deterministic ranking for display
+    const ranked = rankShoes(allShoes, userProfile, { excludeIds: wishlistIds, limit: 30 });
+
+    // AI call: shoe expert with full persona context + live trend awareness
+    const personaSummary = buildPersonaSummary(userProfile);
+    const catalogSnippet = ranked.slice(0, 20)
+      .map((s, i) => `${i}: ${s.brand} ${s.name} $${s.price} [${s.category}] trending=${s.is_trending ? "yes" : "no"} score=${s._score?.toFixed(0)}`)
+      .join("\n");
+
+    const aiRes = await base44.integrations.Core.InvokeLLM({
+      prompt: `You are a world-class shoe expert AI. Your job is to make one single BEST shoe recommendation and explain why.
+
+USER PROFILE:
+${personaSummary}
+
+TOP RANKED CATALOG (pre-scored by personalization engine, index: brand name price [category]):
+${catalogSnippet}
+
+YOUR TASK:
+1. Pick ONE best shoe (best_index) — the single strongest match considering the user's profile, budget, use case, and trending status.
+2. Pick 5 more "You might also like" shoes (other_indices — array of 5 index numbers, excluding best_index).
+3. Write a short expert reasoning (1–2 sentences max) explaining WHY the best pick is perfect for this user. Be specific and confident, like a real shoe specialist.
+
+RULES:
+- Prioritize shoes matching the user's primary use AND preferred brands.
+- If budget is known, never pick a shoe that exceeds it by more than 20%.
+- Trending shoes should be favored when they also match user preferences.
+- Keep reasoning short, direct, expert-sounding. No fluff.`,
+      response_json_schema: {
+        type: "object",
+        properties: {
+          best_index: { type: "number" },
+          other_indices: { type: "array", items: { type: "number" } },
+          reasoning: { type: "string" },
+        },
+      },
+    });
+
+    const catalog = ranked.slice(0, 20);
+    const best = catalog[aiRes.best_index ?? 0];
+    const others = (aiRes.other_indices || [])
+      .filter(i => i >= 0 && i < catalog.length && i !== aiRes.best_index)
+      .slice(0, 5)
+      .map(i => catalog[i])
+      .filter(Boolean);
+
+    setBestPick(best || null);
+    setShoes(others.length >= 2 ? others : ranked.slice(1, 6));
+    setReasoning(aiRes.reasoning || "");
     setLoading(false);
   };
 
@@ -98,7 +100,7 @@ Instructions:
     <section className="py-12 px-4 sm:px-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-xl">
               <Brain className="w-5 h-5 text-purple-600 dark:text-purple-400" />
@@ -106,7 +108,9 @@ Instructions:
             <div>
               <h2 className="font-heading font-bold text-2xl">AI Picks For You</h2>
               <p className="text-xs text-muted-foreground mt-0.5">
-                {hasSignals ? "Personalized based on your wishlist & searches" : "Popular shoes to get you started"}
+                {hasSignals
+                  ? "Personalized · learns from your behavior"
+                  : "Popular picks to get you started"}
               </p>
             </div>
           </div>
@@ -135,21 +139,83 @@ Instructions:
           )}
         </AnimatePresence>
 
-        {/* Grid */}
         {loading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-            {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
-          </div>
-        ) : shoes.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-            {shoes.map((shoe, i) => (
-              <ShoeCard key={shoe.id} shoe={shoe} index={i} />
-            ))}
+          <div className="space-y-6">
+            {/* Best pick skeleton */}
+            <div className="h-40 bg-secondary animate-pulse rounded-2xl" />
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+              {Array.from({ length: 5 }).map((_, i) => <SkeletonCard key={i} />)}
+            </div>
           </div>
         ) : (
-          <div className="text-center py-12 text-muted-foreground">
-            <Brain className="w-10 h-10 mx-auto mb-3 opacity-20" />
-            <p className="text-sm">Save shoes to your wishlist to get personalized picks</p>
+          <div className="space-y-6">
+            {/* ★ BEST PICK — prominent hero card */}
+            {bestPick && (
+              <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
+                <div className="flex items-center gap-2 mb-3">
+                  <Trophy className="w-4 h-4 text-amber-500" />
+                  <span className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Best Pick For You</span>
+                </div>
+                <Link to={`/shoe/${bestPick.id}`} className="group block">
+                  <div className="flex gap-4 bg-gradient-to-r from-purple-50 to-primary/5 dark:from-purple-950/20 dark:to-primary/5 border-2 border-purple-200/60 dark:border-purple-800/40 rounded-2xl overflow-hidden hover:shadow-xl hover:shadow-purple-500/10 hover:-translate-y-0.5 transition-all duration-300 p-4">
+                    <div className="w-28 h-28 flex-shrink-0 rounded-xl overflow-hidden bg-secondary">
+                      <img
+                        src={bestPick.image_url || "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=300&h=300&fit=crop"}
+                        alt={bestPick.name}
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                        onError={e => { e.target.src = "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=300&h=300&fit=crop"; }}
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-widest">{bestPick.brand}</p>
+                      <h3 className="font-heading font-bold text-lg group-hover:text-primary transition-colors line-clamp-1 mt-0.5">{bestPick.name}</h3>
+                      {bestPick._matchReasons?.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1.5">
+                          {bestPick._matchReasons.map(r => (
+                            <span key={r} className="text-[10px] px-2 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full">{r}</span>
+                          ))}
+                        </div>
+                      )}
+                      <div className="flex items-center gap-3 mt-2">
+                        <span className="font-heading font-bold text-xl text-primary">${bestPick.price}</span>
+                        {bestPick.is_trending && (
+                          <span className="flex items-center gap-1 text-xs text-orange-600 bg-orange-50 dark:bg-orange-950/30 px-2 py-0.5 rounded-full font-semibold">
+                            <Zap className="w-3 h-3" /> Trending
+                          </span>
+                        )}
+                        <span className="text-xs text-muted-foreground ml-auto group-hover:text-primary transition-colors">View details →</span>
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              </motion.div>
+            )}
+
+            {/* Supporting picks grid */}
+            {shoes.length > 0 && (
+              <div>
+                <p className="text-xs text-muted-foreground mb-3 flex items-center gap-1.5">
+                  <ArrowRight className="w-3 h-3" />
+                  You might also like
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+                  {shoes.map((shoe, i) => (
+                    <ShoeCard key={shoe.id} shoe={shoe} index={i} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* CTA when no signals */}
+            {!hasSignals && (
+              <div className="text-center pt-2">
+                <Link to="/survey" className="inline-flex items-center gap-2 text-sm font-medium text-primary bg-primary/10 hover:bg-primary/20 px-4 py-2.5 rounded-xl transition-colors">
+                  <Sparkles className="w-4 h-4" />
+                  Take style survey for better picks
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+              </div>
+            )}
           </div>
         )}
       </div>
