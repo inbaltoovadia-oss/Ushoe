@@ -404,11 +404,10 @@ Return ONLY these fields — do not include any URLs.`;
                     >
                       <div className="w-24 h-24 flex-shrink-0 rounded-xl overflow-hidden bg-secondary">
                         <ShoeImage
-                          brand={pick.brand}
-                          name={pick.name}
-                          size={200}
-                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                        />
+                            brand={pick.brand}
+                            name={pick.name}
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                          />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1 flex-wrap">

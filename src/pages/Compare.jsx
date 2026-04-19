@@ -287,9 +287,9 @@ Return data for ALL ${visibleShoes.length} shoes.`,
                 )}
                 <div className={`aspect-square overflow-hidden bg-secondary/30 ${isBest ? "mt-5" : ""}`}>
                   <ShoeImage
+                    src={shoe.image_url}
                     brand={shoe.brand}
                     name={shoe.name}
-                    size={400}
                     className="w-full h-full object-cover"
                   />
                 </div>

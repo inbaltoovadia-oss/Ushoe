@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Heart, MapPin, Flame, Rocket } from "lucide-react";
+import { Heart, Flame, Rocket } from "lucide-react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { base44 } from "@/api/base44Client";
@@ -9,11 +9,24 @@ import {
   removeFromWishlistLocal,
   subscribeWishlist,
 } from "../lib/wishlistStore";
-import { isInCompare, subscribeCompare } from "../lib/compareStore";
 import ShoeOptionsMenu from "./ShoeOptionsMenu";
+import PriceTrackButton from "./PriceTrackButton";
+
+// Neutral Unsplash fallbacks — picked by shoe name hash so it's consistent
+const FALLBACKS = [
+  "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600&h=600&fit=crop",
+  "https://images.unsplash.com/photo-1608231387042-66d1773070a5?w=600&h=600&fit=crop",
+  "https://images.unsplash.com/photo-1600185365483-26d7a4cc7519?w=600&h=600&fit=crop",
+  "https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?w=600&h=600&fit=crop",
+  "https://images.unsplash.com/photo-1584735175315-9d5df23860e6?w=600&h=600&fit=crop",
+];
+function neutralFallback(name = "") {
+  return FALLBACKS[(name.charCodeAt(0) || 0) % FALLBACKS.length];
+}
 
 export default function ShoeCard({ shoe, index = 0, sponsored = false, onSponsorClick }) {
   const [wishlisted, setWishlisted] = useState(isInWishlist(shoe.id));
+  const [imgSrc, setImgSrc] = useState(shoe.image_url || neutralFallback(shoe.name));
   const [imgLoaded, setImgLoaded] = useState(false);
 
   useEffect(() => subscribeWishlist(() => setWishlisted(isInWishlist(shoe.id))), [shoe.id]);
@@ -38,107 +51,106 @@ export default function ShoeCard({ shoe, index = 0, sponsored = false, onSponsor
     }
   };
 
+  const discount = shoe.original_price > shoe.price
+    ? Math.round(((shoe.original_price - shoe.price) / shoe.original_price) * 100)
+    : 0;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, delay: index * 0.05 }}
+      transition={{ duration: 0.35, delay: index * 0.04 }}
     >
       <Link to={`/shoe/${shoe.id}`} className="group block">
         <div className={`card-3d relative bg-card rounded-2xl overflow-hidden border ${
-          sponsored ? "border-amber-400/50 shadow-md shadow-amber-400/10" : "border-border/50"
+          sponsored ? "border-amber-400/50 shadow-amber-400/10 shadow-md" : "border-border/40"
         } transition-all duration-300`}>
-          {/* Image */}
-          <div className="relative aspect-square overflow-hidden bg-secondary/30">
+
+          {/* ── Image ── */}
+          <div className="relative aspect-square overflow-hidden bg-secondary/40">
+            {/* Skeleton shimmer while loading */}
             {!imgLoaded && (
-              <div className="absolute inset-0 bg-secondary animate-pulse" />
+              <div className="absolute inset-0 bg-gradient-to-br from-secondary via-secondary/60 to-secondary animate-pulse" />
             )}
             <img
-              src={shoe.image_url || "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&h=400&fit=crop"}
+              src={imgSrc}
               alt={shoe.name}
-              className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 ${
+              loading="lazy"
+              className={`w-full h-full object-cover transition-all duration-500 group-hover:scale-108 ${
                 imgLoaded ? "opacity-100" : "opacity-0"
               }`}
+              style={{ transform: imgLoaded ? undefined : "scale(1.02)" }}
               onLoad={() => setImgLoaded(true)}
-              onError={(e) => {
-                e.target.onerror = null;
-                e.target.src = "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&h=400&fit=crop";
+              onError={() => {
+                setImgSrc(neutralFallback(shoe.name));
                 setImgLoaded(true);
               }}
             />
 
-            {/* Overlay Actions */}
-            <div className="absolute top-3 right-3 flex flex-col gap-2">
+            {/* Top-right actions */}
+            <div className="absolute top-2.5 right-2.5 flex flex-col gap-1.5">
               <button
                 onClick={toggleWishlist}
-                className={`p-2 rounded-full backdrop-blur-md transition-all duration-200 ${
+                className={`p-2 rounded-full backdrop-blur-sm transition-all duration-200 shadow-sm ${
                   wishlisted
-                    ? "bg-red-500 text-white"
-                    : "bg-white/80 dark:bg-black/50 text-foreground hover:bg-white dark:hover:bg-black/70"
+                    ? "bg-red-500 text-white shadow-red-500/30"
+                    : "bg-white/75 dark:bg-black/50 text-foreground hover:bg-white dark:hover:bg-black/70"
                 }`}
               >
-                <Heart className={`w-4 h-4 ${wishlisted ? "fill-current" : ""}`} />
+                <Heart className={`w-3.5 h-3.5 ${wishlisted ? "fill-current" : ""}`} />
               </button>
+              {/* Price Track compact */}
+              <PriceTrackButton shoe={shoe} compact />
               <ShoeOptionsMenu shoe={shoe} onSponsorClick={() => onSponsorClick?.()} />
             </div>
 
-            {/* Sponsored Tag */}
-            {sponsored && (
+            {/* Top-left badge */}
+            {sponsored ? (
               <button
                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); onSponsorClick?.(); }}
-                className="absolute top-3 left-3 flex items-center gap-1 bg-amber-500 text-white px-2.5 py-1 rounded-full text-xs font-bold shadow-md hover:bg-amber-600 transition-colors z-10"
+                className="absolute top-2.5 left-2.5 flex items-center gap-1 bg-amber-500 text-white px-2 py-0.5 rounded-full text-[10px] font-bold shadow-sm hover:bg-amber-600 transition-colors z-10"
               >
-                <Rocket className="w-3 h-3" />
+                <Rocket className="w-2.5 h-2.5" />
                 Sponsored
               </button>
-            )}
-
-            {/* Trending Badge */}
-            {shoe.is_trending && !sponsored && (
-              <div className="absolute top-3 left-3 flex items-center gap-1 bg-accent text-accent-foreground px-2.5 py-1 rounded-full text-xs font-semibold">
-                <Flame className="w-3 h-3" />
+            ) : shoe.is_trending ? (
+              <div className="absolute top-2.5 left-2.5 flex items-center gap-1 bg-accent/90 backdrop-blur-sm text-accent-foreground px-2 py-0.5 rounded-full text-[10px] font-semibold">
+                <Flame className="w-2.5 h-2.5" />
                 Trending
               </div>
-            )}
+            ) : null}
 
-            {/* Sale Badge */}
-            {shoe.original_price > shoe.price && (
-              <div className="absolute bottom-3 left-3 bg-destructive text-destructive-foreground px-2.5 py-1 rounded-full text-xs font-semibold">
-                {Math.round(((shoe.original_price - shoe.price) / shoe.original_price) * 100)}% OFF
+            {/* Sale badge */}
+            {discount > 0 && (
+              <div className="absolute bottom-2.5 left-2.5 bg-destructive text-destructive-foreground px-2 py-0.5 rounded-full text-[10px] font-bold">
+                {discount}% OFF
               </div>
             )}
           </div>
 
-          {/* Info */}
-          <div className="p-4">
-            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
+          {/* ── Info ── */}
+          <div className="p-3.5">
+            <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-widest truncate">
               {shoe.brand}
             </p>
-            <h3 className="font-heading font-semibold text-foreground mt-1 group-hover:text-primary transition-colors line-clamp-1">
+            <h3 className="font-heading font-semibold text-sm text-foreground mt-0.5 group-hover:text-primary transition-colors line-clamp-1 leading-snug">
               {shoe.name}
             </h3>
 
-            {shoe.features && shoe.features.length > 0 && (
-              <div className="flex flex-wrap gap-1 mt-2">
-                {shoe.features.slice(0, 2).map((f) => (
-                  <span key={f} className="text-[10px] px-2 py-0.5 bg-secondary rounded-full text-muted-foreground">
-                    {f}
-                  </span>
-                ))}
-              </div>
+            {shoe.colorway && (
+              <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{shoe.colorway}</p>
             )}
 
-            <div className="flex items-center justify-between mt-3">
-              <div className="flex items-baseline gap-2">
-                <span className="font-heading font-bold text-lg">${shoe.price}</span>
-                {shoe.original_price > shoe.price && (
-                  <span className="text-xs text-muted-foreground line-through">${shoe.original_price}</span>
+            <div className="flex items-center justify-between mt-2.5">
+              <div className="flex items-baseline gap-1.5">
+                <span className="font-heading font-bold text-base">${shoe.price}</span>
+                {discount > 0 && (
+                  <span className="text-[11px] text-muted-foreground line-through">${shoe.original_price}</span>
                 )}
               </div>
-              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                <MapPin className="w-3 h-3" />
-                <span>Find nearby</span>
-              </div>
+              {shoe.rating && (
+                <span className="text-[10px] text-muted-foreground">⭐ {shoe.rating}</span>
+              )}
             </div>
           </div>
         </div>
