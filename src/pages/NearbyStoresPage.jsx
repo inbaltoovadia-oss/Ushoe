@@ -317,9 +317,7 @@ Also return a short 1-sentence summary about the shoe store scene in that area.`
                         <div>
                           <p className="font-heading font-bold text-sm">{stores[selectedStoreIndex].name}</p>
                           <p className="text-xs text-muted-foreground mt-0.5">{stores[selectedStoreIndex].address}</p>
-                          {stores[selectedStoreIndex].distance_miles != null && (
-                            <p className="text-xs text-primary font-semibold mt-1">📍 {stores[selectedStoreIndex].distance_miles.toFixed(1)} mi away</p>
-                          )}
+
                         </div>
                         <a
                           href={getDirectionsUrl(stores[selectedStoreIndex])}
@@ -366,11 +364,7 @@ Also return a short 1-sentence summary about the shoe store scene in that area.`
                                 <p className="text-xs text-muted-foreground mt-1 ml-5">{store.hours_today}</p>
                               )}
                               <div className="flex items-center gap-3 mt-3 flex-wrap">
-                                {store.distance_miles != null && (
-                                  <span className="text-xs font-semibold text-primary bg-primary/10 px-2.5 py-1 rounded-full">
-                                    📍 {store.distance_miles.toFixed(1)} miles away
-                                  </span>
-                                )}
+  
                                 {store.rating && (
                                   <span className="flex items-center gap-1 text-xs text-muted-foreground">
                                     <Star className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500" />
