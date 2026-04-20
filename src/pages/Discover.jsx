@@ -44,6 +44,8 @@ export default function Discover() {
   const [showSizePicker, setShowSizePicker] = useState(false);
   const [searchBlocked, setSearchBlocked] = useState(false);
   const [loc, setLoc] = useState(getLocation());
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const inputRef = useRef(null);
   const fileRef = useRef(null);
   const resultsRef = useRef(null);
@@ -223,6 +225,32 @@ RULES:
 
   const handleInterestSave = (saved) => setInterestsState(saved);
 
+  const loadSuggestions = async (q) => {
+    if (q.length < 2) {
+      setSuggestions([]);
+      return;
+    }
+    try {
+      const response = await base44.functions.invoke('getSmartSearchSuggestions', { query: q });
+      setSuggestions(response.data.suggestions || []);
+    } catch (error) {
+      console.error('Failed to load suggestions:', error);
+    }
+  };
+
+  const handleQueryChange = (e) => {
+    const val = e.target.value;
+    setQuery(val);
+    setShowSuggestions(true);
+    loadSuggestions(val);
+  };
+
+  const selectSuggestion = (suggestion) => {
+    setQuery(suggestion.text);
+    setShowSuggestions(false);
+    handleSearch(suggestion.text);
+  };
+
   return (
     <div className="min-h-screen">
       {showInterestPicker && (
@@ -331,17 +359,19 @@ RULES:
               ))}
             </div>
 
-            {/* Search Input */}
+            {/* Search Input with Smart Suggestions */}
             <form onSubmit={(e) => { e.preventDefault(); handleSearch(); }} className="relative">
               <div className="flex items-center bg-card border border-border rounded-2xl px-4 py-3 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all shadow-lg shadow-primary/5">
                 <Sparkles className="w-5 h-5 text-primary flex-shrink-0" />
                 <input
                   ref={inputRef}
                   value={query}
-                  onChange={(e) => setQuery(e.target.value)}
+                  onChange={handleQueryChange}
+                  onFocus={() => setShowSuggestions(true)}
                   placeholder={selectedCategory ? `Search ${selectedCategory} shoes…` : "I need comfortable running shoes under $160..."}
                   className="flex-1 bg-transparent border-none outline-none mx-3 text-base placeholder:text-muted-foreground/50"
                   dir={/[\u0590-\u05FF\u0600-\u06FF]/.test(query) ? "rtl" : "ltr"}
+                  autoComplete="off"
                 />
                 <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
                 <button type="button" onClick={() => fileRef.current?.click()} className="p-2 rounded-xl hover:bg-secondary transition-colors mr-1" title="Upload shoe image">
@@ -351,6 +381,33 @@ RULES:
                   {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
                 </button>
               </div>
+
+              {/* Smart Suggestions Dropdown */}
+              {showSuggestions && suggestions.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  className="absolute top-full mt-2 left-0 right-0 z-50 bg-card border border-border rounded-2xl overflow-hidden shadow-lg"
+                >
+                  <div className="space-y-1 p-2">
+                    {suggestions.map((sug, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => selectSuggestion(sug)}
+                        className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-secondary transition-colors text-sm"
+                      >
+                        <span className="text-lg">{sug.icon}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate text-foreground">{sug.text}</p>
+                          <p className="text-xs text-muted-foreground capitalize">{sug.type}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
             </form>
           </motion.div>
         </div>

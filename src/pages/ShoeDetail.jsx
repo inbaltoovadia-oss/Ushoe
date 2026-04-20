@@ -28,6 +28,8 @@ import PriceTrackButton from "../components/PriceTrackButton";
 import BestDealBanner from "../components/BestDealBanner";
 import ScarcityBadge from "../components/ScarcityBadge";
 import ShoeInsightBadge from "../components/ShoeInsightBadge";
+import WorthItScore from "../components/WorthItScore";
+import FastestPickupCard from "../components/FastestPickupCard";
 
 export default function ShoeDetail() {
   const { id } = useParams();
@@ -266,6 +268,16 @@ export default function ShoeDetail() {
             {/* Best Deal Banner */}
             <div className="mt-6">
               <BestDealBanner shoe={shoe} />
+            </div>
+
+            {/* Worth It? Score */}
+            <div className="mt-6">
+              <WorthItScore shoeId={shoe.id} />
+            </div>
+
+            {/* Fastest Pickup */}
+            <div className="mt-6">
+              <FastestPickupCard shoeId={shoe.id} />
             </div>
 
             {/* Find Near You / Buy Online tabs */}
