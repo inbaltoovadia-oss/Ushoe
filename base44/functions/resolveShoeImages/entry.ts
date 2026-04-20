@@ -29,6 +29,17 @@ Deno.serve(async (req) => {
     }
     const shoe = shoes[0];
 
+    // Skip locked shoes — manually selected images should not be overwritten
+    if (shoe.image_locked) {
+      return Response.json({
+        status: 'locked',
+        shoe_id: shoe.id,
+        shoe_name: shoe.name,
+        image_url: shoe.image_url,
+        reason: 'Image is manually locked. Unlock it first to auto-resolve.'
+      });
+    }
+
     const response = await base44.asServiceRole.integrations.Core.InvokeLLM({
       prompt: `Find product image URLs for this shoe. Prioritize availability over exact color match.
 

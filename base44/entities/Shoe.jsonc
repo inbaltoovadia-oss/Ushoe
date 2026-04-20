@@ -38,6 +38,11 @@
       "type": "string",
       "title": "Image URL"
     },
+    "image_locked": {
+      "type": "boolean",
+      "title": "Image Locked (manually selected)",
+      "default": false
+    },
     "colorway": {
       "type": "string",
       "title": "Colorway"
@@ -119,5 +124,23 @@
     "price",
     "image_url",
     "category"
-  ]
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {},
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
 }
