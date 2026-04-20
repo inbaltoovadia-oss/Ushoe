@@ -130,9 +130,22 @@ export default function ShoeCard({ shoe, index = 0, sponsored = false, onSponsor
 
           {/* ── Info ── */}
           <div className="p-3.5">
-            <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-widest truncate">
-              {shoe.brand}
-            </p>
+            <div className="flex items-center justify-between mb-0.5">
+              <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-widest truncate">
+                {shoe.brand}
+              </p>
+              {shoe.source_label && (
+                <a
+                  href={shoe.source_url || "#"}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium hover:bg-primary/20 transition-colors flex-shrink-0 ml-1"
+                >
+                  {shoe.source_label}
+                </a>
+              )}
+            </div>
             <h3 className="font-heading font-semibold text-sm text-foreground mt-0.5 group-hover:text-primary transition-colors line-clamp-2 leading-snug min-h-[2.5rem]">
               {shoe.name}
             </h3>
