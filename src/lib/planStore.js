@@ -1,10 +1,43 @@
-// Central plan store — persisted to localStorage
-const PLAN_KEY = "ushoe_plan";
-const DAILY_SEARCH_KEY = "ushoe_search_count";
-const DAILY_DATE_KEY = "ushoe_search_date";
+// Central plan store — persisted to localStorage, scoped per user
+const PLAN_KEY_PREFIX = "ushoe_plan_";
+const LEGACY_PLAN_KEY = "ushoe_plan";
+const DAILY_SEARCH_KEY_PREFIX = "ushoe_search_count_";
+const DAILY_DATE_KEY_PREFIX = "ushoe_search_date_";
 
 const listeners = new Set();
 const notify = () => listeners.forEach(fn => fn(getPlan()));
+
+// Current user email — set on login
+let _userEmail = null;
+
+export function initPlanStore(email) {
+  _userEmail = email || null;
+  // Migrate legacy plan key if present and no user-scoped key exists yet
+  if (_userEmail) {
+    const userKey = PLAN_KEY_PREFIX + _userEmail;
+    if (!localStorage.getItem(userKey)) {
+      const legacy = localStorage.getItem(LEGACY_PLAN_KEY);
+      if (legacy) localStorage.setItem(userKey, legacy);
+    }
+  }
+  notify();
+}
+
+function planKey() {
+  return _userEmail ? PLAN_KEY_PREFIX + _userEmail : LEGACY_PLAN_KEY;
+}
+
+function searchCountKey() {
+  return _userEmail
+    ? DAILY_SEARCH_KEY_PREFIX + _userEmail
+    : "ushoe_search_count";
+}
+
+function searchDateKey() {
+  return _userEmail
+    ? DAILY_DATE_KEY_PREFIX + _userEmail
+    : "ushoe_search_date";
+}
 
 export const PLAN_LIMITS = {
   free: {
@@ -41,11 +74,11 @@ export const PLAN_LIMITS = {
 };
 
 export function getPlan() {
-  return localStorage.getItem(PLAN_KEY) || "free";
+  return localStorage.getItem(planKey()) || "free";
 }
 
 export function setPlan(planId) {
-  localStorage.setItem(PLAN_KEY, planId);
+  localStorage.setItem(planKey(), planId);
   notify();
 }
 
@@ -62,29 +95,33 @@ export function canUse(feature) {
   return !!getLimits()[feature];
 }
 
-// Daily AI search counter
+// Daily AI search counter (per-user)
 function getTodayStr() {
   return new Date().toISOString().split("T")[0];
 }
 
 export function getSearchesUsedToday() {
   const today = getTodayStr();
-  if (localStorage.getItem(DAILY_DATE_KEY) !== today) {
-    localStorage.setItem(DAILY_DATE_KEY, today);
-    localStorage.setItem(DAILY_SEARCH_KEY, "0");
+  const dateKey = searchDateKey();
+  const countKey = searchCountKey();
+  if (localStorage.getItem(dateKey) !== today) {
+    localStorage.setItem(dateKey, today);
+    localStorage.setItem(countKey, "0");
     return 0;
   }
-  return parseInt(localStorage.getItem(DAILY_SEARCH_KEY) || "0", 10);
+  return parseInt(localStorage.getItem(countKey) || "0", 10);
 }
 
 export function incrementSearchCount() {
   const today = getTodayStr();
-  if (localStorage.getItem(DAILY_DATE_KEY) !== today) {
-    localStorage.setItem(DAILY_DATE_KEY, today);
-    localStorage.setItem(DAILY_SEARCH_KEY, "0");
+  const dateKey = searchDateKey();
+  const countKey = searchCountKey();
+  if (localStorage.getItem(dateKey) !== today) {
+    localStorage.setItem(dateKey, today);
+    localStorage.setItem(countKey, "0");
   }
   const next = getSearchesUsedToday() + 1;
-  localStorage.setItem(DAILY_SEARCH_KEY, String(next));
+  localStorage.setItem(countKey, String(next));
   return next;
 }
 
