@@ -4,10 +4,11 @@ import { base44 } from "@/api/base44Client";
 import { motion } from "framer-motion";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import {
-  Search, Heart, TrendingUp, DollarSign, Rocket, ShieldAlert, RefreshCw, Loader2, Users
+  Search, Heart, TrendingUp, DollarSign, Rocket, ShieldAlert, RefreshCw, Loader2, Users, Image
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import UserManagement from "../components/admin/UserManagement";
+import ImageManager from "../components/admin/ImageManager";
 
 export default function AdminDashboard() {
   const { user } = useAuth();
@@ -56,6 +57,14 @@ export default function AdminDashboard() {
         {/* User Management */}
         <div className="mb-8">
           <UserManagement />
+        </div>
+
+        {/* Image Manager */}
+        <div className="mb-8 bg-card border border-border rounded-2xl p-6">
+          <h2 className="font-heading font-semibold text-lg mb-5 flex items-center gap-2">
+            <Image className="w-5 h-5 text-primary" /> Image Manager
+          </h2>
+          <ImageManager />
         </div>
 
         {/* Header */}
