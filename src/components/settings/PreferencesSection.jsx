@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
-import { Check, Save, Loader2, Heart } from "lucide-react";
+import { Check, Save, Loader2, Heart, Ruler } from "lucide-react";
 import { motion } from "framer-motion";
 import { base44 } from "@/api/base44Client";
 import { toast } from "sonner";
+import { getInterests, setInterests, ALL_CATEGORIES } from "@/lib/interestStore";
+import { getSize, setSize, getSizeLabel } from "@/lib/sizeStore";
 
 const BRANDS = ["Nike", "Adidas", "Jordan", "New Balance", "Puma", "Converse", "Vans", "Hoka", "Asics", "Reebok", "Saucony", "Brooks"];
 const USES = ["Running", "Casual", "Basketball", "Training", "Walking", "Lifestyle", "Hiking"];
@@ -20,6 +22,9 @@ export default function PreferencesSection() {
   const [styles, setStyles] = useState([]);
   const [gender, setGender] = useState("");
   const [budget, setBudget] = useState("");
+  const [interests, setInterests] = useState(getInterests());
+  const [shoeSize, setShoeSize] = useState(getSize());
+  const [sizeSys, setSizeSys] = useState("us");
 
   useEffect(() => {
     loadProfile();
@@ -50,22 +55,33 @@ export default function PreferencesSection() {
 
   const save = async () => {
     setSaving(true);
-    const data = {
-      preferred_brands: brands,
-      main_use: uses,
-      style_preference: styles,
-      gender: gender || undefined,
-      budget_max: budget ? parseFloat(budget) : undefined,
-      survey_completed: true,
-    };
-    if (profile) {
-      await base44.entities.UserProfile.update(profile.id, data);
-    } else {
-      const created = await base44.entities.UserProfile.create(data);
-      setProfile(created);
+    try {
+      // Save profile preferences
+      const data = {
+        preferred_brands: brands,
+        main_use: uses,
+        style_preference: styles,
+        gender: gender || undefined,
+        budget_max: budget ? parseFloat(budget) : undefined,
+        survey_completed: true,
+      };
+      if (profile) {
+        await base44.entities.UserProfile.update(profile.id, data);
+      } else {
+        const created = await base44.entities.UserProfile.create(data);
+        setProfile(created);
+      }
+      
+      // Save interests
+      setInterests(interests);
+      
+      // Save size
+      setSize(shoeSize);
+      
+      toast.success("All preferences saved!");
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
-    toast.success("Preferences saved!");
   };
 
   if (loading) {
@@ -76,6 +92,12 @@ export default function PreferencesSection() {
     );
   }
 
+  const toggleInterest = (category) => {
+    setInterests(prev => 
+      prev.includes(category) ? prev.filter(c => c !== category) : [...prev, category]
+    );
+  };
+
   return (
     <div className="space-y-8">
       <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 flex items-center gap-3">
@@ -84,6 +106,47 @@ export default function PreferencesSection() {
           These preferences power your personalized feed and AI recommendations.
         </p>
       </div>
+
+      {/* Shoe Interests */}
+      <Section title="🎯 Shoe Categories">
+        <div className="flex flex-wrap gap-2">
+          {ALL_CATEGORIES.map(cat => (
+            <Chip 
+              key={cat} 
+              label={cat} 
+              active={interests.includes(cat)} 
+              onClick={() => toggleInterest(cat)}
+            />
+          ))}
+        </div>
+      </Section>
+
+      {/* Shoe Size */}
+      <Section title="👟 My Shoe Size">
+        <div className="space-y-3">
+          <div className="flex gap-2">
+            {["us", "eu", "uk"].map(sys => (
+              <button
+                key={sys}
+                onClick={() => setSizeSys(sys)}
+                className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                  sizeSys === sys ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"
+                }`}
+              >
+                {sys.toUpperCase()}
+              </button>
+            ))}
+          </div>
+          <input
+            type="number"
+            step="0.5"
+            value={shoeSize[sizeSys] || ""}
+            onChange={e => setShoeSize({ ...shoeSize, [sizeSys]: e.target.value ? parseFloat(e.target.value) : null })}
+            placeholder={`Enter ${sizeSys.toUpperCase()} size`}
+            className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-primary transition-colors"
+          />
+        </div>
+      </Section>
 
       {/* Brands */}
       <Section title="Favourite Brands">
@@ -146,14 +209,15 @@ export default function PreferencesSection() {
         </div>
       </Section>
 
-      <button
+      <motion.button
+        whileTap={{ scale: 0.98 }}
         onClick={save}
         disabled={saving}
-        className="flex items-center gap-2 bg-primary text-primary-foreground px-6 py-3 rounded-xl font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity"
+        className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground px-6 py-3.5 rounded-xl font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity"
       >
-        {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-        {saving ? "Saving…" : "Save Preferences"}
-      </button>
+        {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+        {saving ? "Saving…" : "Save All Preferences"}
+      </motion.button>
     </div>
   );
 }
