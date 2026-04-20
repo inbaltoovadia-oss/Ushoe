@@ -17,6 +17,7 @@ import { canSearch, incrementSearchCount, canUse, getPlan, getSearchesUsedToday,
 import PlanGate from "../components/PlanGate";
 import ShoeProblemSolver from "../components/ShoeProblemSolver";
 import ShoeImage from "../components/ShoeImage";
+import UShoeWebImage from "../components/UShoeWebImage";
 import { Link } from "react-router-dom";
 
 const CATEGORY_ICONS = {
@@ -141,12 +142,13 @@ ${rankedShoes.map((s, i) => `${i}: ${s.brand} ${s.name} $${s.price} ${s.category
       },
     });
 
-    // Deduplicate catalog recommendations and show immediately
+    // Deduplicate catalog recommendations and filter out low matches (below 10%)
     const seenIndices = new Set();
     const recs = (catalogResponse.recommendations || [])
       .filter((r) => {
         if (r.index < 0 || r.index >= rankedShoes.length) return false;
         if (seenIndices.has(r.index)) return false;
+        if ((r.match_score || 0) < 10) return false; // skip below 10% match
         seenIndices.add(r.index);
         return true;
       })
@@ -431,14 +433,6 @@ RULES:
                     <div className="space-y-4">
                       {/* Best Deal — Large Card */}
                       {bestPick && (() => {
-                        // Try to find matching shoe in catalog for image fallback
-                        const catalogMatch = allShoes.find(
-                          s => s.brand.toLowerCase() === (bestPick.brand || "").toLowerCase() &&
-                               s.name.toLowerCase().includes((bestPick.name || "").split(" ")[0].toLowerCase())
-                        );
-                        const fallbackShoe = catalogMatch || allShoes.find(s => s.brand.toLowerCase() === (bestPick.brand || "").toLowerCase());
-                        const displayImage = bestPick.image_url || fallbackShoe?.image_url;
-
                         return (
                           <motion.a
                             href={`https://www.google.com/search?tbm=shop&q=${encodeURIComponent(`${bestPick.brand} ${bestPick.name}`)}`}
@@ -450,22 +444,7 @@ RULES:
                           >
                             <div className="flex gap-5">
                               <div className="w-32 h-32 flex-shrink-0 rounded-xl overflow-hidden bg-white relative">
-                                {displayImage ? (
-                                  <img
-                                    src={displayImage}
-                                    alt={`${bestPick.brand} ${bestPick.name}`}
-                                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                                    onError={(e) => {
-                                      e.currentTarget.src = `https://www.google.com/s2/favicons?domain=google.com&sz=128`;
-                                    }}
-                                  />
-                                ) : (
-                                  <img
-                                    src={`https://www.google.com/s2/favicons?domain=google.com&sz=128`}
-                                    alt="Search on Google"
-                                    className="w-full h-full object-contain p-4"
-                                  />
-                                )}
+                                <UShoeWebImage className="w-full h-full" />
                                 {/* BEST DEAL Badge */}
                                 <div className="absolute top-2 left-2 bg-green-500 text-white text-[10px] font-bold px-2 py-1 rounded-full flex items-center gap-1 shadow-lg">
                                   <Trophy className="w-2.5 h-2.5" />
@@ -505,14 +484,6 @@ RULES:
                           <p className="text-xs text-muted-foreground mb-3">Other models available:</p>
                           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
                             {otherPicks.map((pick, i) => {
-                              // Try to find matching shoe in catalog for image fallback
-                              const catalogMatch = allShoes.find(
-                                s => s.brand.toLowerCase() === (pick.brand || "").toLowerCase() &&
-                                     s.name.toLowerCase().includes((pick.name || "").split(" ")[0].toLowerCase())
-                              );
-                              const fallbackShoe = catalogMatch || allShoes.find(s => s.brand.toLowerCase() === (pick.brand || "").toLowerCase());
-                              const displayImage = pick.image_url || fallbackShoe?.image_url;
-
                               return (
                                 <motion.a
                                   key={i}
@@ -525,22 +496,7 @@ RULES:
                                   className="group block bg-card border border-border rounded-2xl overflow-hidden hover:shadow-xl hover:shadow-primary/10 hover:border-primary/40 hover:-translate-y-1.5 transition-all duration-300"
                                 >
                                   <div className="relative aspect-square overflow-hidden bg-white">
-                                    {displayImage ? (
-                                      <img
-                                        src={displayImage}
-                                        alt={`${pick.brand} ${pick.name}`}
-                                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                                        onError={(e) => {
-                                          e.currentTarget.src = `https://www.google.com/s2/favicons?domain=google.com&sz=128`;
-                                        }}
-                                      />
-                                    ) : (
-                                      <img
-                                        src={`https://www.google.com/s2/favicons?domain=google.com&sz=128`}
-                                        alt="View on Google"
-                                        className="w-full h-full object-contain p-6 group-hover:scale-110 transition-transform duration-500"
-                                      />
-                                    )}
+                                  <UShoeWebImage className="w-full h-full" />
                                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-center pb-3">
                                       <span className="text-white text-[10px] font-semibold bg-white/20 backdrop-blur-sm px-2.5 py-1 rounded-full border border-white/30">
                                         See Photos →
@@ -565,6 +521,12 @@ RULES:
             )}
 
             {/* DB Results */}
+            {results.length === 0 && (
+              <div className="flex items-center gap-3 py-4 px-5 bg-amber-50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-800/40 rounded-2xl">
+                <span className="text-xl">👟</span>
+                <p className="text-sm text-amber-800 dark:text-amber-300 font-medium">No matching shoes found in our catalog — showing web results below.</p>
+              </div>
+            )}
             {results.length > 0 && (
               <div>
                 <div className="flex items-center justify-between mb-4">
