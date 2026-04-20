@@ -97,10 +97,7 @@ export default function SponsoredSection({ refreshKey }) {
                     Sponsored
                   </div>
 
-                  {/* Plan tier badge */}
-                  <div className={`absolute top-3 right-3 z-10 text-[10px] px-2 py-0.5 rounded-full font-semibold ${planMeta.color}`}>
-                    {planMeta.label}
-                  </div>
+
 
                   <Link to={`/shoe/${shoe.id}`}>
                     <div className="aspect-square overflow-hidden bg-secondary/30">

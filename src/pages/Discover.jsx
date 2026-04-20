@@ -46,6 +46,10 @@ export default function Discover() {
   const [loc, setLoc] = useState(getLocation());
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [showBudgetEditor, setShowBudgetEditor] = useState(false);
+  const [budgetEdit, setBudgetEdit] = useState("");
+  const [showBrandEditor, setShowBrandEditor] = useState(false);
+  const [brandEdit, setBrandEdit] = useState("");
   const inputRef = useRef(null);
   const fileRef = useRef(null);
   const resultsRef = useRef(null);
@@ -267,6 +271,129 @@ RULES:
         {showSizePicker && <SizeSelector onClose={() => setShowSizePicker(false)} />}
       </AnimatePresence>
 
+      {/* Budget Editor Modal */}
+      <AnimatePresence>
+        {showBudgetEditor && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowBudgetEditor(false)}
+              className="fixed inset-0 z-50 bg-black/50"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            >
+              <div className="bg-card border border-border rounded-2xl shadow-xl w-full max-w-sm p-6">
+                <h3 className="font-heading font-bold text-lg mb-4">Set Your Budget</h3>
+                <div className="flex items-center gap-2 mb-4">
+                  <span className="text-muted-foreground">$</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="10"
+                    value={budgetEdit}
+                    onChange={(e) => setBudgetEdit(e.target.value)}
+                    placeholder="Max budget (USD)"
+                    className="flex-1 bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-primary transition-colors"
+                  />
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowBudgetEditor(false)}
+                    className="flex-1 py-2.5 rounded-xl border border-border text-sm font-medium hover:bg-secondary transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={async () => {
+                      const user = await base44.auth.me();
+                      const profiles = await base44.entities.UserProfile.filter({ created_by: user.email });
+                      const data = { budget_max: budgetEdit ? parseFloat(budgetEdit) : undefined };
+                      if (profiles.length > 0) {
+                        await base44.entities.UserProfile.update(profiles[0].id, data);
+                      } else {
+                        await base44.entities.UserProfile.create(data);
+                      }
+                      setShowBudgetEditor(false);
+                    }}
+                    className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
+                  >
+                    Save
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Brand Editor Modal */}
+      <AnimatePresence>
+        {showBrandEditor && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowBrandEditor(false)}
+              className="fixed inset-0 z-50 bg-black/50"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            >
+              <div className="bg-card border border-border rounded-2xl shadow-xl w-full max-w-sm p-6 max-h-96 overflow-y-auto">
+                <h3 className="font-heading font-bold text-lg mb-4">Favorite Brands</h3>
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {["Nike", "Adidas", "Jordan", "New Balance", "Puma", "Converse", "Vans", "Hoka", "Asics", "Reebok", "Saucony", "Brooks"].map(b => (
+                    <button
+                      key={b}
+                      onClick={() => setBrandEdit(prev => prev.includes(b) ? prev.filter(v => v !== b) : [...prev, b])}
+                      className={`px-3 py-1.5 rounded-xl text-sm font-medium border-2 transition-all ${
+                        brandEdit.includes(b) ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
+                      }`}
+                    >
+                      {b}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowBrandEditor(false)}
+                    className="flex-1 py-2.5 rounded-xl border border-border text-sm font-medium hover:bg-secondary transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={async () => {
+                      const user = await base44.auth.me();
+                      const profiles = await base44.entities.UserProfile.filter({ created_by: user.email });
+                      const data = { preferred_brands: brandEdit };
+                      if (profiles.length > 0) {
+                        await base44.entities.UserProfile.update(profiles[0].id, data);
+                      } else {
+                        await base44.entities.UserProfile.create(data);
+                      }
+                      setShowBrandEditor(false);
+                    }}
+                    className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
+                  >
+                    Save
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
       {/* Hero Input Section */}
       <section className="relative py-16 px-4 sm:px-6">
         <div className="max-w-3xl mx-auto text-center">
@@ -291,6 +418,18 @@ RULES:
               >
                 <Ruler className="w-4 h-4" />
                 {sizeLabel ? `Size: ${sizeLabel}` : "Set My Size"}
+              </button>
+              <button
+                onClick={() => setShowBudgetEditor(true)}
+                className="inline-flex items-center gap-2 bg-secondary text-muted-foreground hover:text-foreground px-4 py-2 rounded-full text-sm font-medium transition-colors"
+              >
+                💰 Budget
+              </button>
+              <button
+                onClick={() => setShowBrandEditor(true)}
+                className="inline-flex items-center gap-2 bg-secondary text-muted-foreground hover:text-foreground px-4 py-2 rounded-full text-sm font-medium transition-colors"
+              >
+                ⭐ Brands
               </button>
             </div>
             <h1 className="font-heading font-bold text-3xl sm:text-4xl lg:text-5xl mb-3">
