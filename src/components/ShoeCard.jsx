@@ -11,6 +11,7 @@ import {
 } from "../lib/wishlistStore";
 import ShoeOptionsMenu from "./ShoeOptionsMenu";
 import PriceTrackButton from "./PriceTrackButton";
+import SponsoredModal from "./SponsoredModal";
 
 
 
@@ -49,6 +50,7 @@ function getBrandFallback(brand, name) {
 
 export default function ShoeCard({ shoe, index = 0, sponsored = false, onSponsorClick }) {
   const [wishlisted, setWishlisted] = useState(isInWishlist(shoe.id));
+  const [showSponsorModal, setShowSponsorModal] = useState(false);
 
   const buildSources = () => {
     const s = [];
@@ -94,12 +96,20 @@ export default function ShoeCard({ shoe, index = 0, sponsored = false, onSponsor
     : 0;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, delay: index * 0.04 }}
-    >
-      <Link to={`/shoe/${shoe.id}`} className="group block">
+    <>
+      {showSponsorModal && (
+        <SponsoredModal
+          shoe={shoe}
+          onClose={() => setShowSponsorModal(false)}
+          onSponsorComplete={() => setShowSponsorModal(false)}
+        />
+      )}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, delay: index * 0.04 }}
+      >
+        <Link to={`/shoe/${shoe.id}`} className="group block">
         <div className={`card-3d relative rounded-2xl overflow-hidden transition-all duration-300 ${
           sponsored
             ? "border border-amber-400/50 shadow-amber-400/10 shadow-lg glass-card"
@@ -137,13 +147,13 @@ export default function ShoeCard({ shoe, index = 0, sponsored = false, onSponsor
               </button>
               {/* Price Track compact */}
               <PriceTrackButton shoe={shoe} compact />
-              <ShoeOptionsMenu shoe={shoe} onSponsorClick={() => onSponsorClick?.()} />
+              <ShoeOptionsMenu shoe={shoe} onSponsorClick={() => { setShowSponsorModal(true); onSponsorClick?.(); }} />
             </div>
 
             {/* Top-left badge */}
             {sponsored ? (
               <button
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); onSponsorClick?.(); }}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowSponsorModal(true); onSponsorClick?.(); }}
                 className="absolute top-2.5 left-2.5 flex items-center gap-1 bg-amber-500 text-white px-2 py-0.5 rounded-full text-[10px] font-bold shadow-sm hover:bg-amber-600 transition-colors z-10"
               >
                 <Rocket className="w-2.5 h-2.5" />
@@ -191,6 +201,7 @@ export default function ShoeCard({ shoe, index = 0, sponsored = false, onSponsor
           </div>
         </div>
       </Link>
-    </motion.div>
+      </motion.div>
+    </>
   );
 }
