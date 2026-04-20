@@ -235,8 +235,8 @@ Indicate data_freshness (e.g. "Live - just now").`,
         )}
 
         {/* Toolbar */}
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-          <div className="flex items-center gap-2">
+        <div className="space-y-3 mb-4">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
             <p className="text-sm text-muted-foreground">
               {activeTab === "catalog" ? `${sorted.length} shoes` : `${webResults.length} web results`}
               {query ? ` for "${query}"` : ""}
@@ -248,7 +248,7 @@ Indicate data_freshness (e.g. "Live - just now").`,
             )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
             {activeTab === "catalog" && (
               isPro ? (
                 <button
@@ -260,7 +260,7 @@ Indicate data_freshness (e.g. "Live - just now").`,
                   }`}
                 >
                   <SlidersHorizontal className="w-4 h-4" />
-                  Filters
+                  <span className="hidden sm:inline">Filters</span>
                   {activeFilterCount > 0 && (
                     <span className="bg-primary-foreground/20 text-primary-foreground text-xs px-1.5 py-0.5 rounded-full">{activeFilterCount}</span>
                   )}
@@ -271,7 +271,7 @@ Indicate data_freshness (e.g. "Live - just now").`,
                   className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400 border border-amber-200/60"
                 >
                   <SlidersHorizontal className="w-4 h-4" />
-                  Filters 🔒
+                  <span className="hidden sm:inline">Filters</span> 🔒
                 </Link>
               )
             )}
@@ -283,16 +283,16 @@ Indicate data_freshness (e.g. "Live - just now").`,
                 className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium bg-secondary hover:bg-secondary/80 transition-all disabled:opacity-50"
               >
                 {webLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Globe className="w-4 h-4" />}
-                Refresh
+                <span className="hidden sm:inline">Refresh</span>
               </button>
             )}
 
-            <div className="flex gap-1 bg-secondary rounded-xl p-1">
+            <div className="flex gap-1 bg-secondary rounded-xl p-1 overflow-x-auto scrollbar-hide">
               {SORT_OPTIONS.map(opt => (
                 <button
                   key={opt.value}
                   onClick={() => setSort(opt.value)}
-                  className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap flex-shrink-0 ${
                     sort === opt.value ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
@@ -345,37 +345,36 @@ Indicate data_freshness (e.g. "Live - just now").`,
           ) : sorted.length > 0 ? (
             <>
               {/* Compare hint */}
-              <div className="flex items-center gap-2 mb-3 text-xs text-muted-foreground">
-                <GitCompare className="w-3.5 h-3.5" />
-                Select up to {limits.compareMax} shoes to compare side-by-side
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                {sorted.map((shoe, i) => {
-                  const inCompare = compareIds.includes(shoe.id);
-                  const atMax = !inCompare && compareIds.length >= limits.compareMax;
-                  return (
-                    <div key={shoe.id} className="relative">
-                      <ShoeCard shoe={shoe} index={i} />
-                      <button
-                        onClick={() => {
-                          if (!atMax || inCompare) toggleCompare(shoe);
-                        }}
-                        title={atMax && !inCompare ? `Max ${limits.compareMax} shoes on your plan` : inCompare ? "Remove from compare" : "Add to compare"}
-                        className={`absolute bottom-[72px] left-3 z-10 flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg font-semibold transition-all shadow-sm ${
-                          inCompare
-                            ? "bg-primary text-primary-foreground"
-                            : atMax
-                            ? "bg-secondary text-muted-foreground opacity-50 cursor-not-allowed"
-                            : "bg-card border border-border text-foreground hover:border-primary hover:text-primary"
-                        }`}
-                      >
-                        <GitCompare className="w-3 h-3" />
-                        {inCompare ? "✓ Compare" : "Compare"}
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
+               <div className="flex items-center gap-2 mb-3 text-xs text-muted-foreground">
+                 <GitCompare className="w-3.5 h-3.5" />
+                 Select up to {limits.compareMax} shoes to compare side-by-side
+               </div>
+               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                 {sorted.map((shoe, i) => {
+                   const inCompare = compareIds.includes(shoe.id);
+                   const atMax = !inCompare && compareIds.length >= limits.compareMax;
+                   return (
+                     <div key={shoe.id} className="relative group">
+                       <ShoeCard shoe={shoe} index={i} />
+                       <button
+                         onClick={() => {
+                           if (!atMax || inCompare) toggleCompare(shoe);
+                         }}
+                         title={atMax && !inCompare ? `Max ${limits.compareMax} shoes on your plan` : inCompare ? "Remove from compare" : "Add to compare"}
+                         className={`absolute top-3 right-3 z-10 flex items-center justify-center w-8 h-8 rounded-lg font-semibold transition-all shadow-sm ${
+                           inCompare
+                             ? "bg-primary text-primary-foreground"
+                             : atMax
+                             ? "bg-secondary text-muted-foreground opacity-30 cursor-not-allowed"
+                             : "bg-card border border-border text-foreground hover:border-primary hover:text-primary hover:bg-primary/5"
+                         }`}
+                       >
+                         <GitCompare className="w-4 h-4" />
+                       </button>
+                     </div>
+                   );
+                 })}
+               </div>
             </>
           ) : (
             <div className="text-center py-16">
