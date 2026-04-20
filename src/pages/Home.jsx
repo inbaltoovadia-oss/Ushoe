@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import HeroSection from "../components/home/HeroSection";
 import AIFinderCTA from "../components/home/AIFinderCTA";
 import DealsSection from "../components/home/DealsSection";
-import ForYouSection from "../components/home/ForYouSection";
+import PersonalizedSection from "../components/home/PersonalizedSection";
 import SponsoredSection from "../components/home/SponsoredSection";
 import AIRecommendations from "../components/home/AIRecommendations";
 import AIPickOfTheDaySection from "../components/home/AIPickOfTheDaySection";
@@ -31,7 +31,7 @@ export default function Home() {
       <TrendingNearYouSection />
       <AIRecommendations />
       <SponsoredSection refreshKey={sponsoredRefreshKey} />
-      <ForYouSection />
+      <PersonalizedSection />
       <DealsSection />
       <AIFinderCTA />
     </PullToRefresh>

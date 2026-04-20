@@ -1,0 +1,41 @@
+{
+  "name": "RestockAlert",
+  "type": "object",
+  "properties": {
+    "shoe_id": {
+      "type": "string",
+      "title": "Shoe ID"
+    },
+    "shoe_name": {
+      "type": "string",
+      "title": "Shoe Name"
+    },
+    "shoe_brand": {
+      "type": "string",
+      "title": "Shoe Brand"
+    },
+    "shoe_image": {
+      "type": "string",
+      "title": "Shoe Image URL"
+    },
+    "detected_at": {
+      "type": "string",
+      "title": "Detection Time",
+      "format": "date-time"
+    },
+    "stores_with_stock": {
+      "type": "number",
+      "title": "Number of Stores with Stock"
+    },
+    "was_notified": {
+      "type": "boolean",
+      "title": "User Notified",
+      "default": false
+    }
+  },
+  "required": [
+    "shoe_id",
+    "shoe_name",
+    "detected_at"
+  ]
+}

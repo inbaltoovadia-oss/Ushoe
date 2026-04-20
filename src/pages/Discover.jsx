@@ -104,7 +104,14 @@ export default function Discover() {
     ]);
 
     setAllShoes(allShoesData);
-    const rankedShoes = rankShoes(allShoesData, userProfile, { limit: 50 });
+    
+    // Enhance ranking with preference-based scoring
+    const enhancedResponse = await base44.functions.invoke('enhanceDiscoverWithPreferences', {
+      shoes: allShoesData,
+      query: finalQ,
+    });
+    
+    const rankedShoes = (enhancedResponse.data?.ranked_shoes || allShoesData).slice(0, 50);
     const sizePref = getSize();
     const sizeNote = sizePref.us ? `Size: US ${sizePref.us}` : "";
     const personaSummary = buildPersonaSummary(userProfile);
