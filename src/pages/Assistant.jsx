@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Loader2, Sparkles, Brain, Zap, ArrowRight, RotateCcw } from "lucide-react";
+import { Send, Loader2, Sparkles, Brain, Zap, ArrowRight, RotateCcw, SlidersHorizontal } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { getUserProfile } from "../lib/userProfileStore";
 import { rankShoes } from "../lib/personalizationEngine";
 import ShoeCard from "../components/ShoeCard";
 import ReactMarkdown from "react-markdown";
+import PreferencesPanel from "../components/assistant/PreferencesPanel";
+import { AnimatePresence as AP } from "framer-motion";
 
 const STARTER_PROMPTS = [
   "What's the best running shoe for me right now?",
@@ -110,6 +112,7 @@ export default function Assistant() {
   const [catalogShoes, setCatalogShoes] = useState([]);
   const [userProfile, setUserProfile] = useState(null);
   const [profileLoaded, setProfileLoaded] = useState(false);
+  const [showPrefs, setShowPrefs] = useState(false);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -220,14 +223,24 @@ export default function Assistant() {
             </p>
           </div>
         </div>
-        <button
-          onClick={reset}
-          className="p-2 rounded-xl transition-colors"
-          style={{ color: "#6B7280" }}
-          title="New conversation"
-        >
-          <RotateCcw className="w-4 h-4" />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setShowPrefs(true)}
+            className="p-2 rounded-xl transition-colors"
+            style={{ color: "#6B7280" }}
+            title="Edit preferences"
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+          </button>
+          <button
+            onClick={reset}
+            className="p-2 rounded-xl transition-colors"
+            style={{ color: "#6B7280" }}
+            title="New conversation"
+          >
+            <RotateCcw className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {/* Profile signal badges */}
@@ -317,6 +330,16 @@ export default function Assistant() {
       <p className="text-center text-[11px] flex-shrink-0 pb-2" style={{ color: "#4B5563" }}>
         Learns from your searches · improves with every conversation
       </p>
+
+      {/* Preferences Panel */}
+      <AP>
+        {showPrefs && (
+          <PreferencesPanel
+            onClose={() => setShowPrefs(false)}
+            onSaved={() => { init(); }}
+          />
+        )}
+      </AP>
 
       {/* Input bar */}
       <div className="flex-shrink-0 px-4 sm:px-8 pb-5 pt-1 max-w-3xl w-full mx-auto">
