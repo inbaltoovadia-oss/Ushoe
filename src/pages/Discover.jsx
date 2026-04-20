@@ -163,7 +163,7 @@ ${rankedShoes.map((s, i) => `${i}: ${s.brand} ${s.name} $${s.price} ${s.category
 RULES:
 1. Each shoe must be a DIFFERENT model. NO duplicates.
 2. Match brand EXACTLY — if searching "Asics", show ONLY Asics shoes.
-3. Price in USD (e.g. "$120").
+3. Price in USD accurate to the cent (e.g. "$119.95" not "$120"). Use real current retail prices.
 4. Mark is_best_deal: true for exactly ONE shoe (best value).
 5. Return: brand, name, price, retailer, is_best_deal, image_url.`;
 
