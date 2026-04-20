@@ -24,13 +24,23 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
     setPriceRange(null);
 
     const res = await base44.integrations.Core.InvokeLLM({
-      prompt: `Find the best online retailers currently selling the ${shoe.brand} ${shoe.name}${shoe.colorway ? ` (${shoe.colorway})` : ""}, listed at ~$${shoe.price}.
+      prompt: `Find the best online retailers that sell the ${shoe.brand} ${shoe.name}${shoe.colorway ? ` (${shoe.colorway})` : ""} at around $${shoe.price}.
 ${selectedSize ? `Customer needs size: ${selectedSize}.` : ""}
-${selectedColor ? `Customer wants color/colorway: ${selectedColor}.` : ""}
-Search Nike.com, Adidas.com, Zappos, Amazon, GOAT, StockX, Foot Locker, DSW, Finish Line, Hibbett, and other major retailers.
-${selectedSize || selectedColor ? `Only include retailers with this shoe in stock in size ${selectedSize || "any"}${selectedColor ? ` in ${selectedColor}` : ""}.` : ""}
-For each retailer provide: name, price (number), original_price if discounted, stock_status ("In stock"/"Limited stock"/"Out of stock"), ships_to_location (bool, based on ${loc.city}), shipping_info (e.g. "Free shipping"), return_policy (e.g. "60-day returns"), buy_link (real URL), retailer_rating (1-5), is_best_deal (bool — mark the one with best price+stock).
-Return up to 8 results sorted by price ascending.`,
+${selectedColor ? `Customer wants color: ${selectedColor}.` : ""}
+
+Return up to 6 real, well-known online retailers. For each provide:
+- name: retailer name (e.g. "Nike.com", "Foot Locker", "Zappos", "GOAT", "StockX", "Amazon", "Finish Line", "JD Sports")
+- price: your best estimate of current retail price in USD (number)
+- original_price: if on sale, the original price
+- stock_status: "In stock" / "Limited stock" / "Out of stock" — only say "In stock" if you have high confidence from web search
+- ships_to_location: true (all major retailers ship internationally)
+- shipping_info: real shipping policy (e.g. "Free shipping over $75")
+- return_policy: real policy (e.g. "60-day returns")
+- buy_link: a REAL, working URL directly to this product page or a search page for this exact shoe on the retailer's site. Use real URLs like https://www.nike.com/... or https://www.footlocker.com/... or https://www.zappos.com/... Do NOT make up product IDs — use a search URL if unsure: e.g. https://www.zappos.com/search?term=${encodeURIComponent(shoe.brand + " " + shoe.name)}
+- retailer_rating: retailer trustworthiness (1-5)
+- is_best_deal: true for the single best value option
+
+Sort by price ascending.`,
       add_context_from_internet: true,
       response_json_schema: {
         type: "object",

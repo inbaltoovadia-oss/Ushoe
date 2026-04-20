@@ -26,19 +26,18 @@ export default function NearbyStores({ title = "Nearby Stores", maxCount = 6, sh
     const [dbStores, aiResult] = await Promise.all([
       base44.entities.Store.list("-rating", 50),
       base44.integrations.Core.InvokeLLM({
-        prompt: `You are a shoe store locator AI. The user is in ${location.city} (lat: ${location.lat}, lng: ${location.lng}).
-${shoe ? `They want: "${shoe.name}" by ${shoe.brand} (${shoe.category}, $${shoe.price}).` : "They want nearby shoe stores."}
-${selectedSize ? `Required size: ${selectedSize}.` : ""}
-${selectedColor ? `Required color: ${selectedColor}.` : ""}
+        prompt: `You are a shoe store locator. The user is in ${location.city}.
+${shoe ? `They are looking for: "${shoe.name}" by ${shoe.brand}.` : "They want nearby shoe stores."}
 
-List the top ${maxCount} real shoe stores near ${location.city}.
-${selectedSize || selectedColor ? `Only include stores WITH stock in size ${selectedSize || "any"}${selectedColor ? ` / ${selectedColor}` : ""}.` : `Prefer stores likely to carry ${shoe ? `${shoe.brand}` : "popular sneakers"}.`}
-For each store: provide realistic data, real addresses in ${location.city}, and:
-- distance_km: realistic distance in km from city center
-- pickup_today: true if in-stock and open today
-- open_now: bool
-Mark ONE store as is_best_option (best combo of proximity + stock + rating).
-Also return a short 1-sentence local summary.`,
+Find the top ${maxCount} REAL, verified shoe stores/retailers in or near ${location.city} that are known to carry ${shoe ? `${shoe.brand}` : "major sneaker brands"}. These must be REAL stores with real addresses — do NOT invent stores.
+
+Examples of real chains to look for: Foot Locker, Nike Store, Adidas, JD Sports, DSW, Finish Line, Sneaker Studio, Intersport, Office Shoes, Schuh, Size?, The Athletes Foot — whichever actually exist in ${location.city}.
+
+For each store return: name, address, distance_km (from city center, realistic), rating (real Google Maps rating if known), phone, maps_search (name + address for Google Maps).
+Do NOT claim specific stock levels — set stock_status to "Check in store" for all.
+Do NOT set pickup_today or open_now — leave them null.
+Mark is_best_option for the one closest/most likely to carry ${shoe ? shoe.brand : "the shoe"}.
+Return a 1-sentence honest summary.`,
         add_context_from_internet: true,
         response_json_schema: {
           type: "object",
@@ -78,8 +77,8 @@ Also return a short 1-sentence local summary.`,
       phone: s.phone || "",
       distance_km: s.distance_km,
       stock_status: s.stock_status || "Check in store",
-      pickup_today: s.pickup_today,
-      open_now: s.open_now,
+      pickup_today: null,
+      open_now: null,
       is_best_option: s.is_best_option,
       maps_url: `https://www.google.com/maps/search/${encodeURIComponent(s.maps_search || s.name + " " + s.address)}`,
       image_url: `https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=200&h=200&fit=crop`,
@@ -184,15 +183,7 @@ function StoreRow({ store }) {
             <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
             <span className="text-xs text-muted-foreground">{store.rating}</span>
           </div>
-          {store.pickup_today && (
-            <span className="text-[10px] font-semibold text-green-600 dark:text-green-400 flex items-center gap-0.5 bg-green-50 dark:bg-green-950/30 px-1.5 py-0.5 rounded-full">
-              <Zap className="w-2.5 h-2.5" />
-              Pickup today
-            </span>
-          )}
-          {store.open_now === false && (
-            <span className="text-[10px] text-red-500 bg-red-50 dark:bg-red-950/30 px-1.5 py-0.5 rounded-full">Closed</span>
-          )}
+          <span className="text-[10px] text-blue-600 bg-blue-50 dark:bg-blue-950/30 px-1.5 py-0.5 rounded-full">Call to confirm stock</span>
         </div>
 
         <p className="text-xs text-muted-foreground truncate mt-0.5">{store.address}</p>
