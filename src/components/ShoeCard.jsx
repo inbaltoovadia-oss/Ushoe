@@ -12,19 +12,13 @@ import {
 import ShoeOptionsMenu from "./ShoeOptionsMenu";
 import PriceTrackButton from "./PriceTrackButton";
 
-// Red shoe placeholder — shown when no real image is available
-const RED_SHOE_PLACEHOLDER = "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600&h=600&fit=crop";
-function neutralFallback() {
-  return RED_SHOE_PLACEHOLDER;
-}
+
 
 export default function ShoeCard({ shoe, index = 0, sponsored = false, onSponsorClick }) {
   const [wishlisted, setWishlisted] = useState(isInWishlist(shoe.id));
-  // Only use image_url if it's a known reliable source (Unsplash), otherwise use placeholder
-  const initialImg = (shoe.image_url && shoe.image_url.includes("unsplash.com"))
-    ? shoe.image_url
-    : neutralFallback();
-  const [imgSrc, setImgSrc] = useState(initialImg);
+  const isValidImage = shoe.image_url && shoe.image_url.includes("unsplash.com");
+  const [imgSrc, setImgSrc] = useState(isValidImage ? shoe.image_url : null);
+  const [imgFailed, setImgFailed] = useState(!isValidImage);
   const [imgLoaded, setImgLoaded] = useState(false);
 
   useEffect(() => subscribeWishlist(() => setWishlisted(isInWishlist(shoe.id))), [shoe.id]);
@@ -66,24 +60,29 @@ export default function ShoeCard({ shoe, index = 0, sponsored = false, onSponsor
 
           {/* ── Image ── */}
           <div className="relative aspect-square overflow-hidden bg-secondary/40">
-            {/* Skeleton shimmer while loading */}
-            {!imgLoaded && (
-              <div className="absolute inset-0 bg-gradient-to-br from-secondary via-secondary/60 to-secondary animate-pulse" />
+            {imgFailed || !imgSrc ? (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-secondary/60">
+                <span className="text-2xl">👟</span>
+                <span className="font-heading font-bold text-xs text-primary">uShoe</span>
+                <span className="text-[10px] text-muted-foreground text-center px-3">Image unavailable</span>
+              </div>
+            ) : (
+              <>
+                {!imgLoaded && (
+                  <div className="absolute inset-0 bg-gradient-to-br from-secondary via-secondary/60 to-secondary animate-pulse" />
+                )}
+                <img
+                  src={imgSrc}
+                  alt={shoe.name}
+                  loading="lazy"
+                  className={`w-full h-full object-cover transition-all duration-500 group-hover:scale-108 ${
+                    imgLoaded ? "opacity-100" : "opacity-0"
+                  }`}
+                  onLoad={() => setImgLoaded(true)}
+                  onError={() => { setImgFailed(true); setImgLoaded(true); }}
+                />
+              </>
             )}
-            <img
-              src={imgSrc}
-              alt={shoe.name}
-              loading="lazy"
-              className={`w-full h-full object-cover transition-all duration-500 group-hover:scale-108 ${
-                imgLoaded ? "opacity-100" : "opacity-0"
-              }`}
-              style={{ transform: imgLoaded ? undefined : "scale(1.02)" }}
-              onLoad={() => setImgLoaded(true)}
-              onError={() => {
-                setImgSrc(neutralFallback());
-                setImgLoaded(true);
-              }}
-            />
 
             {/* Top-right actions */}
             <div className="absolute top-2.5 right-2.5 flex flex-col gap-1.5 z-10">
