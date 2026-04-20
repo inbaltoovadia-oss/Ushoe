@@ -28,6 +28,7 @@ const CATEGORY_ICONS = {
 export default function Discover() {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
+  const [webLoading, setWebLoading] = useState(false);
   const [results, setResults] = useState(null);
   const [webResults, setWebResults] = useState([]);
   const [aiExplanation, setAiExplanation] = useState("");
@@ -76,6 +77,7 @@ export default function Discover() {
     setLoading(true);
     setResults(null);
     setWebResults([]);
+    setWebLoading(false);
     if (resultsRef.current) {
       setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
     }
@@ -92,7 +94,7 @@ export default function Discover() {
       }
     }
 
-    // Load shoes in parallel with cache check
+    // Load shoes + user profile in parallel
     const [allShoesData, userProfile] = await Promise.all([
       base44.entities.Shoe.list("-trending_score", 60),
       getUserProfile(),
@@ -115,73 +117,31 @@ ${rankedShoes.map((s, i) => `${i}: ${s.brand} ${s.name} $${s.price} ${s.category
 
 1-sentence summary:`;
 
-    const currentLoc = getLocation();
-    const webPrompt = `Find up to 10 DISTINCT shoe models matching: "${finalQ}"${selectedCategory ? ` in category ${selectedCategory}` : ""} available to buy online.
-
-CRITICAL RULES - FOLLOW EXACTLY:
-1. EACH shoe must be a completely DIFFERENT model from a DIFFERENT brand when possible. NO duplicates of the same shoe.
-2. Match the brand EXACTLY to the shoe name - if searching for "Asics", show ONLY Asics shoes. If searching for "Adidas", show ONLY Adidas shoes. NEVER mix brands.
-3. For each shoe, find the LOWEST price available across all retailers. Convert any foreign currency to USD and return the price in USD (e.g. "$120").
-4. Mark is_best_deal: true for exactly ONE shoe — the single best value considering price, brand quality, and relevance. All others must be false.
-5. If the search is broad (e.g. "running shoes"), return diverse models across different brands (Nike, Adidas, Asics, New Balance, etc.). If specific (e.g. "Nike Air Max 90"), return variants/colorways of that model only.
-6. For each result return: brand (EXACT brand name), name (exact model name), price (cheapest USD price as string like "$120"), retailer (best price source), ships_to_user (true), is_best_deal (boolean), image_url (direct image URL of the shoe - must be a real product photo URL from the retailer or Google Shopping).
-
-Example for "Asics running shoes":
-- brand: "Asics", name: "Gel-Kayano 30", price: "$160", image_url: "https://...", ...
-- brand: "Asics", name: "Gel-Nimbus 25", price: "$150", image_url: "https://...", ...
-NOT Adidas, NOT Nike - ONLY Asics when user asks for Asics.`;
-
-    const [catalogResponse, webResponse] = await Promise.all([
-      base44.integrations.Core.InvokeLLM({
-        prompt: catalogPrompt,
-        file_urls: imageUrl ? [imageUrl] : undefined,
-        model: "automatic",
-        response_json_schema: {
-          type: "object",
-          properties: {
-            summary: { type: "string" },
-            recommendations: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  index: { type: "number" },
-                  match_score: { type: "number" },
-                  explanation: { type: "string" },
-                },
+    // Step 1: Get catalog results FIRST (fast ~1-2s)
+    const catalogResponse = await base44.integrations.Core.InvokeLLM({
+      prompt: catalogPrompt,
+      file_urls: imageUrl ? [imageUrl] : undefined,
+      model: "automatic",
+      response_json_schema: {
+        type: "object",
+        properties: {
+          summary: { type: "string" },
+          recommendations: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                index: { type: "number" },
+                match_score: { type: "number" },
+                explanation: { type: "string" },
               },
             },
           },
         },
-      }),
-      base44.integrations.Core.InvokeLLM({
-        prompt: webPrompt,
-        add_context_from_internet: true,
-        model: "gemini_3_flash",
-        response_json_schema: {
-          type: "object",
-          properties: {
-            web_picks: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  name: { type: "string" },
-                  brand: { type: "string" },
-                  price: { type: "string" },
-                  retailer: { type: "string" },
-                  ships_to_user: { type: "boolean" },
-                  is_best_deal: { type: "boolean" },
-                  image_url: { type: "string" },
-                },
-              },
-            },
-          },
-        },
-      }),
-    ]);
+      },
+    });
 
-    // Deduplicate catalog recommendations by index
+    // Deduplicate catalog recommendations and show immediately
     const seenIndices = new Set();
     const recs = (catalogResponse.recommendations || [])
       .filter((r) => {
@@ -192,7 +152,47 @@ NOT Adidas, NOT Nike - ONLY Asics when user asks for Asics.`;
       })
       .map((r) => ({ shoe: rankedShoes[r.index], match_score: r.match_score, explanation: r.explanation }));
 
-    // Deduplicate web results by brand+name combination
+    setResults(recs);
+    setAiExplanation(catalogResponse.summary || "");
+    setLoading(false);
+
+    // Step 2: Fetch web results in background (slow ~5-10s)
+    setWebLoading(true);
+    const webPrompt = `Find up to 8 DISTINCT shoe models matching: "${finalQ}"${selectedCategory ? ` in category ${selectedCategory}` : ""} available to buy online.
+
+RULES:
+1. Each shoe must be a DIFFERENT model. NO duplicates.
+2. Match brand EXACTLY — if searching "Asics", show ONLY Asics shoes.
+3. Price in USD (e.g. "$120").
+4. Mark is_best_deal: true for exactly ONE shoe (best value).
+5. Return: brand, name, price, retailer, is_best_deal, image_url.`;
+
+    const webResponse = await base44.integrations.Core.InvokeLLM({
+      prompt: webPrompt,
+      add_context_from_internet: true,
+      model: "gemini_3_flash",
+      response_json_schema: {
+        type: "object",
+        properties: {
+          web_picks: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                name: { type: "string" },
+                brand: { type: "string" },
+                price: { type: "string" },
+                retailer: { type: "string" },
+                is_best_deal: { type: "boolean" },
+                image_url: { type: "string" },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // Deduplicate web results
     const seenWeb = new Set();
     const filteredWebResults = (webResponse.web_picks || []).filter((p) => {
       const key = `${(p.brand || "").toLowerCase()}-${(p.name || "").toLowerCase()}`;
@@ -201,7 +201,7 @@ NOT Adidas, NOT Nike - ONLY Asics when user asks for Asics.`;
       return true;
     });
 
-    // Fallback: if AI didn't mark any best deal, mark the cheapest
+    // Fallback: mark cheapest as best deal if none marked
     const hasBestDeal = filteredWebResults.some(p => p.is_best_deal);
     if (!hasBestDeal && filteredWebResults.length > 0) {
       const prices = filteredWebResults.map(p => parseFloat((p.price || "0").replace(/[^0-9.]/g, "")) || Infinity);
@@ -209,10 +209,8 @@ NOT Adidas, NOT Nike - ONLY Asics when user asks for Asics.`;
       if (minIdx >= 0) filteredWebResults[minIdx] = { ...filteredWebResults[minIdx], is_best_deal: true };
     }
 
-    setResults(recs);
     setWebResults(filteredWebResults);
-    setAiExplanation(catalogResponse.summary || "");
-    setLoading(false);
+    setWebLoading(false);
 
     if (!imageUrl) {
       setCache(finalQ, { results: recs, webResults: filteredWebResults, summary: catalogResponse.summary || "" });
@@ -371,8 +369,8 @@ NOT Adidas, NOT Nike - ONLY Asics when user asks for Asics.`;
         {loading && (
           <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="max-w-7xl mx-auto px-4 sm:px-6 pb-16">
             <div className="flex items-center gap-3 mb-6">
-              <Globe className="w-5 h-5 animate-pulse text-primary" />
-              <span className="text-muted-foreground">AI is searching the web for you…</span>
+              <Loader2 className="w-5 h-5 animate-spin text-primary" />
+              <span className="text-muted-foreground">Finding best matches in catalog…</span>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
               {Array.from({ length: 5 }).map((_, i) => <SkeletonCard key={i} />)}
@@ -390,6 +388,17 @@ NOT Adidas, NOT Nike - ONLY Asics when user asks for Asics.`;
                   <span className="text-sm font-semibold text-primary">AI Web Summary</span>
                 </div>
                 <p className="text-foreground text-sm leading-relaxed">{aiExplanation}</p>
+              </div>
+            )}
+
+            {/* Web Results Loading */}
+            {webLoading && (
+              <div className="flex items-center gap-3 py-4 px-5 bg-card border border-border rounded-2xl">
+                <Globe className="w-4 h-4 animate-pulse text-primary flex-shrink-0" />
+                <span className="text-sm text-muted-foreground">Searching the web for best deals…</span>
+                <div className="flex gap-1 ml-auto">
+                  {[0,1,2].map(i => <div key={i} className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}
+                </div>
               </div>
             )}
 
