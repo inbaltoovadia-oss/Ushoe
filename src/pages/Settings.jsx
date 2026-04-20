@@ -1,19 +1,23 @@
 import { useState } from "react";
-import { Crown, Zap, Ruler, UserX, AlertTriangle } from "lucide-react";
+import { Crown, Zap, Ruler, UserX, AlertTriangle, Heart, Mail } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import PlansSection from "../components/settings/PlansSection";
 import WebhooksSection from "../components/settings/WebhooksSection";
 import SizeSection from "../components/settings/SizeSection";
+import PreferencesSection from "../components/settings/PreferencesSection";
+import EmailAlertsSection from "../components/settings/EmailAlertsSection";
 import { base44 } from "@/api/base44Client";
 
 export default function Settings() {
-  const [activeTab, setActiveTab] = useState("size");
+  const [activeTab, setActiveTab] = useState("preferences");
 
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [deleting, setDeleting] = useState(false);
 
   const TABS = [
+    { id: "preferences", label: "Preferences", icon: Heart },
+    { id: "alerts", label: "Email Alerts", icon: Mail },
     { id: "size", label: "My Size", icon: Ruler },
     { id: "plan", label: "My Plan", icon: Crown },
     { id: "webhooks", label: "Webhooks", icon: Zap },
@@ -30,11 +34,11 @@ export default function Settings() {
       <div className="max-w-3xl mx-auto">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
           <h1 className="font-heading font-bold text-3xl">Settings</h1>
-          <p className="text-muted-foreground text-sm mt-1">Manage your size, plan and integrations</p>
+          <p className="text-muted-foreground text-sm mt-1">Manage your preferences, alerts, size, plan and integrations</p>
         </motion.div>
 
         {/* Tabs */}
-        <div className="flex gap-2 mb-8 bg-secondary rounded-2xl p-1.5">
+        <div className="flex gap-1 mb-8 bg-secondary rounded-2xl p-1.5 overflow-x-auto scrollbar-hide">
           {TABS.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
@@ -49,6 +53,8 @@ export default function Settings() {
           ))}
         </div>
 
+        {activeTab === "preferences" && <PreferencesSection />}
+        {activeTab === "alerts" && <EmailAlertsSection />}
         {activeTab === "size" && <SizeSection />}
         {activeTab === "plan" && <PlansSection />}
         {activeTab === "webhooks" && <WebhooksSection />}
