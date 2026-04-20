@@ -100,9 +100,11 @@ export default function ShoeCard({ shoe, index = 0, sponsored = false, onSponsor
       transition={{ duration: 0.35, delay: index * 0.04 }}
     >
       <Link to={`/shoe/${shoe.id}`} className="group block">
-        <div className={`card-3d relative bg-card rounded-2xl overflow-hidden border ${
-          sponsored ? "border-amber-400/50 shadow-amber-400/10 shadow-md" : "border-border/40"
-        } transition-all duration-300`}>
+        <div className={`card-3d relative rounded-2xl overflow-hidden transition-all duration-300 ${
+          sponsored
+            ? "border border-amber-400/50 shadow-amber-400/10 shadow-lg glass-card"
+            : "glass-card"
+        }`}>
 
           {/* ── Image ── */}
           <div className="relative aspect-square overflow-hidden bg-secondary/40">

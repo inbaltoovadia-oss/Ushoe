@@ -86,12 +86,7 @@ export default function Navbar() {
   return (
     <>
       <nav
-        className="fixed top-0 left-0 right-0 z-50 border-b border-white/10 dark:border-white/5 pt-[env(safe-area-inset-top)] liquid-glass-bar"
-        style={{
-          background: "rgba(255,255,255,0.58)",
-          backdropFilter: "blur(48px) saturate(200%)",
-          WebkitBackdropFilter: "blur(48px) saturate(200%)",
-        }}
+        className="fixed top-0 left-0 right-0 z-50 border-b pt-[env(safe-area-inset-top)] liquid-glass-bar"
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-16">
@@ -155,7 +150,16 @@ export default function Navbar() {
                   <ChevronDown className={`w-3 h-3 transition-transform ${showToolsMenu ? "rotate-180" : ""}`} />
                 </button>
                 {showToolsMenu && (
-                  <div className="absolute top-full mt-2 right-0 bg-card border border-border rounded-2xl shadow-xl py-2 w-48 z-50">
+                  <div className="absolute top-full mt-2 right-0 rounded-2xl py-2 w-48 z-50 overflow-hidden"
+                  style={{
+                    background: "rgba(255,255,255,0.70)",
+                    backdropFilter: "blur(40px) saturate(200%)",
+                    WebkitBackdropFilter: "blur(40px) saturate(200%)",
+                    border: "1px solid rgba(255,255,255,0.55)",
+                    boxShadow: "0 1px 0 rgba(255,255,255,0.90) inset, 0 16px 48px rgba(0,0,0,0.12)",
+                  }}
+                  className="dark:[background:rgba(18,18,28,0.80)] dark:[border-color:rgba(255,255,255,0.10)]"
+                >
                     {toolLinks.map((t) => (
                       <Link
                         key={t.to}

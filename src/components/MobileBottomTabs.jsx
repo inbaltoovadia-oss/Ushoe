@@ -20,21 +20,16 @@ export default function MobileBottomTabs() {
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       {/* Liquid Glass bar */}
-      <div
-        className="flex w-full border-t border-white/10 dark:border-white/5 liquid-glass-bar"
-        style={{
-          background: "rgba(255,255,255,0.55)",
-          backdropFilter: "blur(40px) saturate(180%)",
-          WebkitBackdropFilter: "blur(40px) saturate(180%)",
-        }}
-      >
+      <div className="flex w-full border-t liquid-glass-bar relative overflow-hidden">
+        {/* Caustic shimmer overlay */}
+        <div className="caustic-shimmer absolute inset-0 z-0" aria-hidden="true" />
         {TABS.map(({ to, label, icon: Icon }) => {
           const active = location.pathname === to;
           return (
             <motion.button
-              key={to}
-              onClick={() => navigate(to, { replace: active })}
-              className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 relative"
+            key={to}
+            onClick={() => navigate(to, { replace: active })}
+            className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 relative z-10"
               whileTap={{ scale: 0.82 }}
               transition={{ type: "spring", stiffness: 500, damping: 22 }}
             >
@@ -43,11 +38,12 @@ export default function MobileBottomTabs() {
                 {active && (
                   <motion.span
                     layoutId="tabPill"
-                    className="absolute inset-x-2 inset-y-1 rounded-2xl"
+                    className="absolute inset-x-1.5 inset-y-1 rounded-2xl"
                     style={{
-                      background: "linear-gradient(135deg, rgba(99,102,241,0.22) 0%, rgba(99,102,241,0.10) 100%)",
-                      boxShadow: "0 2px 16px 0 rgba(99,102,241,0.18), inset 0 1px 0 rgba(255,255,255,0.45)",
-                      border: "1px solid rgba(255,255,255,0.35)",
+                      background: "linear-gradient(135deg, rgba(99,102,241,0.28) 0%, rgba(139,92,246,0.18) 100%)",
+                      boxShadow: "0 2px 16px rgba(99,102,241,0.30), inset 0 1px 0 rgba(255,255,255,0.60), inset 0 -1px 0 rgba(255,255,255,0.15)",
+                      border: "1px solid rgba(255,255,255,0.50)",
+                      backdropFilter: "blur(8px)",
                     }}
                     initial={{ opacity: 0, scale: 0.85 }}
                     animate={{ opacity: 1, scale: 1 }}

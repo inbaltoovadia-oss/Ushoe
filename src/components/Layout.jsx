@@ -42,9 +42,15 @@ export default function Layout() {
   prevPath.current = location.pathname;
 
   return (
-    <div className="min-h-screen bg-background overflow-x-hidden">
+    <div className="min-h-screen bg-background overflow-x-hidden relative">
+      {/* Persistent ambient orbs — the "backdrop" liquid glass requires */}
+      <div className="fixed inset-0 pointer-events-none z-0" aria-hidden="true">
+        <div className="absolute top-[-10%] left-[-8%] w-[55vw] h-[55vw] rounded-full bg-blue-500/10 dark:bg-blue-500/15 blur-[100px]" />
+        <div className="absolute bottom-[-10%] right-[-8%] w-[50vw] h-[50vw] rounded-full bg-violet-500/8 dark:bg-violet-600/14 blur-[90px]" />
+        <div className="absolute top-[40%] left-[55%] w-[30vw] h-[30vw] rounded-full bg-teal-400/6 dark:bg-teal-400/10 blur-[80px]" />
+      </div>
       <Navbar />
-      <main className="pt-16 pb-20 md:pb-20">
+      <main className="pt-16 pb-20 md:pb-20 relative z-10">
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={key}

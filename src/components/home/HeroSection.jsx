@@ -62,7 +62,14 @@ export default function HeroSection() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <div className="inline-flex items-center gap-2 bg-white/10 text-white border border-white/20 px-4 py-2 rounded-full text-sm font-semibold mb-8 backdrop-blur-md">
+          <div className="inline-flex items-center gap-2 text-white px-4 py-2 rounded-full text-sm font-semibold mb-8 relative overflow-hidden"
+            style={{
+              background: "rgba(255,255,255,0.12)",
+              backdropFilter: "blur(24px) saturate(180%)",
+              WebkitBackdropFilter: "blur(24px) saturate(180%)",
+              border: "1px solid rgba(255,255,255,0.28)",
+              boxShadow: "0 1px 0 rgba(255,255,255,0.45) inset, 0 4px 16px rgba(0,0,0,0.25)",
+            }}>
             <Sparkles className="w-3.5 h-3.5 text-primary" aria-hidden="true" />
             AI-Powered Shoe Discovery
           </div>
@@ -111,11 +118,19 @@ export default function HeroSection() {
               key={to}
               to={to}
               aria-label={label}
-              className={`flex items-center gap-2.5 px-6 py-3.5 rounded-2xl font-semibold text-base transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-black min-h-[48px] ${
+              className={`flex items-center gap-2.5 px-6 py-3.5 rounded-2xl font-semibold text-base transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-black min-h-[48px] hover:scale-105 ${
                 primary
-                  ? "bg-primary text-white shadow-xl shadow-primary/30 hover:opacity-90 hover:scale-105"
-                  : "bg-white/10 text-white border border-white/20 backdrop-blur-sm hover:bg-white/20 hover:scale-105"
+                  ? "bg-primary text-white shadow-xl shadow-primary/40 hover:opacity-90"
+                  : ""
               }`}
+              style={!primary ? {
+                background: "rgba(255,255,255,0.13)",
+                backdropFilter: "blur(20px) saturate(180%)",
+                WebkitBackdropFilter: "blur(20px) saturate(180%)",
+                border: "1px solid rgba(255,255,255,0.32)",
+                boxShadow: "0 1px 0 rgba(255,255,255,0.50) inset, 0 6px 20px rgba(0,0,0,0.22)",
+                color: "white",
+              } : undefined}
             >
               <Icon className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
               {label}
@@ -128,17 +143,27 @@ export default function HeroSection() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.6, delay: 0.55 }}
-          className="flex items-center gap-10 mt-14 flex-wrap justify-center"
+          className="flex items-center gap-2 mt-14 flex-wrap justify-center"
           aria-label="Platform stats"
         >
           {[
             { value: "50K+",    label: "Shoes Tracked" },
             { value: "4.9★",    label: "AI Accuracy" },
             { value: "Instant", label: "Web Results" },
-          ].map(({ value, label }) => (
-            <div key={label} className="text-center">
-              <p className="font-heading font-bold text-2xl text-white">{value}</p>
-              <p className="text-xs text-white/45 mt-1 uppercase tracking-wider">{label}</p>
+          ].map(({ value, label }, i) => (
+            <div key={label} className="flex items-center gap-2">
+              {i > 0 && <div className="w-px h-8 bg-white/15" />}
+              <div key={label} className="text-center px-5 py-3 rounded-2xl relative overflow-hidden"
+                style={{
+                  background: "rgba(255,255,255,0.08)",
+                  backdropFilter: "blur(20px)",
+                  WebkitBackdropFilter: "blur(20px)",
+                  border: "1px solid rgba(255,255,255,0.18)",
+                  boxShadow: "0 1px 0 rgba(255,255,255,0.30) inset",
+                }}>
+                <p className="font-heading font-bold text-xl text-white">{value}</p>
+                <p className="text-[10px] text-white/50 mt-0.5 uppercase tracking-wider">{label}</p>
+              </div>
             </div>
           ))}
         </motion.div>
