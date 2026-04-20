@@ -361,7 +361,7 @@ Indicate data_freshness (e.g. "Live - just now").`,
                            if (!atMax || inCompare) toggleCompare(shoe);
                          }}
                          title={atMax && !inCompare ? `Max ${limits.compareMax} shoes on your plan` : inCompare ? "Remove from compare" : "Add to compare"}
-                         className={`absolute top-3 right-3 z-10 flex items-center justify-center w-8 h-8 rounded-lg font-semibold transition-all shadow-sm ${
+                         className={`absolute top-3 left-3 z-10 flex items-center justify-center w-8 h-8 rounded-lg font-semibold transition-all shadow-sm ${
                            inCompare
                              ? "bg-primary text-primary-foreground"
                              : atMax
