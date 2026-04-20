@@ -17,7 +17,8 @@ import PriceTrackButton from "./PriceTrackButton";
 // Brand-specific fallbacks — Unsplash URLs are reliable and CORS-safe
 const BRAND_FALLBACKS = {
   Nike: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600&q=80",
-  Adidas: "https://images.unsplash.com/photo-1608231387042-66d1773070a5?w=600&q=80",
+  Adidas: "https://images.unsplash.com/photo-1556906781-9a414e2a9c86?w=600&q=80",
+  "Adidas Samba": "https://images.unsplash.com/photo-1587563871167-1ee9c731aefb?w=600&q=80",
   Jordan: "https://images.unsplash.com/photo-1552346154-21d32810aba3?w=600&q=80",
   Puma: "https://images.unsplash.com/photo-1608667508764-33cf0726b13a?w=600&q=80",
   "New Balance": "https://images.unsplash.com/photo-1539185441755-769473a23570?w=600&q=80",
@@ -31,13 +32,16 @@ const BRAND_FALLBACKS = {
 };
 const DEFAULT_FALLBACK = "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600&q=80";
 
-function getBrandFallback(brand) {
+function getBrandFallback(brand, name) {
   if (!brand) return DEFAULT_FALLBACK;
   const bl = brand.toLowerCase();
+  const nl = (name || "").toLowerCase();
+  // Special case: Adidas Samba
+  if (bl === "adidas" && nl.includes("samba")) return BRAND_FALLBACKS["Adidas Samba"];
   // Exact match first
   const exact = Object.keys(BRAND_FALLBACKS).find(k => k.toLowerCase() === bl);
   if (exact) return BRAND_FALLBACKS[exact];
-  // Then check if the brand starts with the key (e.g. "New Balance Running" → "New Balance")
+  // Then check if the brand starts with the key
   const prefix = Object.keys(BRAND_FALLBACKS).find(k => bl.startsWith(k.toLowerCase()));
   if (prefix) return BRAND_FALLBACKS[prefix];
   return DEFAULT_FALLBACK;
@@ -49,7 +53,7 @@ export default function ShoeCard({ shoe, index = 0, sponsored = false, onSponsor
   const buildSources = () => {
     const s = [];
     if (shoe.image_url && shoe.image_url.startsWith("http")) s.push(shoe.image_url);
-    s.push(getBrandFallback(shoe.brand));
+    s.push(getBrandFallback(shoe.brand, shoe.name));
     if (!s.includes(DEFAULT_FALLBACK)) s.push(DEFAULT_FALLBACK);
     return s;
   };
