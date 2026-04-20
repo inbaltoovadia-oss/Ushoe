@@ -17,10 +17,12 @@ const DEFAULT_FALLBACK = "https://images.unsplash.com/photo-1542291026-7eec264c2
 
 function getBrandFallback(brand) {
   if (!brand) return DEFAULT_FALLBACK;
-  const key = Object.keys(BRAND_FALLBACKS).find(k =>
-    brand.toLowerCase().includes(k.toLowerCase()) || k.toLowerCase().includes(brand.toLowerCase())
-  );
-  return key ? BRAND_FALLBACKS[key] : DEFAULT_FALLBACK;
+  const bl = brand.toLowerCase();
+  const exact = Object.keys(BRAND_FALLBACKS).find(k => k.toLowerCase() === bl);
+  if (exact) return BRAND_FALLBACKS[exact];
+  const prefix = Object.keys(BRAND_FALLBACKS).find(k => bl.startsWith(k.toLowerCase()));
+  if (prefix) return BRAND_FALLBACKS[prefix];
+  return DEFAULT_FALLBACK;
 }
 
 export default function ShoeImage({ src, brand, name, className = "", alt }) {
