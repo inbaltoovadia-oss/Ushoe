@@ -12,21 +12,19 @@ import {
 import ShoeOptionsMenu from "./ShoeOptionsMenu";
 import PriceTrackButton from "./PriceTrackButton";
 
-// Neutral Unsplash fallbacks — picked by shoe name hash so it's consistent
-const FALLBACKS = [
-  "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600&h=600&fit=crop",
-  "https://images.unsplash.com/photo-1608231387042-66d1773070a5?w=600&h=600&fit=crop",
-  "https://images.unsplash.com/photo-1600185365483-26d7a4cc7519?w=600&h=600&fit=crop",
-  "https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?w=600&h=600&fit=crop",
-  "https://images.unsplash.com/photo-1584735175315-9d5df23860e6?w=600&h=600&fit=crop",
-];
-function neutralFallback(name = "") {
-  return FALLBACKS[(name.charCodeAt(0) || 0) % FALLBACKS.length];
+// Red shoe placeholder — shown when no real image is available
+const RED_SHOE_PLACEHOLDER = "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600&h=600&fit=crop";
+function neutralFallback() {
+  return RED_SHOE_PLACEHOLDER;
 }
 
 export default function ShoeCard({ shoe, index = 0, sponsored = false, onSponsorClick }) {
   const [wishlisted, setWishlisted] = useState(isInWishlist(shoe.id));
-  const [imgSrc, setImgSrc] = useState(shoe.image_url || neutralFallback(shoe.name));
+  // Only use image_url if it's a known reliable source (Unsplash), otherwise use placeholder
+  const initialImg = (shoe.image_url && shoe.image_url.includes("unsplash.com"))
+    ? shoe.image_url
+    : neutralFallback();
+  const [imgSrc, setImgSrc] = useState(initialImg);
   const [imgLoaded, setImgLoaded] = useState(false);
 
   useEffect(() => subscribeWishlist(() => setWishlisted(isInWishlist(shoe.id))), [shoe.id]);
@@ -82,7 +80,7 @@ export default function ShoeCard({ shoe, index = 0, sponsored = false, onSponsor
               style={{ transform: imgLoaded ? undefined : "scale(1.02)" }}
               onLoad={() => setImgLoaded(true)}
               onError={() => {
-                setImgSrc(neutralFallback(shoe.name));
+                setImgSrc(neutralFallback());
                 setImgLoaded(true);
               }}
             />
