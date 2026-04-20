@@ -1,11 +1,12 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
 /**
- * Resolves an accurate, copyright-safe image URL for a SINGLE shoe.
- * Uses AI + web search to find images from official brand pages or authorized retailers.
- * Validates that the found image matches brand + model + colorway.
- * Saves verified URL back to the Shoe entity.
- * 
+ * Resolves image URLs for a single shoe using AI + web search.
+ * Returns up to 3 candidate URLs ordered by reliability.
+ * Validation: brand match + model name close match is enough.
+ * Color mismatch is acceptable as a fallback.
+ * Saves the best URL back to the Shoe entity.
+ *
  * Admin only. Requires { shoe_id } in body.
  */
 Deno.serve(async (req) => {
@@ -28,80 +29,81 @@ Deno.serve(async (req) => {
     }
     const shoe = shoes[0];
 
-    const query = [shoe.brand, shoe.name, shoe.colorway].filter(Boolean).join(' ');
-
     const response = await base44.asServiceRole.integrations.Core.InvokeLLM({
-      prompt: `Find an accurate, publicly accessible product image URL for this specific shoe:
+      prompt: `Find product image URLs for this shoe. Prioritize availability over exact color match.
 
 Brand: ${shoe.brand}
 Model: ${shoe.name}
-${shoe.colorway ? `Colorway: ${shoe.colorway}` : ''}
+${shoe.colorway ? `Preferred colorway: ${shoe.colorway} (color mismatch is OK as fallback)` : ''}
 ${shoe.category ? `Category: ${shoe.category}` : ''}
 
-Search for the official product image. Requirements:
-1. The image MUST show exactly this shoe model and colorway (not a different colorway or similar model)
-2. Source must be from an official brand website (nike.com, adidas.com, puma.com, etc.) OR a major authorized retailer (footlocker.com, zappos.com, nordstrom.com, etc.)
-3. Prefer direct .jpg/.jpeg/.png/.webp image URLs
-4. Prefer clean white/light background product shots
-5. Do NOT return Bing, Google Images, Pinterest, social media, or random blogs
-6. If you cannot find a verified matching image with high confidence, return null for image_url
+STRICT RULES:
+1. Return 3 candidate image URLs, ordered best-to-worst
+2. URLs MUST be direct image files ending in .jpg, .jpeg, .png, or .webp
+3. Prefer CDN/static image hosts (images.nike.com, assets.adidas.com, cdn.shopify.com, etc.)
+4. Brand MUST match. Model name should be close (exact colorway NOT required)
+5. Prefer clean product shots on white/light background
+6. DO NOT return: HTML pages, Google/Bing/Pinterest/social media URLs, or redirect URLs
+7. If you find a URL for the same model but different colorway, that is ACCEPTABLE — include it
+8. For fallback: a generic shot of any ${shoe.brand} ${shoe.category || 'shoe'} is acceptable as candidate_3
 
-Return JSON with:
-- image_url: direct image URL or null
-- source_domain: e.g. "nike.com"
-- confidence: 0.0-1.0 (how sure you are this matches the exact shoe)
-- match_reason: brief explanation of why this image matches`,
+Return JSON:
+- candidates: array of up to 3 objects, each with { url, source_domain, confidence (0-1), notes }
+  confidence 1.0 = exact model+color match
+  confidence 0.7 = same model, different color
+  confidence 0.4 = same brand, similar category`,
       add_context_from_internet: true,
       model: 'gemini_3_flash',
       response_json_schema: {
         type: 'object',
         properties: {
-          image_url: { type: 'string' },
-          source_domain: { type: 'string' },
-          confidence: { type: 'number' },
-          match_reason: { type: 'string' }
+          candidates: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                url: { type: 'string' },
+                source_domain: { type: 'string' },
+                confidence: { type: 'number' },
+                notes: { type: 'string' }
+              }
+            }
+          }
         }
       }
     });
 
-    const { image_url, confidence, source_domain, match_reason } = response;
+    const candidates = (response.candidates || []).filter(c =>
+      c.url &&
+      c.url.startsWith('http') &&
+      /\.(jpg|jpeg|png|webp)(\?|$)/i.test(c.url)
+    );
 
-    const TRUSTED_DOMAINS = [
-      'nike.com', 'adidas.com', 'newbalance.com', 'footlocker.com',
-      'zappos.com', 'nordstrom.com', 'puma.com', 'reebok.com', 'converse.com',
-      'vans.com', 'asics.com', 'saucony.com', 'brooks.com', 'hoka.com',
-      'on-running.com', 'salomon.com', 'finishline.com', 'dickssportinggoods.com',
-      'running.com', 'jordanbrand.com'
-    ];
+    // Accept: confidence >= 0.4 (brand + category match is enough)
+    const best = candidates.find(c => (c.confidence || 0) >= 0.4) || candidates[0];
 
-    const isTrusted = source_domain && TRUSTED_DOMAINS.some(d => source_domain.includes(d));
-    const isHighConfidence = (confidence || 0) >= 0.8;
-    const hasValidUrl = image_url && image_url.startsWith('http');
-
-    if (hasValidUrl && isHighConfidence && isTrusted) {
-      await base44.asServiceRole.entities.Shoe.update(shoe.id, { image_url });
+    if (best) {
+      await base44.asServiceRole.entities.Shoe.update(shoe.id, { image_url: best.url });
       return Response.json({
         status: 'updated',
         shoe_id: shoe.id,
         shoe_name: shoe.name,
-        image_url,
-        source_domain,
-        confidence,
-        match_reason
-      });
-    } else {
-      return Response.json({
-        status: 'not_found',
-        shoe_id: shoe.id,
-        shoe_name: shoe.name,
-        reason: !hasValidUrl ? 'no URL found' 
-          : !isHighConfidence ? `low confidence: ${confidence}`
-          : `untrusted source: ${source_domain}`,
-        source_domain,
-        confidence,
-        match_reason
+        image_url: best.url,
+        source_domain: best.source_domain,
+        confidence: best.confidence,
+        notes: best.notes,
+        all_candidates: candidates
       });
     }
+
+    // Nothing usable found
+    return Response.json({
+      status: 'not_found',
+      shoe_id: shoe.id,
+      shoe_name: shoe.name,
+      reason: 'No direct image URLs found',
+      all_candidates: candidates
+    });
 
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });

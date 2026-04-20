@@ -14,12 +14,50 @@ import PriceTrackButton from "./PriceTrackButton";
 
 
 
+// Brand-specific fallbacks — Unsplash URLs are reliable and CORS-safe
+const BRAND_FALLBACKS = {
+  Nike: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600&q=80",
+  Adidas: "https://images.unsplash.com/photo-1608231387042-66d1773070a5?w=600&q=80",
+  Jordan: "https://images.unsplash.com/photo-1552346154-21d32810aba3?w=600&q=80",
+  Puma: "https://images.unsplash.com/photo-1608667508764-33cf0726b13a?w=600&q=80",
+  "New Balance": "https://images.unsplash.com/photo-1539185441755-769473a23570?w=600&q=80",
+  Converse: "https://images.unsplash.com/photo-1463100099107-aa0980c362e6?w=600&q=80",
+  Vans: "https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?w=600&q=80",
+  Hoka: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600&q=80",
+  Asics: "https://images.unsplash.com/photo-1560769629-975ec94e6a86?w=600&q=80",
+  Reebok: "https://images.unsplash.com/photo-1491553895911-0055eca6402d?w=600&q=80",
+  Saucony: "https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?w=600&q=80",
+  Brooks: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600&q=80",
+};
+const DEFAULT_FALLBACK = "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600&q=80";
+
+function getBrandFallback(brand) {
+  if (!brand) return DEFAULT_FALLBACK;
+  const key = Object.keys(BRAND_FALLBACKS).find(k =>
+    brand.toLowerCase().includes(k.toLowerCase()) || k.toLowerCase().includes(brand.toLowerCase())
+  );
+  return key ? BRAND_FALLBACKS[key] : DEFAULT_FALLBACK;
+}
+
 export default function ShoeCard({ shoe, index = 0, sponsored = false, onSponsorClick }) {
   const [wishlisted, setWishlisted] = useState(isInWishlist(shoe.id));
-  const isValidImage = shoe.image_url && shoe.image_url.includes("unsplash.com");
-  const [imgSrc, setImgSrc] = useState(isValidImage ? shoe.image_url : null);
-  const [imgFailed, setImgFailed] = useState(!isValidImage);
+
+  const buildSources = () => {
+    const s = [];
+    if (shoe.image_url && shoe.image_url.startsWith("http")) s.push(shoe.image_url);
+    s.push(getBrandFallback(shoe.brand));
+    if (!s.includes(DEFAULT_FALLBACK)) s.push(DEFAULT_FALLBACK);
+    return s;
+  };
+
+  const [sources] = useState(buildSources);
+  const [srcIdx, setSrcIdx] = useState(0);
   const [imgLoaded, setImgLoaded] = useState(false);
+
+  const currentSrc = sources[srcIdx];
+  const handleImgError = () => {
+    if (srcIdx < sources.length - 1) setSrcIdx(i => i + 1);
+  };
 
   useEffect(() => subscribeWishlist(() => setWishlisted(isInWishlist(shoe.id))), [shoe.id]);
 
@@ -60,29 +98,20 @@ export default function ShoeCard({ shoe, index = 0, sponsored = false, onSponsor
 
           {/* ── Image ── */}
           <div className="relative aspect-square overflow-hidden bg-secondary/40">
-            {imgFailed || !imgSrc ? (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-secondary/60">
-                <span className="text-2xl">👟</span>
-                <span className="font-heading font-bold text-xs text-primary">uShoe</span>
-                <span className="text-[10px] text-muted-foreground text-center px-3">Image unavailable</span>
-              </div>
-            ) : (
-              <>
-                {!imgLoaded && (
-                  <div className="absolute inset-0 bg-gradient-to-br from-secondary via-secondary/60 to-secondary animate-pulse" />
-                )}
-                <img
-                  src={imgSrc}
-                  alt={shoe.name}
-                  loading="lazy"
-                  className={`w-full h-full object-cover transition-all duration-500 group-hover:scale-108 ${
-                    imgLoaded ? "opacity-100" : "opacity-0"
-                  }`}
-                  onLoad={() => setImgLoaded(true)}
-                  onError={() => { setImgFailed(true); setImgLoaded(true); }}
-                />
-              </>
+            {!imgLoaded && (
+              <div className="absolute inset-0 bg-gradient-to-br from-secondary via-secondary/60 to-secondary animate-pulse" />
             )}
+            <img
+              key={currentSrc}
+              src={currentSrc}
+              alt={shoe.name}
+              loading="lazy"
+              className={`w-full h-full object-cover transition-all duration-500 group-hover:scale-105 ${
+                imgLoaded ? "opacity-100" : "opacity-0"
+              }`}
+              onLoad={() => setImgLoaded(true)}
+              onError={handleImgError}
+            />
 
             {/* Top-right actions */}
             <div className="absolute top-2.5 right-2.5 flex flex-col gap-1.5 z-10">
