@@ -115,6 +115,12 @@ Return a 1-sentence honest summary.`,
           <p className="text-xs text-muted-foreground">{aiSummary}</p>
         </div>
       )}
+      {!loading && stores.length > 0 && (
+        <p className="text-[10px] text-muted-foreground mb-2 flex items-center gap-1">
+          <MapPin className="w-3 h-3 flex-shrink-0" />
+          Store locations sourced via web search. Call ahead to confirm stock availability.
+        </p>
+      )}
 
       {loading ? (
         <div className="space-y-3">

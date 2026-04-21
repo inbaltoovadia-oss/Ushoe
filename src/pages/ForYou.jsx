@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { base44 } from "@/api/base44Client";
 import ShoeCard from "../components/ShoeCard";
 import SkeletonCard from "../components/SkeletonCard";
-import { getUserProfile } from "../lib/userProfileStore";
+import { getUserProfile, subscribeUserProfile } from "../lib/userProfileStore";
 import { rankShoes, buildExplanation } from "../lib/personalizationEngine";
 import { Link } from "react-router-dom";
 
@@ -15,13 +15,18 @@ export default function ForYou() {
   const [explanation, setExplanation] = useState("");
   const [hasSignals, setHasSignals] = useState(false);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    // Re-run whenever preferences/quiz/wishlist/searches change
+    const unsub = subscribeUserProfile(() => load());
+    return unsub;
+  }, []);
 
-  const load = async () => {
+  const load = async (force = false) => {
     setLoading(true);
     const [allShoes, userProfile] = await Promise.all([
       base44.entities.Shoe.list("-trending_score", 120),
-      getUserProfile(),
+      getUserProfile(force),
     ]);
 
     const signals = userProfile && (
@@ -65,7 +70,7 @@ export default function ForYou() {
               </div>
             </div>
             <button
-              onClick={load}
+              onClick={() => load(true)}
               disabled={loading}
               className="flex items-center gap-2 px-4 py-2.5 bg-secondary rounded-xl text-sm font-medium hover:bg-secondary/80 transition-colors"
             >

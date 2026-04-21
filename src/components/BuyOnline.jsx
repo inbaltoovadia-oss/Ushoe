@@ -24,21 +24,23 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
     setPriceRange(null);
 
     const res = await base44.integrations.Core.InvokeLLM({
-      prompt: `Find the best online retailers that sell the ${shoe.brand} ${shoe.name}${shoe.colorway ? ` (${shoe.colorway})` : ""} at around $${shoe.price}.
+      prompt: `Search the OFFICIAL websites of major shoe retailers for the ${shoe.brand} ${shoe.name}${shoe.colorway ? ` (${shoe.colorway})` : ""}.
 ${selectedSize ? `Customer needs size: ${selectedSize}.` : ""}
 ${selectedColor ? `Customer wants color: ${selectedColor}.` : ""}
 
-Return up to 6 real, well-known online retailers. For each provide:
-- name: retailer name (e.g. "Nike.com", "Foot Locker", "Zappos", "GOAT", "StockX", "Amazon", "Finish Line", "JD Sports")
-- price: your best estimate of current retail price in USD (number)
-- original_price: if on sale, the original price
-- stock_status: "In stock" / "Limited stock" / "Out of stock" — only say "In stock" if you have high confidence from web search
-- ships_to_location: true (all major retailers ship internationally)
-- shipping_info: real shipping policy (e.g. "Free shipping over $75")
-- return_policy: real policy (e.g. "60-day returns")
-- buy_link: a REAL, working URL directly to this product page or a search page for this exact shoe on the retailer's site. Use real URLs like https://www.nike.com/... or https://www.footlocker.com/... or https://www.zappos.com/... Do NOT make up product IDs — use a search URL if unsure: e.g. https://www.zappos.com/search?term=${encodeURIComponent(shoe.brand + " " + shoe.name)}
-- retailer_rating: retailer trustworthiness (1-5)
-- is_best_deal: true for the single best value option
+IMPORTANT: Only include retailers where you can CONFIRM current availability from their official website. Do not guess.
+
+Return up to 6 real retailers. For each provide:
+- name: retailer name (e.g. "Nike.com", "Foot Locker", "Zappos", "GOAT", "StockX", "Amazon", "JD Sports")
+- price: current price found on the retailer's official website (number, USD)
+- original_price: if on sale, the original price from the site
+- stock_status: "In stock" / "Limited stock" / "Out of stock" — ONLY mark "In stock" if confirmed from the official retailer site. Use "Limited stock" if only a few sizes remain.
+- ships_to_location: true for major retailers
+- shipping_info: exact shipping policy from their site (e.g. "Free shipping over $75", "Free standard shipping")
+- return_policy: exact return policy from their site (e.g. "60-day free returns")
+- buy_link: a real URL to the exact product page OR a search results page on the retailer's site. Prefer the product page. For Nike use https://www.nike.com/search?q=${encodeURIComponent(shoe.brand + " " + shoe.name)}, for Foot Locker use https://www.footlocker.com/search?query=${encodeURIComponent(shoe.name)}, etc.
+- retailer_rating: trustworthiness score 1-5
+- is_best_deal: true for the single best overall value
 
 Sort by price ascending.`,
       add_context_from_internet: true,
@@ -132,6 +134,12 @@ Sort by price ascending.`,
           </button>
         </div>
       )}
+
+      {/* Disclaimer */}
+      <p className="text-[10px] text-muted-foreground mb-3 flex items-center gap-1">
+        <AlertCircle className="w-3 h-3 flex-shrink-0" />
+        Stock & prices sourced from retailer websites via web search. Verify on retailer site before purchasing.
+      </p>
 
       <div className="space-y-3">
         {retailers.map((r, i) => {

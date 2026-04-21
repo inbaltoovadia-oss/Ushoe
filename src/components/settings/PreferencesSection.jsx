@@ -5,6 +5,7 @@ import { base44 } from "@/api/base44Client";
 import { toast } from "sonner";
 import { getInterests, setInterests, ALL_CATEGORIES } from "@/lib/interestStore";
 import { getSize, setSize, getSizeLabel } from "@/lib/sizeStore";
+import { invalidateProfileCache } from "@/lib/userProfileStore";
 
 const BRANDS = ["Nike", "Adidas", "Jordan", "New Balance", "Puma", "Converse", "Vans", "Hoka", "Asics", "Reebok", "Saucony", "Brooks"];
 const USES = ["Running", "Casual", "Basketball", "Training", "Walking", "Lifestyle", "Hiking"];
@@ -78,6 +79,8 @@ export default function PreferencesSection() {
       // Save size
       setSize(shoeSize);
       
+      // Bust profile cache so ForYou reloads with new prefs
+      invalidateProfileCache();
       toast.success("All preferences saved!");
     } finally {
       setSaving(false);

@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ChevronRight, ChevronLeft, Sparkles, Check } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { setInterests } from "../lib/interestStore";
+import { base44 } from "@/api/base44Client";
+import { invalidateProfileCache } from "../lib/userProfileStore";
 
 const QUIZ = [
   {
@@ -120,20 +122,38 @@ export default function StyleQuiz() {
     }
   };
 
-  const finishQuiz = (finalAnswers) => {
+  const finishQuiz = async (finalAnswers) => {
     // Save interests derived from quiz
     const interests = [finalAnswers.use_case].filter(Boolean);
     setInterests(interests);
-    // Save quiz profile to localStorage
+    // Save quiz profile to localStorage (legacy)
+    const maxBudget = BUDGET_MAP[finalAnswers.budget] || 300;
     localStorage.setItem(
       "ushoe_quiz",
-      JSON.stringify({
-        ...finalAnswers,
-        maxBudget: BUDGET_MAP[finalAnswers.budget] || 300,
-        completedAt: Date.now(),
-      })
+      JSON.stringify({ ...finalAnswers, maxBudget, completedAt: Date.now() })
     );
-    navigate("/");
+
+    // Save to DB so ForYou and personalization engine pick it up
+    const brands = (finalAnswers.brands || []).filter(b => b !== "any");
+    const profileData = {
+      preferred_brands: brands,
+      main_use: finalAnswers.use_case ? [finalAnswers.use_case] : [],
+      style_preference: finalAnswers.style ? [finalAnswers.style] : [],
+      budget_max: maxBudget,
+      survey_completed: true,
+    };
+    try {
+      const profiles = await base44.entities.UserProfile.list("-created_date", 1);
+      if (profiles.length > 0) {
+        await base44.entities.UserProfile.update(profiles[0].id, profileData);
+      } else {
+        await base44.entities.UserProfile.create(profileData);
+      }
+    } catch (_) {}
+
+    // Bust cache so ForYou re-fetches immediately
+    invalidateProfileCache();
+    navigate("/for-you");
   };
 
   const progress = ((step) / QUIZ.length) * 100;
