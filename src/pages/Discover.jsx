@@ -151,11 +151,16 @@ export default function Discover() {
       setLoading(false);
     }
 
-    // Start web search in parallel (fast, using new parallel function)
+    // Start web search in parallel — pass location for filtering
     setWebLoading(true);
+    const currentLoc = getLocation();
     const webSearchPromise = base44.functions.invoke('fastWebSearch', {
       query: finalQ,
       category: selectedCategory || '',
+      city: currentLoc.city || '',
+      country: currentLoc.country || '',
+      lat: currentLoc.lat || null,
+      lng: currentLoc.lng || null,
     });
 
     // Refine catalog results with AI in background (improves quality)
@@ -666,15 +671,49 @@ ${rankedShoes.map((s, i) => `${i}: ${s.brand} ${s.name} $${s.price} ${s.category
                                 <div className="flex items-center gap-2 mb-2 flex-wrap">
                                   <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">{bestPick.brand}</span>
                                   <span className="text-[9px] font-bold text-green-700 bg-green-100 dark:bg-green-900/50 dark:text-green-400 px-2 py-0.5 rounded-full">
-                                    ✓ Ships to {loc.city}
+                                    ✓ {loc.detected ? `Available near ${loc.city}` : 'Check availability'}
                                   </span>
                                 </div>
                                 <p className="font-heading font-bold text-lg group-hover:text-primary transition-colors line-clamp-1">{bestPick.name}</p>
-                                <div className="flex items-center gap-3 mt-2">
+                                <div className="flex items-center gap-3 mt-2 flex-wrap">
                                   {bestPick.price && <p className="text-green-600 dark:text-green-400 font-bold text-2xl">{bestPick.price}</p>}
+                                  {bestPick.original_price && bestPick.original_price !== bestPick.price && (
+                                    <p className="text-sm text-muted-foreground line-through">{bestPick.original_price}</p>
+                                  )}
+                                  {bestPick.discount_percent > 0 && (
+                                    <span className="text-xs font-bold text-green-700 bg-green-100 dark:bg-green-900/40 px-2 py-0.5 rounded-full">{bestPick.discount_percent}% OFF</span>
+                                  )}
                                   {bestPick.retailer && (
                                     <span className="text-xs text-muted-foreground flex items-center gap-1">
                                       at {bestPick.retailer} <span className="text-green-600">→</span>
+                                    </span>
+                                  )}
+                                </div>
+                                {/* Price transparency row */}
+                                <div className="flex flex-wrap gap-2 mt-2">
+                                  {bestPick.estimated_shipping && (
+                                    <span className="text-[10px] bg-secondary px-2 py-0.5 rounded-full text-muted-foreground">
+                                      Shipping: {bestPick.estimated_shipping}
+                                    </span>
+                                  )}
+                                  {bestPick.estimated_total && bestPick.estimated_shipping && bestPick.estimated_shipping !== "Free" && (
+                                    <span className="text-[10px] bg-secondary px-2 py-0.5 rounded-full text-muted-foreground font-medium">
+                                      Est. total: {bestPick.estimated_total}
+                                    </span>
+                                  )}
+                                  {bestPick.estimated_delivery && (
+                                    <span className="text-[10px] bg-secondary px-2 py-0.5 rounded-full text-muted-foreground">
+                                      🚚 {bestPick.estimated_delivery}
+                                    </span>
+                                  )}
+                                  {bestPick.price_confidence === 'low' && (
+                                    <span className="text-[10px] bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded-full">
+                                      ⚠ Price may vary
+                                    </span>
+                                  )}
+                                  {bestPick.availability_note && (
+                                    <span className="text-[10px] bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded-full">
+                                      ⚠ {bestPick.availability_note}
                                     </span>
                                   )}
                                 </div>
@@ -717,7 +756,18 @@ ${rankedShoes.map((s, i) => `${i}: ${s.brand} ${s.name} $${s.price} ${s.category
                                   <div className="p-3">
                                     <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider truncate">{pick.brand}</p>
                                     <p className="font-heading font-semibold text-xs mt-0.5 line-clamp-2 group-hover:text-primary transition-colors leading-tight">{pick.name}</p>
-                                    {pick.price && <p className="text-primary font-bold text-sm mt-1.5">{pick.price}</p>}
+                                    <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                                      {pick.price && <p className="text-primary font-bold text-sm">{pick.price}</p>}
+                                      {pick.discount_percent > 0 && (
+                                        <span className="text-[9px] font-bold text-green-700 bg-green-100 dark:bg-green-900/40 px-1.5 py-0.5 rounded-full">{pick.discount_percent}% OFF</span>
+                                      )}
+                                    </div>
+                                    {pick.estimated_shipping && (
+                                      <p className="text-[9px] text-muted-foreground mt-0.5">Ship: {pick.estimated_shipping}</p>
+                                    )}
+                                    {(pick.price_confidence === 'low' || pick.availability_note) && (
+                                      <p className="text-[9px] text-amber-600 dark:text-amber-400 mt-0.5">⚠ Price may vary</p>
+                                    )}
                                   </div>
                                 </motion.a>
                               );
