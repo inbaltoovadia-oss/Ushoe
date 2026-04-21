@@ -621,6 +621,14 @@ ${rankedShoes.map((s, i) => `${i}: ${s.brand} ${s.name} $${s.price} ${s.category
               </div>
             )}
 
+            {/* No deals found message */}
+            {!webLoading && webResults.length === 0 && results && (
+              <div className="flex items-center gap-3 py-4 px-5 bg-secondary border border-border rounded-2xl">
+                <Globe className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                <p className="text-sm text-muted-foreground">No web deals found that ship to your location. Try a different search.</p>
+              </div>
+            )}
+
             {/* Web Results — Best Deal + Other Unique Models */}
             {webResults.length > 0 && (
               <div>
