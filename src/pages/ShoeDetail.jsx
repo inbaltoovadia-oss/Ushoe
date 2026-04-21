@@ -30,6 +30,9 @@ import ScarcityBadge from "../components/ScarcityBadge";
 import ShoeInsightBadge from "../components/ShoeInsightBadge";
 import WorthItScore from "../components/WorthItScore";
 import FastestPickupCard from "../components/FastestPickupCard";
+import ProsConsCard from "../components/ProsConsCard";
+import BestOptionBadges from "../components/BestOptionBadges";
+import { addRecentlyViewed } from "../lib/recentlyViewedStore";
 
 export default function ShoeDetail() {
   const { id } = useParams();
@@ -60,6 +63,7 @@ export default function ShoeDetail() {
 
     if (shoeData.length > 0) {
       setShoe(shoeData[0]);
+      addRecentlyViewed(shoeData[0]);
       setWishlisted(isInWishlist(shoeData[0].id));
       setSimilar(
         allShoes
@@ -192,6 +196,11 @@ export default function ShoeDetail() {
               )}
             </div>
 
+            {/* Best Option Badges */}
+            <div className="mt-3">
+              <BestOptionBadges shoe={shoe} />
+            </div>
+
             {/* Trust + Scarcity signals */}
             <div className="flex flex-wrap gap-2 mt-4">
               <ShoeInsightBadge shoe={shoe} />
@@ -264,6 +273,11 @@ export default function ShoeDetail() {
                 </div>
               </div>
             )}
+
+            {/* Pros & Cons */}
+            <div className="mt-6">
+              <ProsConsCard shoe={shoe} />
+            </div>
 
             {/* Best Deal Banner */}
             <div className="mt-6">

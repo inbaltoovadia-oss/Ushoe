@@ -44,7 +44,7 @@ export function invalidateProfileCache() {
 
 // Known brand / category keywords
 const BRAND_KEYWORDS = ["nike", "adidas", "jordan", "new balance", "puma", "reebok", "converse", "vans", "hoka", "asics", "saucony", "brooks", "on running", "salomon"];
-const CATEGORY_KEYWORDS = ["running", "basketball", "casual", "training", "lifestyle", "walking", "hiking", "tennis", "skateboarding"];
+const CATEGORY_KEYWORDS = ["running", "basketball", "casual", "training", "lifestyle", "walking", "hiking", "tennis", "skateboarding", "cleats", "sandals", "flip flops", "slides", "golf", "crocs"];
 
 function extractBrands(queries) {
   const found = new Set();

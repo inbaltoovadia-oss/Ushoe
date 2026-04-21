@@ -10,6 +10,7 @@ import TrendingNearYouSection from "../components/home/TrendingNearYouSection";
 import { detectLocation } from "../lib/locationStore";
 import { preloadTrending } from "../lib/preloader";
 import PullToRefresh from "../components/PullToRefresh";
+import RecentlyViewed from "../components/RecentlyViewed";
 
 export default function Home() {
   const [sponsoredRefreshKey, setSponsoredRefreshKey] = useState(0);
@@ -27,6 +28,7 @@ export default function Home() {
   return (
     <PullToRefresh onRefresh={handleRefresh}>
       <HeroSection />
+      <RecentlyViewed />
       <AIPickOfTheDaySection />
       <TrendingNearYouSection />
       <AIRecommendations />

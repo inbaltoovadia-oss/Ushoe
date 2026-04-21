@@ -19,6 +19,7 @@ import ShoeProblemSolver from "../components/ShoeProblemSolver";
 import ShoeImage from "../components/ShoeImage";
 import UShoeWebImage from "../components/UShoeWebImage";
 import { Link } from "react-router-dom";
+import RecentlyViewed from "../components/RecentlyViewed";
 
 const CATEGORY_ICONS = {
   Running: "🏃", Basketball: "🏀", Soccer: "⚽", Tennis: "🎾",
@@ -562,6 +563,9 @@ ${rankedShoes.map((s, i) => `${i}: ${s.brand} ${s.name} $${s.price} ${s.category
           </motion.div>
         </div>
       </section>
+
+      {/* Recently Viewed */}
+      <RecentlyViewed />
 
       {/* Shoe Problem Solver */}
       <ShoeProblemSolver />

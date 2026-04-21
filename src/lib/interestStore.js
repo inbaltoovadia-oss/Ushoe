@@ -4,7 +4,6 @@ const STORAGE_KEY = "ushoe_interests";
 export const ALL_CATEGORIES = [
   "Running",
   "Basketball",
-  "Soccer",
   "Tennis",
   "Training",
   "Lifestyle",
@@ -12,6 +11,12 @@ export const ALL_CATEGORIES = [
   "Walking",
   "Hiking",
   "Skateboarding",
+  "Cleats",
+  "Sandals",
+  "Flip Flops",
+  "Slides",
+  "Crocs & Clogs",
+  "Golf",
 ];
 
 let listeners = new Set();
