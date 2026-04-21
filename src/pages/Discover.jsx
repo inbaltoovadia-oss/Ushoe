@@ -159,6 +159,7 @@ export default function Discover() {
       category: selectedCategory || '',
       city: currentLoc.city || '',
       country: currentLoc.country || '',
+      countryCode: currentLoc.countryCode || '',
       lat: currentLoc.lat || null,
       lng: currentLoc.lng || null,
     });
