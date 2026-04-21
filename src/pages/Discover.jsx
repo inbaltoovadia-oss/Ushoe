@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Sparkles, Send, Loader2, Globe, ImagePlus, X, Ruler, Trophy, Bell, Lock } from "lucide-react";
+import { Sparkles, Send, Loader2, ImagePlus, X, Ruler } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { base44 } from "@/api/base44Client";
 import ShoeCard from "../components/ShoeCard";
@@ -10,14 +10,12 @@ import { getInterests, ALL_CATEGORIES } from "../lib/interestStore";
 import { getSizeLabel, subscribeSize, getSize } from "../lib/sizeStore";
 import SizeSelector from "../components/SizeSelector";
 import { getCached, setCache } from "../lib/searchCache";
-import { getLocation, subscribeLocation } from "../lib/locationStore";
+
 import { getUserProfile } from "../lib/userProfileStore";
 import { buildPersonaSummary, rankShoes } from "../lib/personalizationEngine";
 import { canSearch, incrementSearchCount, canUse, getPlan, getSearchesUsedToday, PLAN_LIMITS } from "../lib/planStore";
 import PlanGate from "../components/PlanGate";
 import ShoeProblemSolver from "../components/ShoeProblemSolver";
-import ShoeImage from "../components/ShoeImage";
-import UShoeWebImage from "../components/UShoeWebImage";
 import { Link } from "react-router-dom";
 import RecentlyViewed from "../components/RecentlyViewed";
 
@@ -30,9 +28,7 @@ const CATEGORY_ICONS = {
 export default function Discover() {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
-  const [webLoading, setWebLoading] = useState(false);
   const [results, setResults] = useState(null);
-  const [webResults, setWebResults] = useState([]);
   const [aiExplanation, setAiExplanation] = useState("");
   const [allShoes, setAllShoes] = useState([]);
   const [imageFile, setImageFile] = useState(null);
@@ -44,7 +40,6 @@ export default function Discover() {
   const [sizeLabel, setSizeLabel] = useState(getSizeLabel());
   const [showSizePicker, setShowSizePicker] = useState(false);
   const [searchBlocked, setSearchBlocked] = useState(false);
-  const [loc, setLoc] = useState(getLocation());
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [showBudgetEditor, setShowBudgetEditor] = useState(false);
@@ -57,7 +52,6 @@ export default function Discover() {
 
   useEffect(() => { inputRef.current?.focus(); }, []);
   useEffect(() => subscribeSize(() => setSizeLabel(getSizeLabel())), []);
-  useEffect(() => subscribeLocation(setLoc), []);
 
   const handleImageChange = async (e) => {
     const file = e.target.files?.[0];
@@ -84,8 +78,6 @@ export default function Discover() {
     setQuery(finalQ);
     setLoading(true);
     setResults(null);
-    setWebResults([]);
-    setWebLoading(false);
     if (resultsRef.current) {
       setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
     }
@@ -95,7 +87,6 @@ export default function Discover() {
       const cached = getCached(finalQ);
       if (cached) {
         setResults(cached.results);
-        setWebResults(cached.webResults || []);
         setAiExplanation(cached.summary || "");
         setLoading(false);
         base44.entities.SearchHistory.create({ query: finalQ, results_count: cached.results.length }).catch(() => {});
@@ -151,19 +142,6 @@ export default function Discover() {
       setLoading(false);
     }
 
-    // Start web search in parallel — pass location for filtering
-    setWebLoading(true);
-    const currentLoc = getLocation();
-    const webSearchPromise = base44.functions.invoke('fastWebSearch', {
-      query: finalQ,
-      category: selectedCategory || '',
-      city: currentLoc.city || '',
-      country: currentLoc.country || '',
-      countryCode: currentLoc.countryCode || '',
-      lat: currentLoc.lat || null,
-      lng: currentLoc.lng || null,
-    });
-
     // Refine catalog results with AI in background (improves quality)
     const refinePromise = (async () => {
       if (imageUrl || allShoesData.length === 0) return null;
@@ -203,8 +181,7 @@ ${rankedShoes.map((s, i) => `${i}: ${s.brand} ${s.name} $${s.price} ${s.category
       });
     })();
 
-    // Wait for both to finish
-    const [webResponse, catalogResponse] = await Promise.allSettled([webSearchPromise, refinePromise]);
+    const [catalogResponse] = await Promise.allSettled([refinePromise]);
 
     // Apply refined catalog results if available
     if (catalogResponse.status === 'fulfilled' && catalogResponse.value) {
@@ -228,19 +205,11 @@ ${rankedShoes.map((s, i) => `${i}: ${s.brand} ${s.name} $${s.price} ${s.category
       // Cache full results
       const finalRecs = recs.length > 0 ? recs : quickMatches;
       if (!imageUrl) {
-        const webPicks = webResponse.status === 'fulfilled' ? (webResponse.value?.data?.web_picks || []) : [];
-        setCache(finalQ, { results: finalRecs, webResults: webPicks, summary: cr.summary || "" });
+        setCache(finalQ, { results: finalRecs, summary: cr.summary || "" });
       }
     }
 
     setLoading(false);
-
-    // Apply web results
-    if (webResponse.status === 'fulfilled') {
-      const picks = webResponse.value?.data?.web_picks || [];
-      if (picks.length > 0) setWebResults(picks);
-    }
-    setWebLoading(false);
 
     base44.entities.SearchHistory.create({ query: finalQ, results_count: (results || quickMatches).length }).catch(() => {});
   };
@@ -411,8 +380,8 @@ ${rankedShoes.map((s, i) => `${i}: ${s.brand} ${s.name} $${s.price} ${s.category
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
             <div className="flex items-center justify-center gap-3 mb-4 flex-wrap">
               <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-full text-sm font-medium">
-                <Globe className="w-4 h-4" />
-                AI + Web Search
+                <Sparkles className="w-4 h-4" />
+                AI-Powered Search
               </div>
               <button
                 onClick={() => setShowInterestPicker(true)}
@@ -447,7 +416,7 @@ ${rankedShoes.map((s, i) => `${i}: ${s.brand} ${s.name} $${s.price} ${s.category
               What are you looking for?
             </h1>
             <p className="text-muted-foreground text-lg mb-6">
-              Describe, upload a photo, or pick a category — AI searches the web for you
+              Describe, upload a photo, or pick a category — AI finds your perfect match
             </p>
           </motion.div>
 
@@ -603,198 +572,18 @@ ${rankedShoes.map((s, i) => `${i}: ${s.brand} ${s.name} $${s.price} ${s.category
             {aiExplanation && (
               <div className="bg-primary/5 border border-primary/10 rounded-2xl p-5">
                 <div className="flex items-center gap-2 mb-2">
-                  <Globe className="w-4 h-4 text-primary" />
-                  <span className="text-sm font-semibold text-primary">AI Web Summary</span>
+                  <Sparkles className="w-4 h-4 text-primary" />
+                  <span className="text-sm font-semibold text-primary">AI Summary</span>
                 </div>
                 <p className="text-foreground text-sm leading-relaxed">{aiExplanation}</p>
               </div>
             )}
 
-            {/* Web Results Loading */}
-            {webLoading && (
-              <div className="flex items-center gap-3 py-4 px-5 bg-card border border-border rounded-2xl">
-                <Globe className="w-4 h-4 animate-pulse text-primary flex-shrink-0" />
-                <span className="text-sm text-muted-foreground">Searching the web for best deals…</span>
-                <div className="flex gap-1 ml-auto">
-                  {[0,1,2].map(i => <div key={i} className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}
-                </div>
-              </div>
-            )}
-
-            {/* No deals found message */}
-            {!webLoading && webResults.length === 0 && results && (
-              <div className="flex items-center gap-3 py-4 px-5 bg-secondary border border-border rounded-2xl">
-                <Globe className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                <p className="text-sm text-muted-foreground">No web deals found that ship to your location. Try a different search.</p>
-              </div>
-            )}
-
-            {/* Web Results — Best Deal + Other Unique Models */}
-            {webResults.length > 0 && (
-              <div>
-                <h2 className="font-heading font-bold text-xl mb-4 flex items-center gap-2">
-                  <Globe className="w-5 h-5 text-primary" />
-                  Best Deals Found on the Web
-                </h2>
-
-                {(() => {
-                  // Find the best deal
-                  let bestPick = webResults.find(p => p.is_best_deal);
-                  if (!bestPick && webResults.length > 0) {
-                    const prices = webResults.map(p => parseFloat((p.price || "0").replace(/[^0-9.]/g, "")) || Infinity);
-                    bestPick = webResults[prices.indexOf(Math.min(...prices))];
-                  }
-
-                  // Get other unique models (different brand+name from best pick)
-                  const otherPicks = webResults
-                    .filter(p => p !== bestPick)
-                    .filter((p, idx, arr) => {
-                      const key = `${(p.brand || "").toLowerCase()}-${(p.name || "").toLowerCase()}`;
-                      return arr.findIndex(x => `${(x.brand || "").toLowerCase()}-${(x.name || "").toLowerCase()}` === key) === idx;
-                    })
-                    .slice(0, 5);
-
-                  return (
-                    <div className="space-y-4">
-                      {/* Best Deal — Large Card */}
-                      {bestPick && (() => {
-                        return (
-                          <motion.a
-                            href={`https://www.google.com/search?tbm=shop&q=${encodeURIComponent(`${bestPick.brand} ${bestPick.name}`)}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            initial={{ opacity: 0, y: 16 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="group block bg-gradient-to-r from-green-50 to-green-50/50 dark:from-green-950/30 dark:to-green-900/10 border-2 border-green-500 rounded-2xl overflow-hidden hover:shadow-2xl hover:shadow-green-500/20 hover:-translate-y-1 transition-all duration-300 p-5"
-                          >
-                            <div className="flex gap-5">
-                              <div className="w-32 h-32 flex-shrink-0 rounded-xl overflow-hidden bg-white relative">
-                                <UShoeWebImage className="w-full h-full" />
-                                {/* BEST DEAL Badge */}
-                                <div className="absolute top-2 left-2 bg-green-500 text-white text-[10px] font-bold px-2 py-1 rounded-full flex items-center gap-1 shadow-lg">
-                                  <Trophy className="w-2.5 h-2.5" />
-                                  BEST DEAL
-                                </div>
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-2 flex-wrap">
-                                  <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">{bestPick.brand}</span>
-                                  <span className="text-[9px] font-bold text-green-700 bg-green-100 dark:bg-green-900/50 dark:text-green-400 px-2 py-0.5 rounded-full">
-                                    ✓ {loc.detected ? `Available near ${loc.city}` : 'Check availability'}
-                                  </span>
-                                </div>
-                                <p className="font-heading font-bold text-lg group-hover:text-primary transition-colors line-clamp-1">{bestPick.name}</p>
-                                <div className="flex items-center gap-3 mt-2 flex-wrap">
-                                  {bestPick.price && <p className="text-green-600 dark:text-green-400 font-bold text-2xl">{bestPick.price}</p>}
-                                  {bestPick.original_price && bestPick.original_price !== bestPick.price && (
-                                    <p className="text-sm text-muted-foreground line-through">{bestPick.original_price}</p>
-                                  )}
-                                  {bestPick.discount_percent > 0 && (
-                                    <span className="text-xs font-bold text-green-700 bg-green-100 dark:bg-green-900/40 px-2 py-0.5 rounded-full">{bestPick.discount_percent}% OFF</span>
-                                  )}
-                                  {bestPick.retailer && (
-                                    <span className="text-xs text-muted-foreground flex items-center gap-1">
-                                      at {bestPick.retailer} <span className="text-green-600">→</span>
-                                    </span>
-                                  )}
-                                </div>
-                                {/* Price transparency row */}
-                                <div className="flex flex-wrap gap-2 mt-2">
-                                  {bestPick.estimated_shipping && (
-                                    <span className="text-[10px] bg-secondary px-2 py-0.5 rounded-full text-muted-foreground">
-                                      Shipping: {bestPick.estimated_shipping}
-                                    </span>
-                                  )}
-                                  {bestPick.estimated_total && bestPick.estimated_shipping && bestPick.estimated_shipping !== "Free" && (
-                                    <span className="text-[10px] bg-secondary px-2 py-0.5 rounded-full text-muted-foreground font-medium">
-                                      Est. total: {bestPick.estimated_total}
-                                    </span>
-                                  )}
-                                  {bestPick.estimated_delivery && (
-                                    <span className="text-[10px] bg-secondary px-2 py-0.5 rounded-full text-muted-foreground">
-                                      🚚 {bestPick.estimated_delivery}
-                                    </span>
-                                  )}
-                                  {bestPick.price_confidence === 'low' && (
-                                    <span className="text-[10px] bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded-full">
-                                      ⚠ Price may vary
-                                    </span>
-                                  )}
-                                  {bestPick.availability_note && (
-                                    <span className="text-[10px] bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded-full">
-                                      ⚠ {bestPick.availability_note}
-                                    </span>
-                                  )}
-                                </div>
-                                {!bestPick.image_url && (
-                                  <p className="text-[10px] text-muted-foreground mt-2 flex items-center gap-1">
-                                    <Globe className="w-2.5 h-2.5" /> Click to see real photos and buy on Google
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                          </motion.a>
-                        );
-                      })()}
-
-                      {/* Other Unique Models — Grid */}
-                      {otherPicks.length > 0 && (
-                        <div>
-                          <p className="text-xs text-muted-foreground mb-3">Other models available:</p>
-                          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-                            {otherPicks.map((pick, i) => {
-                              return (
-                                <motion.a
-                                  key={i}
-                                  href={`https://www.google.com/search?tbm=shop&q=${encodeURIComponent(`${pick.brand} ${pick.name}`)}&tbm=isch`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  initial={{ opacity: 0, y: 16 }}
-                                  animate={{ opacity: 1, y: 0 }}
-                                  transition={{ delay: i * 0.05 }}
-                                  className="group block bg-card border border-border rounded-2xl overflow-hidden hover:shadow-xl hover:shadow-primary/10 hover:border-primary/40 hover:-translate-y-1.5 transition-all duration-300"
-                                >
-                                  <div className="relative aspect-square overflow-hidden bg-white">
-                                  <UShoeWebImage className="w-full h-full" />
-                                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-center pb-3">
-                                      <span className="text-white text-[10px] font-semibold bg-white/20 backdrop-blur-sm px-2.5 py-1 rounded-full border border-white/30">
-                                        See Photos →
-                                      </span>
-                                    </div>
-                                  </div>
-                                  <div className="p-3">
-                                    <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider truncate">{pick.brand}</p>
-                                    <p className="font-heading font-semibold text-xs mt-0.5 line-clamp-2 group-hover:text-primary transition-colors leading-tight">{pick.name}</p>
-                                    <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                                      {pick.price && <p className="text-primary font-bold text-sm">{pick.price}</p>}
-                                      {pick.discount_percent > 0 && (
-                                        <span className="text-[9px] font-bold text-green-700 bg-green-100 dark:bg-green-900/40 px-1.5 py-0.5 rounded-full">{pick.discount_percent}% OFF</span>
-                                      )}
-                                    </div>
-                                    {pick.estimated_shipping && (
-                                      <p className="text-[9px] text-muted-foreground mt-0.5">Ship: {pick.estimated_shipping}</p>
-                                    )}
-                                    {(pick.price_confidence === 'low' || pick.availability_note) && (
-                                      <p className="text-[9px] text-amber-600 dark:text-amber-400 mt-0.5">⚠ Price may vary</p>
-                                    )}
-                                  </div>
-                                </motion.a>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
-              </div>
-            )}
-
-            {/* DB Results */}
+            {/* No results */}
             {results.length === 0 && (
               <div className="flex items-center gap-3 py-4 px-5 bg-amber-50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-800/40 rounded-2xl">
                 <span className="text-xl">👟</span>
-                <p className="text-sm text-amber-800 dark:text-amber-300 font-medium">No matching shoes found in our catalog — showing web results below.</p>
+                <p className="text-sm text-amber-800 dark:text-amber-300 font-medium">No matching shoes found in our catalog. Try a different search.</p>
               </div>
             )}
             {results.length > 0 && (
