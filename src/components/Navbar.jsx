@@ -8,7 +8,7 @@ import { getSizeLabel, subscribeSize } from "../lib/sizeStore";
 import { AnimatePresence, motion } from "framer-motion";
 import SizeSelector from "./SizeSelector";
 
-const ROOT_PATHS = ["/", "/discover", "/trending", "/wishlist", "/settings", "/assistant"];
+const ROOT_PATHS = ["/", "/discover", "/for-you", "/trending", "/wishlist", "/settings", "/assistant"];
 
 const PAGE_TITLES = {
   "/search": "Search",
@@ -68,6 +68,7 @@ export default function Navbar() {
   const navLinks = [
     { to: "/", label: "Home" },
     { to: "/discover", label: "Discover" },
+    { to: "/for-you", label: "✨ For You" },
     { to: "/assistant", label: "🤖 Assistant" },
     { to: "/trending", label: "Trending" },
     { to: "/deals", label: "Deals" },
