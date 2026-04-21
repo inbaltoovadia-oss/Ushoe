@@ -110,14 +110,14 @@ export default function SizeSelector({ onClose, inline = false }) {
   if (inline) return content;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-sm">
       <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 10 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 10 }}
-        className="bg-card border border-border rounded-3xl shadow-2xl w-full max-w-sm p-6"
+        initial={{ opacity: 0, y: 40 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 40 }}
+        className="bg-card border border-border rounded-t-3xl sm:rounded-3xl shadow-2xl w-full sm:max-w-sm flex flex-col max-h-[90dvh]"
       >
-        <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center justify-between px-6 pt-6 pb-4 flex-shrink-0">
           <div className="flex items-center gap-2">
             <div className="p-2 bg-primary/10 rounded-xl">
               <Ruler className="w-4 h-4 text-primary" />
@@ -128,7 +128,9 @@ export default function SizeSelector({ onClose, inline = false }) {
             <X className="w-4 h-4 text-muted-foreground" />
           </button>
         </div>
-        {content}
+        <div className="overflow-y-auto flex-1 px-6 pb-6">
+          {content}
+        </div>
       </motion.div>
     </div>
   );

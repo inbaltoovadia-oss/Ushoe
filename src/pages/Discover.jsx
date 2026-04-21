@@ -288,12 +288,12 @@ ${rankedShoes.map((s, i) => `${i}: ${s.brand} ${s.name} $${s.price} ${s.category
               className="fixed inset-0 z-50 bg-black/50"
             />
             <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="fixed inset-0 z-50 flex items-center justify-center p-4"
+              initial={{ opacity: 0, y: 40 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 40 }}
+              className="fixed inset-x-0 bottom-0 sm:inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4"
             >
-              <div className="bg-card border border-border rounded-2xl shadow-xl w-full max-w-sm p-6">
+              <div className="bg-card border border-border rounded-t-2xl sm:rounded-2xl shadow-xl w-full sm:max-w-sm p-6">
                 <h3 className="font-heading font-bold text-lg mb-4">Set Your Budget</h3>
                 <div className="flex items-center gap-2 mb-4">
                   <span className="text-muted-foreground">$</span>
@@ -349,12 +349,12 @@ ${rankedShoes.map((s, i) => `${i}: ${s.brand} ${s.name} $${s.price} ${s.category
               className="fixed inset-0 z-50 bg-black/50"
             />
             <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="fixed inset-0 z-50 flex items-center justify-center p-4"
+              initial={{ opacity: 0, y: 40 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 40 }}
+              className="fixed inset-x-0 bottom-0 sm:inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4"
             >
-              <div className="bg-card border border-border rounded-2xl shadow-xl w-full max-w-sm p-6 max-h-96 overflow-y-auto">
+              <div className="bg-card border border-border rounded-t-2xl sm:rounded-2xl shadow-xl w-full sm:max-w-sm p-6 max-h-[85dvh] overflow-y-auto">
                 <h3 className="font-heading font-bold text-lg mb-4">Favorite Brands</h3>
                 <div className="flex flex-wrap gap-2 mb-4">
                   {["Nike", "Adidas", "Jordan", "New Balance", "Puma", "Converse", "Vans", "Hoka", "Asics", "Reebok", "Saucony", "Brooks"].map(b => (
