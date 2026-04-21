@@ -103,17 +103,28 @@ export default function Discover() {
     }
 
     // Run catalog expansion + user profile in parallel (fast)
-    const [catalogRes, userProfile] = await Promise.all([
+    // Fall back to direct DB fetch if function fails
+    const [catalogRes, userProfile] = await Promise.allSettled([
       base44.functions.invoke('expandCatalogSearch', { query: finalQ, category: selectedCategory, limit: 80 }),
       getUserProfile(),
     ]);
 
-    const allShoesData = catalogRes.data?.shoes || [];
+    let allShoesData = [];
+    if (catalogRes.status === 'fulfilled') {
+      allShoesData = catalogRes.value?.data?.shoes || [];
+    }
+    // Fallback: load directly from DB if function failed or returned nothing
+    if (allShoesData.length === 0) {
+      try {
+        allShoesData = await base44.entities.Shoe.list('-trending_score', 80);
+      } catch {}
+    }
     setAllShoes(allShoesData);
 
     // Show partial catalog results instantly using local scoring (no extra LLM call)
     const sizePref = getSize();
-    const personaSummary = buildPersonaSummary(userProfile);
+    const resolvedProfile = userProfile.status === 'fulfilled' ? userProfile.value : null;
+    const personaSummary = buildPersonaSummary(resolvedProfile);
 
     // Quick local filter + rank for instant display
     const qLower = finalQ.toLowerCase();
