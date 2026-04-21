@@ -89,149 +89,142 @@ export default function Discover() {
       setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
     }
 
+    // Check cache first (instant return)
     if (!imageUrl) {
       const cached = getCached(finalQ);
       if (cached) {
         setResults(cached.results);
-        setWebResults(cached.webResults);
-        setAiExplanation(cached.summary);
+        setWebResults(cached.webResults || []);
+        setAiExplanation(cached.summary || "");
         setLoading(false);
-        await base44.entities.SearchHistory.create({ query: finalQ, results_count: cached.results.length });
+        base44.entities.SearchHistory.create({ query: finalQ, results_count: cached.results.length }).catch(() => {});
         return;
       }
     }
 
-    // Load shoes + user profile in parallel
-    const [allShoesData, userProfile] = await Promise.all([
-      base44.entities.Shoe.list("-trending_score", 60),
+    // Run catalog expansion + user profile in parallel (fast)
+    const [catalogRes, userProfile] = await Promise.all([
+      base44.functions.invoke('expandCatalogSearch', { query: finalQ, category: selectedCategory, limit: 80 }),
       getUserProfile(),
     ]);
 
+    const allShoesData = catalogRes.data?.shoes || [];
     setAllShoes(allShoesData);
-    
-    // Enhance ranking with preference-based scoring
-    const enhancedResponse = await base44.functions.invoke('enhanceDiscoverWithPreferences', {
-      shoes: allShoesData,
-      query: finalQ,
-    });
-    
-    const rankedShoes = (enhancedResponse.data?.ranked_shoes || allShoesData).slice(0, 50);
+
+    // Show partial catalog results instantly using local scoring (no extra LLM call)
     const sizePref = getSize();
-    const sizeNote = sizePref.us ? `Size: US ${sizePref.us}` : "";
     const personaSummary = buildPersonaSummary(userProfile);
 
-    const catalogPrompt = `Expert shoe AI. User wants: "${finalQ}"
+    // Quick local filter + rank for instant display
+    const qLower = finalQ.toLowerCase();
+    const quickMatches = allShoesData
+      .map(s => {
+        let score = 0;
+        if ((s.name || '').toLowerCase().includes(qLower)) score += 100;
+        if ((s.brand || '').toLowerCase().includes(qLower)) score += 80;
+        if ((s.category || '').toLowerCase().includes(qLower)) score += 60;
+        if ((s.colorway || '').toLowerCase().includes(qLower)) score += 40;
+        if (selectedCategory && s.category === selectedCategory) score += 50;
+        score += (s.trending_score || 0) * 0.1;
+        return { shoe: s, match_score: Math.min(99, 40 + score), explanation: null };
+      })
+      .filter(r => r.match_score > 40)
+      .sort((a, b) => b.match_score - a.match_score)
+      .slice(0, 8);
+
+    // Show quick results immediately
+    if (quickMatches.length > 0) {
+      setResults(quickMatches);
+      setAiExplanation(`Showing best matches for "${finalQ}"`);
+      setLoading(false);
+    }
+
+    // Start web search in parallel (fast, using new parallel function)
+    setWebLoading(true);
+    const webSearchPromise = base44.functions.invoke('fastWebSearch', {
+      query: finalQ,
+      category: selectedCategory || '',
+    });
+
+    // Refine catalog results with AI in background (improves quality)
+    const refinePromise = (async () => {
+      if (imageUrl || allShoesData.length === 0) return null;
+      const rankedShoes = allShoesData.slice(0, 60);
+      const sizeNote = sizePref.us ? `Size: US ${sizePref.us}` : "";
+      const catalogPrompt = `Expert shoe AI. User wants: "${finalQ}"
 ${selectedCategory ? `Category: ${selectedCategory}.` : ""}
 ${sizeNote}
-
 USER PROFILE: ${personaSummary}
 
-Pick up to 8 UNIQUE shoes (no duplicates) from this catalog:
+Pick up to 8 UNIQUE best-matching shoes from this catalog:
 ${rankedShoes.map((s, i) => `${i}: ${s.brand} ${s.name} $${s.price} ${s.category}`).join("\n")}
 
-1-sentence summary:`;
+1-sentence summary of why these match:`;
 
-    // Step 1: Get catalog results FIRST (fast ~1-2s)
-    const catalogResponse = await base44.integrations.Core.InvokeLLM({
-      prompt: catalogPrompt,
-      file_urls: imageUrl ? [imageUrl] : undefined,
-      model: "automatic",
-      response_json_schema: {
-        type: "object",
-        properties: {
-          summary: { type: "string" },
-          recommendations: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                index: { type: "number" },
-                match_score: { type: "number" },
-                explanation: { type: "string" },
+      return base44.integrations.Core.InvokeLLM({
+        prompt: catalogPrompt,
+        file_urls: imageUrl ? [imageUrl] : undefined,
+        model: "automatic",
+        response_json_schema: {
+          type: "object",
+          properties: {
+            summary: { type: "string" },
+            recommendations: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  index: { type: "number" },
+                  match_score: { type: "number" },
+                  explanation: { type: "string" },
+                },
               },
             },
           },
         },
-      },
-    });
+      });
+    })();
 
-    // Deduplicate catalog recommendations and filter out low matches (below 10%)
-    const seenIndices = new Set();
-    const recs = (catalogResponse.recommendations || [])
-      .filter((r) => {
-        if (r.index < 0 || r.index >= rankedShoes.length) return false;
-        if (seenIndices.has(r.index)) return false;
-        if ((r.match_score || 0) < 10) return false; // skip below 10% match
-        seenIndices.add(r.index);
-        return true;
-      })
-      .map((r) => ({ shoe: rankedShoes[r.index], match_score: r.match_score, explanation: r.explanation }));
+    // Wait for both to finish
+    const [webResponse, catalogResponse] = await Promise.allSettled([webSearchPromise, refinePromise]);
 
-    setResults(recs);
-    setAiExplanation(catalogResponse.summary || "");
+    // Apply refined catalog results if available
+    if (catalogResponse.status === 'fulfilled' && catalogResponse.value) {
+      const cr = catalogResponse.value;
+      const seenIndices = new Set();
+      const recs = (cr.recommendations || [])
+        .filter((r) => {
+          if (r.index < 0 || r.index >= allShoesData.length) return false;
+          if (seenIndices.has(r.index)) return false;
+          if ((r.match_score || 0) < 10) return false;
+          seenIndices.add(r.index);
+          return true;
+        })
+        .map((r) => ({ shoe: allShoesData[r.index], match_score: r.match_score, explanation: r.explanation }));
+
+      if (recs.length > 0) {
+        setResults(recs);
+        setAiExplanation(cr.summary || "");
+      }
+
+      // Cache full results
+      const finalRecs = recs.length > 0 ? recs : quickMatches;
+      if (!imageUrl) {
+        const webPicks = webResponse.status === 'fulfilled' ? (webResponse.value?.data?.web_picks || []) : [];
+        setCache(finalQ, { results: finalRecs, webResults: webPicks, summary: cr.summary || "" });
+      }
+    }
+
     setLoading(false);
 
-    // Step 2: Fetch web results in background (slow ~5-10s)
-    setWebLoading(true);
-    const webPrompt = `Find up to 8 DISTINCT shoe models matching: "${finalQ}"${selectedCategory ? ` in category ${selectedCategory}` : ""} available to buy online.
-
-RULES:
-1. Each shoe must be a DIFFERENT model. NO duplicates.
-2. Match brand EXACTLY — if searching "Asics", show ONLY Asics shoes.
-3. Price in USD accurate to the cent (e.g. "$119.95" not "$120"). Use real current retail prices.
-4. Mark is_best_deal: true for exactly ONE shoe (best value).
-5. Return: brand, name, price, retailer, is_best_deal, image_url.`;
-
-    const webResponse = await base44.integrations.Core.InvokeLLM({
-      prompt: webPrompt,
-      add_context_from_internet: true,
-      model: "gemini_3_flash",
-      response_json_schema: {
-        type: "object",
-        properties: {
-          web_picks: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                name: { type: "string" },
-                brand: { type: "string" },
-                price: { type: "string" },
-                retailer: { type: "string" },
-                is_best_deal: { type: "boolean" },
-                image_url: { type: "string" },
-              },
-            },
-          },
-        },
-      },
-    });
-
-    // Deduplicate web results
-    const seenWeb = new Set();
-    const filteredWebResults = (webResponse.web_picks || []).filter((p) => {
-      const key = `${(p.brand || "").toLowerCase()}-${(p.name || "").toLowerCase()}`;
-      if (seenWeb.has(key)) return false;
-      seenWeb.add(key);
-      return true;
-    });
-
-    // Fallback: mark cheapest as best deal if none marked
-    const hasBestDeal = filteredWebResults.some(p => p.is_best_deal);
-    if (!hasBestDeal && filteredWebResults.length > 0) {
-      const prices = filteredWebResults.map(p => parseFloat((p.price || "0").replace(/[^0-9.]/g, "")) || Infinity);
-      const minIdx = prices.indexOf(Math.min(...prices));
-      if (minIdx >= 0) filteredWebResults[minIdx] = { ...filteredWebResults[minIdx], is_best_deal: true };
+    // Apply web results
+    if (webResponse.status === 'fulfilled') {
+      const picks = webResponse.value?.data?.web_picks || [];
+      if (picks.length > 0) setWebResults(picks);
     }
-
-    setWebResults(filteredWebResults);
     setWebLoading(false);
 
-    if (!imageUrl) {
-      setCache(finalQ, { results: recs, webResults: filteredWebResults, summary: catalogResponse.summary || "" });
-    }
-
-    await base44.entities.SearchHistory.create({ query: finalQ, results_count: recs.length });
+    base44.entities.SearchHistory.create({ query: finalQ, results_count: (results || quickMatches).length }).catch(() => {});
   };
 
   const handleInterestSave = (saved) => setInterestsState(saved);
