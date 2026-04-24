@@ -50,16 +50,23 @@ export default function NearbyStores({
   const [stores, setStores]           = useState([]);
   const [summary, setSummary]         = useState("");
   const [dealSummary, setDealSummary] = useState("");
-  const [loading, setLoading]         = useState(true);
+  const [loading, setLoading]         = useState(false);
+  const [started, setStarted]         = useState(false);
   const [inventoryDone, setInventoryDone] = useState(false);
   const [dealsDone, setDealsDone]     = useState(false);
   const [loc, setLoc]                 = useState(getLocation());
 
   useEffect(() => {
-    loadAll(loc);
-    const unsub = subscribeLocation(newLoc => { setLoc(newLoc); loadAll(newLoc); });
+    // Reset on shoe change so user can re-trigger
+    setStarted(false);
+    setStores([]);
+    setSummary("");
+    setDealSummary("");
+    setInventoryDone(false);
+    setDealsDone(false);
+    const unsub = subscribeLocation(setLoc);
     return unsub;
-  }, [shoe?.id, selectedSize, selectedColor]);
+  }, [shoe?.id]);
 
   const loadAll = async (location) => {
     if (!shoe) return;
@@ -109,6 +116,23 @@ export default function NearbyStores({
     await Promise.allSettled([inventoryPromise, dealPromise]);
     setLoading(false);
   };
+
+  // Not yet started — show prompt
+  if (!started) {
+    return (
+      <div className="flex flex-col items-center justify-center py-8 gap-3">
+        <MapPin className="w-8 h-8 text-muted-foreground/30" />
+        <p className="text-sm text-muted-foreground text-center">Find stores carrying this shoe near {loc.city}</p>
+        <button
+          onClick={() => { setStarted(true); loadAll(loc); }}
+          className="flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity"
+        >
+          <MapPin className="w-4 h-4" />
+          Find Nearby Stores
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div>

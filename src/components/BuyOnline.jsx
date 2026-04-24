@@ -97,13 +97,24 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
   const [shippingSummary, setShippingSummary] = useState("");
   const [bestPrice, setBestPrice]       = useState(null);
   const [hasDeals, setHasDeals]         = useState(false);
-  const [loading, setLoading]           = useState(true);
+  const [loading, setLoading]           = useState(false);
+  const [started, setStarted]           = useState(false);
   const [dealsDone, setDealsDone]       = useState(false);
   const [stockDone, setStockDone]       = useState(false);
   const [shippingDone, setShippingDone] = useState(false);
   const loc = getLocation();
 
-  useEffect(() => { load(); }, [shoe?.id, selectedSize, selectedColor]);
+  // Reset when shoe changes so user can re-trigger
+  useEffect(() => {
+    setStarted(false);
+    setRetailers([]);
+    setDealsDone(false);
+    setStockDone(false);
+    setShippingDone(false);
+    setDealSummary("");
+    setStockSummary("");
+    setShippingSummary("");
+  }, [shoe?.id]);
 
   const load = async () => {
     setLoading(true);
@@ -161,6 +172,23 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
 
   const agentsReady = dealsDone || stockDone;
 
+  // Not yet started — show a prompt button
+  if (!started) {
+    return (
+      <div className="flex flex-col items-center justify-center py-8 gap-3">
+        <Globe className="w-8 h-8 text-muted-foreground/30" />
+        <p className="text-sm text-muted-foreground text-center">Find the best online prices for this shoe near {loc.city}</p>
+        <button
+          onClick={() => { setStarted(true); load(); }}
+          className="flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity"
+        >
+          <Globe className="w-4 h-4" />
+          Search Online Prices
+        </button>
+      </div>
+    );
+  }
+
   if (!agentsReady && loading) {
     return (
       <div className="space-y-3 py-2">
@@ -183,7 +211,7 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
         <Truck className="w-8 h-8 text-muted-foreground/30 mx-auto mb-3" />
         <p className="text-sm font-medium">No verified retailers found for {loc.city}</p>
         <p className="text-xs text-muted-foreground mt-1">Agents couldn't confirm availability in your region.</p>
-        <button onClick={load} className="mt-3 text-xs text-primary hover:underline flex items-center gap-1 mx-auto">
+        <button onClick={() => load()} className="mt-3 text-xs text-primary hover:underline flex items-center gap-1 mx-auto">
           <RefreshCw className="w-3 h-3" /> Retry
         </button>
       </div>

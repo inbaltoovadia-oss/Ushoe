@@ -16,7 +16,7 @@ import { motion } from "framer-motion";
 import { base44 } from "@/api/base44Client";
 import NearbyStores from "../components/NearbyStores.jsx";
 import BuyOnline from "../components/BuyOnline.jsx";
-import DealIndicator from "../components/DealIndicator.jsx";
+
 import { toast } from "sonner";
 import ShoeCard from "../components/ShoeCard";
 import {
@@ -297,10 +297,6 @@ export default function ShoeDetail() {
 
             {/* Find Near You / Buy Online tabs */}
             <div className="mt-6">
-              {/* Live deal indicator above tabs */}
-              <div className="mb-2">
-                <DealIndicator shoe={shoe} />
-              </div>
               <div className="flex gap-2 mb-2">
                 <button
                   onClick={() => setActiveTab(activeTab === "nearby" ? null : "nearby")}
