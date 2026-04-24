@@ -12,6 +12,7 @@ import {
 import ShoeOptionsMenu from "./ShoeOptionsMenu";
 import PriceTrackButton from "./PriceTrackButton";
 import SponsoredModal from "./SponsoredModal";
+import DealIndicator from "./DealIndicator";
 
 
 
@@ -48,7 +49,7 @@ function getBrandFallback(brand, name) {
   return DEFAULT_FALLBACK;
 }
 
-export default function ShoeCard({ shoe, index = 0, sponsored = false, onSponsorClick }) {
+export default function ShoeCard({ shoe, index = 0, sponsored = false, onSponsorClick, showDealIndicator = false }) {
   const [wishlisted, setWishlisted] = useState(isInWishlist(shoe.id));
   const [showSponsorModal, setShowSponsorModal] = useState(false);
 
@@ -166,10 +167,10 @@ export default function ShoeCard({ shoe, index = 0, sponsored = false, onSponsor
               </div>
             ) : null}
 
-            {/* Sale badge */}
-            {discount > 0 && (
-              <div className="absolute bottom-2.5 left-2.5 bg-destructive text-destructive-foreground px-2 py-0.5 rounded-full text-[10px] font-bold">
-                {discount}% OFF
+            {/* Live deal indicator from Deal Agent */}
+            {showDealIndicator && (
+              <div className="absolute bottom-2.5 left-2.5 z-10">
+                <DealIndicator shoe={shoe} />
               </div>
             )}
           </div>
@@ -188,12 +189,7 @@ export default function ShoeCard({ shoe, index = 0, sponsored = false, onSponsor
             )}
 
             <div className="flex items-center justify-between mt-2.5">
-              <div className="flex items-baseline gap-1.5">
-                <span className="font-heading font-bold text-base">${shoe.price}</span>
-                {discount > 0 && (
-                  <span className="text-[11px] text-muted-foreground line-through">${shoe.original_price}</span>
-                )}
-              </div>
+              <span className="font-heading font-bold text-base">${shoe.price}</span>
               {shoe.rating && (
                 <span className="text-[10px] text-muted-foreground">⭐ {shoe.rating}</span>
               )}

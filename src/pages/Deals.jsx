@@ -1,45 +1,31 @@
+/**
+ * Deals page — two sections:
+ * 1. Catalog shoes (browsable, no price assumptions)
+ * 2. Web Deals section (non-catalog, live Deal Agent results)
+ */
 import { useState, useEffect } from "react";
-import { Tag, Loader2, RefreshCw, Flame } from "lucide-react";
+import { Tag, Loader2, RefreshCw, Globe, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 import { base44 } from "@/api/base44Client";
 import ShoeCard from "../components/ShoeCard";
 import SkeletonCard from "../components/SkeletonCard";
-import { getCached, setCache } from "../lib/searchCache";
-
-const CACHE_KEY = "deals_page";
+import WebDealsSection from "../components/WebDealsSection";
+import { getLocation } from "../lib/locationStore";
 
 export default function Deals() {
-  const [dbDeals, setDbDeals] = useState([]);
+  const [shoes, setShoes] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [lastUpdated, setLastUpdated] = useState(null);
+  const loc = getLocation();
 
-  useEffect(() => { loadDeals(); }, []);
+  useEffect(() => { loadCatalog(); }, []);
 
-  const loadDeals = async (force = false) => {
-    if (!force) {
-      const cached = getCached(CACHE_KEY);
-      if (cached) {
-        setDbDeals(cached.db);
-        setLastUpdated(cached.ts);
-        setLoading(false);
-        return;
-      }
-    }
+  const loadCatalog = async () => {
     setLoading(true);
-    setRefreshing(force);
-
-    const allShoes = await base44.entities.Shoe.list("-trending_score", 100);
-    const onSale = allShoes.filter((s) => s.original_price && s.original_price > s.price);
-    onSale.sort((a, b) => ((b.original_price - b.price) / b.original_price) - ((a.original_price - a.price) / a.original_price));
-    const deals = onSale.slice(0, 12);
-    setDbDeals(deals);
-
-    const now = Date.now();
-    setLastUpdated(now);
-    setCache(CACHE_KEY, { db: deals, ts: now });
+    // Load catalog shoes by trending score — no price filtering
+    // Deal indicators are applied dynamically by DealIndicator component on each card
+    const all = await base44.entities.Shoe.list("-trending_score", 24);
+    setShoes(all);
     setLoading(false);
-    setRefreshing(false);
   };
 
   return (
@@ -55,43 +41,45 @@ export default function Deals() {
               <div>
                 <h1 className="font-heading font-bold text-3xl">Deals & Discounts</h1>
                 <p className="text-muted-foreground text-sm mt-0.5">
-                  Sale shoes from our catalog
-                  {lastUpdated && ` · Updated ${new Date(lastUpdated).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`}
+                  Live deals near {loc.city} · Powered by Deal + Inventory Agents
                 </p>
               </div>
             </div>
-            <button
-              onClick={() => loadDeals(true)}
-              disabled={refreshing}
-              className="flex items-center gap-2 px-4 py-2.5 bg-secondary rounded-xl text-sm font-medium hover:bg-secondary/80 transition-colors"
-            >
-              <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
-              Refresh
-            </button>
+          </div>
+
+          {/* Info banner */}
+          <div className="mt-4 flex items-start gap-3 bg-primary/5 border border-primary/10 rounded-2xl px-4 py-3">
+            <Sparkles className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
+            <div className="text-xs text-muted-foreground leading-relaxed">
+              <span className="font-semibold text-foreground">How this works: </span>
+              Browse catalog shoes below — deal badges appear when our Deal Agent confirms a live promotion.
+              Scroll down for non-catalog Web Deals discovered in real time near {loc.city}.
+            </div>
           </div>
         </motion.div>
 
-        {loading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-            {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)}
+        {/* Catalog section */}
+        <section className="mb-4">
+          <div className="flex items-center gap-2 mb-4">
+            <Tag className="w-5 h-5 text-accent" />
+            <h2 className="font-heading font-bold text-xl">Catalog Shoes</h2>
+            <span className="text-xs bg-secondary text-muted-foreground px-2 py-0.5 rounded-full font-medium">
+              Deal badges load dynamically
+            </span>
           </div>
-        ) : dbDeals.length === 0 ? (
-          <div className="text-center py-16">
-            <Tag className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
-            <p className="text-muted-foreground">No deals found right now. Check back later!</p>
-          </div>
-        ) : (
-          <section>
-            <div className="flex items-center gap-2 mb-4">
-              <Flame className="w-5 h-5 text-accent" />
-              <h2 className="font-heading font-bold text-xl">Sale Shoes</h2>
-              <span className="text-xs bg-accent/10 text-accent px-2 py-0.5 rounded-full font-medium">{dbDeals.length} items</span>
+          {loading ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+              {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)}
             </div>
+          ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
-              {dbDeals.map((shoe, i) => <ShoeCard key={shoe.id} shoe={shoe} index={i} />)}
+              {shoes.map((shoe, i) => <ShoeCard key={shoe.id} shoe={shoe} index={i} showDealIndicator />)}
             </div>
-          </section>
-        )}
+          )}
+        </section>
+
+        {/* Web Deals — non-catalog products from Deal Agent */}
+        <WebDealsSection />
       </div>
     </div>
   );

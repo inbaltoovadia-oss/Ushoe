@@ -14,7 +14,7 @@ import Trending from './pages/Trending';
 import Wishlist from './pages/Wishlist';
 import ShoeDetail from './pages/ShoeDetail';
 import PriceDrops from './pages/PriceDrops';
-import Deals from './pages/Deals';
+import Deals from './pages/Deals.jsx';
 import StyleQuiz from './pages/StyleQuiz';
 import FitPredictor from './pages/FitPredictor';
 import OutfitMatcher from './pages/OutfitMatcher';
