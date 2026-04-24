@@ -12,7 +12,7 @@ import {
 import ShoeOptionsMenu from "./ShoeOptionsMenu";
 import PriceTrackButton from "./PriceTrackButton";
 import SponsoredModal from "./SponsoredModal";
-import DealIndicator from "./DealIndicator";
+import DealIndicator from "./DealIndicator.jsx";
 
 
 

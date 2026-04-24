@@ -50,3 +50,13 @@ export function getCachedWebDeals(city) {
 export function setCachedWebDeals(city, data) {
   writeCache(cacheKey("webdeals", "global", city), data);
 }
+
+// Quick-check indicator cache (lightweight per-card)
+export function getCachedIndicator(shoeId, city) {
+  return readCache(cacheKey("indicator", shoeId, city));
+}
+
+export function setCachedIndicator(shoeId, city, data) {
+  writeCache(cacheKey("indicator", shoeId, data ? "hit" : "miss"), data);
+  writeCache(cacheKey("indicator", shoeId, city), data);
+}
