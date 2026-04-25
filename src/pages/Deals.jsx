@@ -4,12 +4,13 @@
  * 2. Catalog shoes with dynamic DealIndicator badges (only shown when deal confirmed)
  */
 import { useState, useEffect } from "react";
-import { Tag, Loader2, Sparkles, ShieldCheck, Globe, RefreshCw, AlertCircle } from "lucide-react";
+import { Tag, Sparkles, ShieldCheck, AlertCircle, Bot } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { base44 } from "@/api/base44Client";
 import ShoeCard from "../components/ShoeCard";
 import SkeletonCard from "../components/SkeletonCard";
 import WebDealsSection from "../components/WebDealsSection";
+import DealScannerChat from "../components/DealScannerChat";
 import { getLocation, subscribeLocation } from "../lib/locationStore";
 
 export default function Deals() {
@@ -65,6 +66,19 @@ export default function Deals() {
             ))}
           </div>
         </motion.div>
+
+        {/* Deal Scanner Agent — on-demand AI chat */}
+        <section className="mb-10">
+          <div className="flex items-center gap-2 mb-3">
+            <Bot className="w-5 h-5 text-accent" />
+            <h2 className="font-heading font-bold text-xl">AI Deal Scanner</h2>
+            <span className="text-xs bg-accent/10 text-accent px-2 py-0.5 rounded-full font-medium">Ask anything</span>
+          </div>
+          <p className="text-xs text-muted-foreground mb-4">
+            Ask the agent to scan our catalog and the web for deals on any shoe, brand, or category.
+          </p>
+          <DealScannerChat />
+        </section>
 
         {/* Web Deals — non-catalog, validated by Deal Agent */}
         <section className="mb-12">
