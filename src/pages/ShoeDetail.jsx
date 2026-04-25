@@ -32,6 +32,7 @@ import ShoeInsightBadge from "../components/ShoeInsightBadge";
 import WorthItScore from "../components/WorthItScore";
 import FastestPickupCard from "../components/FastestPickupCard";
 import ProsConsCard from "../components/ProsConsCard";
+import ReviewsSummary from "../components/ReviewsSummary";
 import BestOptionBadges from "../components/BestOptionBadges";
 import { addRecentlyViewed } from "../lib/recentlyViewedStore";
 
@@ -278,6 +279,11 @@ export default function ShoeDetail() {
             {/* Pros & Cons */}
             <div className="mt-6">
               <ProsConsCard shoe={shoe} />
+            </div>
+
+            {/* AI Review Summary */}
+            <div className="mt-4">
+              <ReviewsSummary shoe={shoe} />
             </div>
 
             {/* Best Deal Banner */}

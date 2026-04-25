@@ -13,6 +13,8 @@ import { getLocation } from "../lib/locationStore";
 import { runDealAgent } from "../lib/dealAgent";
 import { runInventoryAgent } from "../lib/inventoryAgent";
 import { runShippingAgent, mergeShippingValidation } from "../lib/shippingAgent";
+import AuthenticityBadge from "./AuthenticityBadge";
+import DeliveryConfidenceBadges from "./DeliveryConfidenceBadges";
 
 const confidenceBadge = {
   high:   "bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400",
@@ -294,6 +296,7 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-heading font-semibold text-sm">{r.name}</p>
+                      <AuthenticityBadge retailerName={r.name} compact />
                       {r.deal_type === "clearance" && (
                         <span className="text-[10px] font-bold text-red-600 bg-red-50 dark:bg-red-950/30 px-2 py-0.5 rounded-full">Clearance</span>
                       )}
@@ -316,6 +319,12 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
                       </div>
                     )}
 
+                    <DeliveryConfidenceBadges
+                      retailerName={r.name}
+                      shippingFree={r.shipping_free}
+                      estimatedDelivery={r.estimated_delivery}
+                      shipsToLocation={r.ships_to_location}
+                    />
                     {/* Shipping status */}
                     <div className="mt-1.5 flex items-center gap-1 text-[10px]">
                       {shipsOk ? (
