@@ -1,21 +1,80 @@
 /**
- * ReviewsSummary — on-demand AI review analysis for a shoe.
- * Only fires InvokeLLM when user clicks "Analyze Reviews".
+ * ReviewsSummary — static review insights derived from catalog data.
+ * No LLM calls — all logic is client-side.
  */
-import { useState } from "react";
-import { Star, Sparkles, Loader2, ThumbsUp, ThumbsDown, ChevronDown, ChevronUp } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
-import { base44 } from "@/api/base44Client";
+import { Star, ThumbsUp, ThumbsDown } from "lucide-react";
+import { motion } from "framer-motion";
 
 const ASPECTS = [
-  { key: "comfort",     label: "Comfort",       emoji: "🛋️" },
-  { key: "sizing",      label: "Sizing",         emoji: "📏" },
-  { key: "durability",  label: "Durability",     emoji: "🔩" },
-  { key: "traction",    label: "Traction",       emoji: "🧲" },
-  { key: "breathability",label: "Breathability", emoji: "💨" },
-  { key: "style",       label: "Style",          emoji: "✨" },
-  { key: "value",       label: "Value",          emoji: "💰" },
+  { key: "comfort",      label: "Comfort",        emoji: "🛋️" },
+  { key: "sizing",       label: "Sizing",          emoji: "📏" },
+  { key: "durability",   label: "Durability",      emoji: "🔩" },
+  { key: "traction",     label: "Traction",        emoji: "🧲" },
+  { key: "breathability",label: "Breathability",   emoji: "💨" },
+  { key: "style",        label: "Style",           emoji: "✨" },
+  { key: "value",        label: "Value",           emoji: "💰" },
 ];
+
+function deriveScores(shoe) {
+  const cat = (shoe.category || "").toLowerCase();
+  const price = shoe.price || 0;
+  const rating = shoe.rating || 4.0;
+  const trending = shoe.trending_score || 50;
+
+  // Base from rating
+  const base = Math.min(5, Math.max(2, rating));
+
+  const comfort = cat.includes("walk") || cat.includes("run") ? Math.min(5, base + 0.3) : base;
+  const sizing = 3.5; // neutral default
+  const durability = price > 150 ? Math.min(5, base + 0.4) : price < 70 ? Math.max(2, base - 0.5) : base;
+  const traction = cat.includes("run") || cat.includes("hik") || cat.includes("basket") ? Math.min(5, base + 0.3) : base - 0.2;
+  const breathability = cat.includes("run") || cat.includes("train") ? Math.min(5, base + 0.2) : base - 0.3;
+  const style = trending >= 70 ? Math.min(5, base + 0.4) : base;
+  const value = shoe.original_price > price ? Math.min(5, base + 0.5) : price > 200 ? Math.max(2, base - 0.3) : base;
+
+  return {
+    comfort:       +comfort.toFixed(1),
+    sizing:        +sizing.toFixed(1),
+    durability:    +durability.toFixed(1),
+    traction:      +traction.toFixed(1),
+    breathability: +breathability.toFixed(1),
+    style:         +style.toFixed(1),
+    value:         +value.toFixed(1),
+  };
+}
+
+function deriveProscons(shoe, scores) {
+  const pros = [];
+  const cons = [];
+
+  if (scores.comfort >= 4.3) pros.push("Exceptionally comfortable");
+  else if (scores.comfort >= 4.0) pros.push("Good comfort level");
+
+  if (shoe.original_price > shoe.price) {
+    const pct = Math.round(((shoe.original_price - shoe.price) / shoe.original_price) * 100);
+    pros.push(`${pct}% off — great value`);
+  } else if (scores.value >= 4.2) {
+    pros.push("Strong value for money");
+  }
+
+  if (shoe.is_trending || (shoe.trending_score || 0) >= 70) pros.push("Very popular right now");
+  if (scores.durability >= 4.2) pros.push("Built to last");
+  if (scores.breathability >= 4.2) pros.push("Excellent breathability");
+  if (scores.style >= 4.3) pros.push("Highly stylish design");
+
+  if (shoe.price > 200) cons.push("Premium price point");
+  if ((shoe.sizes_available || []).length < 5) cons.push("Limited size availability");
+  if (scores.breathability < 3.5) cons.push("Can run warm");
+  if (scores.value < 3.5 && shoe.price > 150) cons.push("Pricey for the features");
+
+  const sizingAdvice = "Typically true to size — check brand chart";
+
+  return {
+    top_pro: pros[0] || null,
+    top_con: cons[0] || null,
+    sizing_advice: sizingAdvice,
+  };
+}
 
 const scoreColor = (s) =>
   s >= 4 ? "text-green-600 dark:text-green-400" :
@@ -35,148 +94,53 @@ const ScoreBar = ({ score }) => {
   );
 };
 
-const CACHE = {};
-
 export default function ReviewsSummary({ shoe }) {
-  const [data, setData] = useState(CACHE[shoe?.id] || null);
-  const [loading, setLoading] = useState(false);
-  const [expanded, setExpanded] = useState(false);
+  if (!shoe) return null;
 
-  const analyze = async () => {
-    if (!shoe) return;
-    setLoading(true);
-    const res = await base44.integrations.Core.InvokeLLM({
-      prompt: `You are a shoe review analyst. Based on your knowledge of the ${shoe.brand} ${shoe.name} (${shoe.category}, $${shoe.price}), synthesize what buyers typically say.
-
-Rate each aspect from 1-5 (1=poor, 5=excellent) and give a 1-sentence insight for each:
-- comfort
-- sizing (note if runs small/large/true to size)
-- durability
-- traction
-- breathability
-- style
-- value (price vs quality)
-
-Also provide:
-- overall_verdict: 1-2 sentence summary of the shoe
-- top_pro: the single best thing about this shoe (max 8 words)
-- top_con: the single biggest drawback (max 8 words)
-- sizing_advice: e.g. "Runs small — size up half" or "True to size"`,
-      response_json_schema: {
-        type: "object",
-        properties: {
-          overall_verdict: { type: "string" },
-          top_pro: { type: "string" },
-          top_con: { type: "string" },
-          sizing_advice: { type: "string" },
-          comfort:      { type: "number" },
-          sizing:       { type: "number" },
-          durability:   { type: "number" },
-          traction:     { type: "number" },
-          breathability:{ type: "number" },
-          style:        { type: "number" },
-          value:        { type: "number" },
-          comfort_note:      { type: "string" },
-          sizing_note:       { type: "string" },
-          durability_note:   { type: "string" },
-          traction_note:     { type: "string" },
-          breathability_note:{ type: "string" },
-          style_note:        { type: "string" },
-          value_note:        { type: "string" },
-        },
-      },
-    });
-    CACHE[shoe.id] = res;
-    setData(res);
-    setLoading(false);
-    setExpanded(true);
-  };
-
-  if (!data && !loading) {
-    return (
-      <button
-        onClick={analyze}
-        className="flex items-center gap-2 w-full px-4 py-3 bg-secondary hover:bg-secondary/80 border border-border/50 rounded-2xl text-sm font-medium text-muted-foreground hover:text-foreground transition-all"
-      >
-        <Sparkles className="w-4 h-4 text-primary" />
-        Analyze Reviews — Comfort, Sizing, Value & more
-      </button>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
-        <Loader2 className="w-4 h-4 animate-spin text-primary" />
-        Analyzing buyer reviews…
-      </div>
-    );
-  }
-
-  const avgScore = Math.round(
-    ASPECTS.reduce((sum, a) => sum + (data[a.key] || 0), 0) / ASPECTS.length * 10
-  ) / 10;
+  const scores = deriveScores(shoe);
+  const { top_pro, top_con, sizing_advice } = deriveProscons(shoe, scores);
+  const avg = +(Object.values(scores).reduce((a, b) => a + b, 0) / ASPECTS.length).toFixed(1);
 
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl border border-border bg-card p-4 space-y-3">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Sparkles className="w-4 h-4 text-primary" />
-          <h3 className="font-heading font-semibold text-sm">AI Review Summary</h3>
-        </div>
-        <div className="flex items-center gap-1.5">
+        <h3 className="font-heading font-semibold text-sm">Buyer Insights</h3>
+        <div className="flex items-center gap-1">
           <Star className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400" />
-          <span className={`font-bold text-sm ${scoreColor(avgScore)}`}>{avgScore}/5</span>
-          <button onClick={() => setExpanded(e => !e)} className="p-1 hover:bg-secondary rounded-lg transition-colors ml-1">
-            {expanded ? <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />}
-          </button>
+          <span className={`font-bold text-sm ${scoreColor(avg)}`}>{avg}/5</span>
         </div>
       </div>
 
-      {/* Quick verdict */}
-      {data.overall_verdict && (
-        <p className="text-xs text-muted-foreground leading-relaxed">{data.overall_verdict}</p>
-      )}
-
-      {/* Top pro/con + sizing */}
+      {/* Quick chips */}
       <div className="flex flex-wrap gap-2">
-        {data.top_pro && (
+        {top_pro && (
           <span className="flex items-center gap-1 text-[11px] font-medium text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-950/30 px-2.5 py-1 rounded-full">
-            <ThumbsUp className="w-3 h-3" />
-            {data.top_pro}
+            <ThumbsUp className="w-3 h-3" />{top_pro}
           </span>
         )}
-        {data.top_con && (
+        {top_con && (
           <span className="flex items-center gap-1 text-[11px] font-medium text-red-500 bg-red-50 dark:bg-red-950/30 px-2.5 py-1 rounded-full">
-            <ThumbsDown className="w-3 h-3" />
-            {data.top_con}
+            <ThumbsDown className="w-3 h-3" />{top_con}
           </span>
         )}
-        {data.sizing_advice && (
-          <span className="flex items-center gap-1 text-[11px] font-medium text-primary bg-primary/10 px-2.5 py-1 rounded-full">
-            📏 {data.sizing_advice}
+        {sizing_advice && (
+          <span className="text-[11px] font-medium text-primary bg-primary/10 px-2.5 py-1 rounded-full">
+            📏 {sizing_advice}
           </span>
         )}
       </div>
 
       {/* Aspect scores */}
-      <AnimatePresence>
-        {expanded && (
-          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="space-y-2 pt-1 border-t border-border/50 overflow-hidden">
-            {ASPECTS.map(({ key, label, emoji }) => (
-              <div key={key} className="flex items-center gap-2">
-                <span className="text-sm w-5 text-center">{emoji}</span>
-                <span className="text-xs text-muted-foreground w-20 flex-shrink-0">{label}</span>
-                <ScoreBar score={data[key] || 0} />
-                {data[`${key}_note`] && (
-                  <span className="text-[10px] text-muted-foreground hidden sm:block max-w-[140px] truncate">{data[`${key}_note`]}</span>
-                )}
-              </div>
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <div className="space-y-2 pt-1 border-t border-border/50">
+        {ASPECTS.map(({ key, label, emoji }) => (
+          <div key={key} className="flex items-center gap-2">
+            <span className="text-sm w-5 text-center">{emoji}</span>
+            <span className="text-xs text-muted-foreground w-20 flex-shrink-0">{label}</span>
+            <ScoreBar score={scores[key] || 0} />
+          </div>
+        ))}
+      </div>
     </motion.div>
   );
 }
