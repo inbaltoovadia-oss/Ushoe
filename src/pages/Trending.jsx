@@ -7,6 +7,7 @@ import SkeletonCard from "../components/SkeletonCard";
 import InterestPicker from "../components/InterestPicker";
 import { getInterests, subscribeInterests } from "../lib/interestStore";
 import PullToRefresh from "../components/PullToRefresh";
+import LiveTrendsSection from "../components/LiveTrendsSection";
 
 const SPORT_CATEGORIES = ["Running", "Basketball", "Soccer", "Tennis", "Training", "Hiking", "Skateboarding"];
 const ALL_TABS = ["For You", "All", "Running", "Basketball", "Soccer", "Tennis", "Training", "Casual", "Lifestyle", "Walking", "Hiking"];
@@ -120,6 +121,16 @@ export default function Trending() {
             </button>
           </div>
         )}
+
+        {/* Live Trend Agent Section */}
+        <div className="mb-10">
+          <div className="flex items-center gap-2 mb-4">
+            <TrendingUp className="w-5 h-5 text-primary" />
+            <h2 className="font-heading font-bold text-lg">Live Market Trends</h2>
+            <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">Updated every 2 weeks</span>
+          </div>
+          <LiveTrendsSection />
+        </div>
 
         {/* Featured Carousel — top 5 trending */}
         {!loading && filtered.length > 0 && (

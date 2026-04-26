@@ -1,62 +1,100 @@
 /**
- * agentCache — in-memory + sessionStorage cache for Deal & Inventory agent results.
- * Keyed by shoe ID + location + size/color. TTL: 10 min.
+ * agentCache — localStorage-backed cache for all agent results.
+ *
+ * TTLs (credit-conscious):
+ *   deals        → 7 days   (prices change weekly)
+ *   web deals    → 7 days
+ *   inventory    → 24 hours (stock changes daily)
+ *   shipping     → 7 days   (policies rarely change)
+ *   trends       → 14 days  (trends shift slowly)
+ *   indicator    → 24 hours
  */
 
-const CACHE_TTL = 10 * 60 * 1000;
 const PREFIX = "ushoe_agent_";
 
-function cacheKey(type, shoeId, extra = "") {
-  return `${PREFIX}${type}_${shoeId}_${extra}`;
+const TTL = {
+  deals:     7  * 24 * 60 * 60 * 1000,
+  webdeals:  7  * 24 * 60 * 60 * 1000,
+  stock:     24 * 60 * 60 * 1000,
+  shipping:  7  * 24 * 60 * 60 * 1000,
+  trends:    14 * 24 * 60 * 60 * 1000,
+  indicator: 24 * 60 * 60 * 1000,
+};
+
+function cacheKey(type, id, extra = "") {
+  return `${PREFIX}${type}_${id}_${extra}`;
 }
 
-function readCache(key) {
+function readCache(type, key) {
   try {
-    const raw = sessionStorage.getItem(key);
+    const raw = localStorage.getItem(key);
     if (!raw) return null;
     const { data, ts } = JSON.parse(raw);
-    if (Date.now() - ts < CACHE_TTL) return data;
-    sessionStorage.removeItem(key);
+    if (Date.now() - ts < (TTL[type] || TTL.stock)) return data;
+    localStorage.removeItem(key);
   } catch (_) {}
   return null;
 }
 
 function writeCache(key, data) {
   try {
-    sessionStorage.setItem(key, JSON.stringify({ data, ts: Date.now() }));
-  } catch (_) {}
+    localStorage.setItem(key, JSON.stringify({ data, ts: Date.now() }));
+  } catch (_) {
+    // Storage full — purge old ushoe keys and retry
+    try {
+      Object.keys(localStorage)
+        .filter(k => k.startsWith(PREFIX))
+        .forEach(k => localStorage.removeItem(k));
+      localStorage.setItem(key, JSON.stringify({ data, ts: Date.now() }));
+    } catch (_2) {}
+  }
 }
 
+// ── Deals ──────────────────────────────────────────────────────────────────
 export function getCachedDeals(shoeId, city, size = "", color = "") {
-  return readCache(cacheKey("deals", shoeId, `${city}_${size}_${color}`));
+  const key = cacheKey("deals", shoeId, `${city}_${size}_${color}`);
+  return readCache("deals", key);
 }
-
 export function setCachedDeals(shoeId, city, data, size = "", color = "") {
   writeCache(cacheKey("deals", shoeId, `${city}_${size}_${color}`), data);
 }
 
+// ── Stock / Inventory ──────────────────────────────────────────────────────
 export function getCachedStock(shoeId, city, size = "", color = "") {
-  return readCache(cacheKey("stock", shoeId, `${city}_${size}_${color}`));
+  return readCache("stock", cacheKey("stock", shoeId, `${city}_${size}_${color}`));
 }
-
 export function setCachedStock(shoeId, city, data, size = "", color = "") {
   writeCache(cacheKey("stock", shoeId, `${city}_${size}_${color}`), data);
 }
 
-export function getCachedWebDeals(city) {
-  return readCache(cacheKey("webdeals", "global", city));
+// ── Web Deals ─────────────────────────────────────────────────────────────
+export function getCachedWebDeals(cityQuery) {
+  return readCache("webdeals", cacheKey("webdeals", "global", cityQuery));
+}
+export function setCachedWebDeals(cityQuery, data) {
+  writeCache(cacheKey("webdeals", "global", cityQuery), data);
 }
 
-export function setCachedWebDeals(city, data) {
-  writeCache(cacheKey("webdeals", "global", city), data);
+// ── Shipping ──────────────────────────────────────────────────────────────
+export function getCachedShipping(shoeId, country, city) {
+  return readCache("shipping", cacheKey("shipping", shoeId, `${country}_${city}`));
+}
+export function setCachedShipping(shoeId, country, city, data) {
+  writeCache(cacheKey("shipping", shoeId, `${country}_${city}`), data);
 }
 
-// Quick-check indicator cache (lightweight per-card)
+// ── Trends ────────────────────────────────────────────────────────────────
+export function getCachedTrends(city) {
+  return readCache("trends", cacheKey("trends", "global", city));
+}
+export function setCachedTrends(city, data) {
+  writeCache(cacheKey("trends", "global", city), data);
+}
+
+// ── Deal Indicator (per card) ─────────────────────────────────────────────
 export function getCachedIndicator(shoeId, city) {
-  return readCache(cacheKey("indicator", shoeId, city));
+  return readCache("indicator", cacheKey("indicator", shoeId, city));
 }
-
 export function setCachedIndicator(shoeId, city, data) {
-  writeCache(cacheKey("indicator", shoeId, data ? "hit" : "miss"), data);
   writeCache(cacheKey("indicator", shoeId, city), data);
 }
