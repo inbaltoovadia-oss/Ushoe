@@ -11,7 +11,7 @@ import { getSizeLabel, subscribeSize, getSize } from "../lib/sizeStore";
 import SizeSelector from "../components/SizeSelector";
 import { getCached, setCache } from "../lib/searchCache";
 
-import { getUserProfile } from "../lib/userProfileStore";
+import { getUserProfile, invalidateProfileCache } from "../lib/userProfileStore";
 import { buildPersonaSummary, rankShoes } from "../lib/personalizationEngine";
 import { canSearch, incrementSearchCount, canUse, getPlan, getSearchesUsedToday, PLAN_LIMITS } from "../lib/planStore";
 import PlanGate from "../components/PlanGate";
@@ -299,6 +299,7 @@ ${rankedShoes.map((s, i) => `${i}: ${s.brand} ${s.name} $${s.price} ${s.category
                       } else {
                         await base44.entities.UserProfile.create(data);
                       }
+                      invalidateProfileCache();
                       setShowBudgetEditor(false);
                     }}
                     className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
@@ -361,6 +362,7 @@ ${rankedShoes.map((s, i) => `${i}: ${s.brand} ${s.name} $${s.price} ${s.category
                       } else {
                         await base44.entities.UserProfile.create(data);
                       }
+                      invalidateProfileCache();
                       setShowBrandEditor(false);
                     }}
                     className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"

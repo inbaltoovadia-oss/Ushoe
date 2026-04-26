@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Send, Loader2, Sparkles, Brain, Zap, ArrowRight, RotateCcw, SlidersHorizontal } from "lucide-react";
 import { base44 } from "@/api/base44Client";
-import { getUserProfile } from "../lib/userProfileStore";
+import { getUserProfile, subscribeUserProfile, invalidateProfileCache } from "../lib/userProfileStore";
 import { rankShoes } from "../lib/personalizationEngine";
 import ShoeCard from "../components/ShoeCard";
 import ReactMarkdown from "react-markdown";
@@ -116,7 +116,11 @@ export default function Assistant() {
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
 
-  useEffect(() => { init(); }, []);
+  useEffect(() => {
+    init();
+    const unsub = subscribeUserProfile(() => init());
+    return unsub;
+  }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });

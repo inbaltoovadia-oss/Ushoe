@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { Sparkles, ChevronRight, Check } from "lucide-react";
 import { base44 } from "@/api/base44Client";
+import { invalidateProfileCache } from "../lib/userProfileStore";
 
 const STEPS = [
   {
@@ -123,6 +124,7 @@ export default function ShoeSurvey() {
     } else {
       await base44.entities.UserProfile.create(data);
     }
+    invalidateProfileCache();
     navigate("/");
   };
 
