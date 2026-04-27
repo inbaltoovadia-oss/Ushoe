@@ -25,6 +25,42 @@ function getValueLabel(price) {
   return             { label: "Luxury",           color: "text-amber-600", bg: "bg-amber-50 dark:bg-amber-950/30" };
 }
 
+function generateSummary(shoe) {
+  const parts = [];
+
+  // Brand + category intro
+  const category = shoe.category?.toLowerCase() || "shoe";
+  parts.push(`The ${shoe.brand} ${shoe.name} is a ${category} shoe`);
+
+  // Price tier
+  if (shoe.price < 80)       parts.push("offering exceptional value for money");
+  else if (shoe.price < 150) parts.push("sitting comfortably in the mid-range price tier");
+  else if (shoe.price < 250) parts.push("a premium pick for serious enthusiasts");
+  else                       parts.push("a luxury option for those who want the best");
+
+  // Sale
+  if (shoe.original_price > shoe.price) {
+    const pct = Math.round(((shoe.original_price - shoe.price) / shoe.original_price) * 100);
+    parts.push(`currently on sale at ${pct}% off`);
+  }
+
+  // Rating
+  if (shoe.rating >= 4.5)      parts.push(`and is top-rated at ${shoe.rating}/5`);
+  else if (shoe.rating >= 4.0) parts.push(`with a solid ${shoe.rating}/5 rating`);
+
+  // Trending
+  if (shoe.is_trending || shoe.trending_score >= 80) {
+    parts.push("— a trending pick right now");
+  }
+
+  // Gender
+  if (shoe.gender && shoe.gender !== "Unisex") {
+    parts.push(`designed for ${shoe.gender.toLowerCase()}`);
+  }
+
+  return parts.join(", ").replace(/,\s*—/, " —") + ".";
+}
+
 function buildInsightPoints(shoe) {
   const points = [];
 
@@ -64,8 +100,9 @@ function buildInsightPoints(shoe) {
 export default function ShoeStaticInsights({ shoe }) {
   if (!shoe) return null;
 
-  const points = buildInsightPoints(shoe);
-  const value  = getValueLabel(shoe.price);
+  const points  = buildInsightPoints(shoe);
+  const value   = getValueLabel(shoe.price);
+  const summary = generateSummary(shoe);
 
   if (points.length === 0) return null;
 
@@ -73,19 +110,25 @@ export default function ShoeStaticInsights({ shoe }) {
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      className="rounded-2xl border border-border/60 bg-card/60 p-4 space-y-2.5"
+      className="rounded-2xl border border-border/60 bg-card/60 p-4 space-y-3"
     >
-      <div className="flex items-center justify-between mb-1">
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Quick Verdict</p>
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Quick Summary</p>
         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${value.bg} ${value.color}`}>{value.label}</span>
       </div>
 
-      {points.map(({ icon: Icon, text }, i) => (
-        <div key={i} className="flex items-center gap-2.5">
-          <Icon className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-          <p className="text-sm text-foreground">{text}</p>
-        </div>
-      ))}
+      {/* Natural-language summary */}
+      <p className="text-sm text-foreground leading-relaxed">{summary}</p>
+
+      {/* Insight bullet points */}
+      <div className="pt-1 space-y-2 border-t border-border/40">
+        {points.map(({ icon: Icon, text }, i) => (
+          <div key={i} className="flex items-center gap-2.5">
+            <Icon className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+            <p className="text-sm text-muted-foreground">{text}</p>
+          </div>
+        ))}
+      </div>
     </motion.div>
   );
 }
