@@ -29,14 +29,16 @@ export default function Home() {
   return (
     <PullToRefresh onRefresh={handleRefresh}>
       <HeroSection />
+      {/* Instant content first — no AI calls needed */}
       <RecentlyViewed />
-      <TrendingTrendsSection />
-      <AIPickOfTheDaySection />
-      <TrendingNearYouSection />
-      <AIRecommendations />
-      <SponsoredSection refreshKey={sponsoredRefreshKey} />
-      <PersonalizedSection />
       <DealsSection />
+      <PersonalizedSection />
+      <SponsoredSection refreshKey={sponsoredRefreshKey} />
+      {/* AI sections below fold — load lazily after above content */}
+      <AIRecommendations />
+      <TrendingTrendsSection />
+      <TrendingNearYouSection />
+      <AIPickOfTheDaySection />
       <AIFinderCTA />
     </PullToRefresh>
   );
