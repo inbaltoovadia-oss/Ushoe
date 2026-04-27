@@ -4,9 +4,7 @@ import AIFinderCTA from "../components/home/AIFinderCTA";
 import DealsSection from "../components/home/DealsSection";
 import PersonalizedSection from "../components/home/PersonalizedSection";
 import SponsoredSection from "../components/home/SponsoredSection";
-import AIRecommendations from "../components/home/AIRecommendations";
-import AIPickOfTheDaySection from "../components/home/AIPickOfTheDaySection";
-import TrendingNearYouSection from "../components/home/TrendingNearYouSection";
+
 import { detectLocation } from "../lib/locationStore";
 import { preloadTrending } from "../lib/preloader";
 import PullToRefresh from "../components/PullToRefresh";
@@ -34,11 +32,7 @@ export default function Home() {
       <DealsSection />
       <PersonalizedSection />
       <SponsoredSection refreshKey={sponsoredRefreshKey} />
-      {/* AI sections below fold — load lazily after above content */}
-      <AIRecommendations />
       <TrendingTrendsSection />
-      <TrendingNearYouSection />
-      <AIPickOfTheDaySection />
       <AIFinderCTA />
     </PullToRefresh>
   );
