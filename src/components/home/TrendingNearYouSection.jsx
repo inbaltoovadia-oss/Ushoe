@@ -5,23 +5,43 @@ import { base44 } from '@/api/base44Client';
 import { getLocation } from '@/lib/locationStore';
 import ShoeCard from '../ShoeCard';
 
+const TRENDING_NEAR_TTL = 2 * 60 * 60 * 1000; // 2h
+function getCachedNearby(city) {
+  try {
+    const raw = localStorage.getItem(`ushoe_trending_near_${city}`);
+    if (!raw) return null;
+    const { ts, data } = JSON.parse(raw);
+    if (Date.now() - ts < TRENDING_NEAR_TTL) return data;
+    localStorage.removeItem(`ushoe_trending_near_${city}`);
+  } catch (_) {}
+  return null;
+}
+function setCachedNearby(city, data) {
+  try { localStorage.setItem(`ushoe_trending_near_${city}`, JSON.stringify({ ts: Date.now(), data })); } catch (_) {}
+}
+
 export default function TrendingNearYouSection() {
   const [shoes, setShoes] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [location, setLocation] = useState(getLocation());
+  const [location] = useState(getLocation());
 
   useEffect(() => {
     loadTrending();
-  }, [location]);
+  }, []);
 
   const loadTrending = async () => {
     setLoading(true);
+    // Serve from 2h cache first
+    const cached = getCachedNearby(location.city);
+    if (cached) { setShoes(cached); setLoading(false); return; }
     try {
       const response = await base44.functions.invoke('getTrendingNearYou', {
         city: location.city,
         state: location.state,
       });
-      setShoes(response.data.trending_shoes || []);
+      const result = response.data.trending_shoes || [];
+      setCachedNearby(location.city, result);
+      setShoes(result);
     } catch (error) {
       console.error('Failed to load trending:', error);
     } finally {

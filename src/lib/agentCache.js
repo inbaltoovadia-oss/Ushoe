@@ -8,7 +8,17 @@
  *   shipping     → 7 days   (policies rarely change)
  *   trends       → 14 days  (trends shift slowly)
  *   indicator    → 24 hours
+ *
+ * Low Credit Mode: when localStorage key "ushoe_low_credit" is set to "1",
+ * TTLs are doubled and non-essential agents skip live fetches.
  */
+
+export function isLowCreditMode() {
+  try { return localStorage.getItem("ushoe_low_credit") === "1"; } catch { return false; }
+}
+export function setLowCreditMode(on) {
+  try { localStorage.setItem("ushoe_low_credit", on ? "1" : "0"); } catch {}
+}
 
 const PREFIX = "ushoe_agent_";
 
@@ -30,7 +40,8 @@ function readCache(type, key) {
     const raw = localStorage.getItem(key);
     if (!raw) return null;
     const { data, ts } = JSON.parse(raw);
-    if (Date.now() - ts < (TTL[type] || TTL.stock)) return data;
+    const ttl = (TTL[type] || TTL.stock) * (isLowCreditMode() ? 2 : 1);
+    if (Date.now() - ts < ttl) return data;
     localStorage.removeItem(key);
   } catch (_) {}
   return null;

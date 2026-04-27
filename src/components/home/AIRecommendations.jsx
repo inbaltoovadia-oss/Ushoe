@@ -8,6 +8,26 @@ import { rankShoes, buildPersonaSummary } from "../../lib/personalizationEngine"
 import ShoeCard from "../ShoeCard";
 import SkeletonCard from "../SkeletonCard";
 import { Link } from "react-router-dom";
+import { isTabActive } from "../../lib/tabVisibility";
+
+// 24-hour cache for AI picks — avoids burning credits on every home visit
+const AI_PICKS_TTL = 24 * 60 * 60 * 1000;
+const AI_PICKS_KEY = "ushoe_ai_picks_v1";
+
+function getCachedAIPicks() {
+  try {
+    const raw = localStorage.getItem(AI_PICKS_KEY);
+    if (!raw) return null;
+    const { ts, data } = JSON.parse(raw);
+    if (Date.now() - ts < AI_PICKS_TTL) return data;
+    localStorage.removeItem(AI_PICKS_KEY);
+  } catch (_) {}
+  return null;
+}
+
+function setCachedAIPicks(data) {
+  try { localStorage.setItem(AI_PICKS_KEY, JSON.stringify({ ts: Date.now(), data })); } catch (_) {}
+}
 
 export default function AIRecommendations() {
   const [bestPick, setBestPick] = useState(null);
@@ -17,16 +37,30 @@ export default function AIRecommendations() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [hasSignals, setHasSignals] = useState(false);
 
-  useEffect(() => { load(); }, [refreshKey]);
+  useEffect(() => { load(refreshKey > 0); }, [refreshKey]);
 
-  const load = async () => {
+  const load = async (force = false) => {
+    if (!isTabActive()) return; // don't burn credits on inactive tabs
     setLoading(true);
     setReasoning("");
     setBestPick(null);
 
+    // Serve from cache unless forced refresh
+    if (!force) {
+      const cached = getCachedAIPicks();
+      if (cached) {
+        setBestPick(cached.bestPick || null);
+        setShoes(cached.shoes || []);
+        setReasoning(cached.reasoning || "");
+        setHasSignals(cached.hasSignals ?? true);
+        setLoading(false);
+        return;
+      }
+    }
+
     const [allShoes, userProfile] = await Promise.all([
       base44.entities.Shoe.list("-trending_score", 100),
-      getUserProfile(true), // force-refresh on each load
+      getUserProfile(), // use cached profile — no forced refresh
     ]);
 
     const wishlistIds = Array.from(getWishlistIds());
@@ -38,23 +72,26 @@ export default function AIRecommendations() {
 
     if (!anySignal) {
       // No signals — show trending, no AI call needed
-      setShoes(allShoes.slice(0, 6));
+      const trendingShoes = allShoes.slice(0, 6);
+      setShoes(trendingShoes);
       setReasoning("Start saving shoes or searching to get personalized AI picks!");
+      setCachedAIPicks({ bestPick: null, shoes: trendingShoes, reasoning: "Start saving shoes or searching to get personalized AI picks!", hasSignals: false });
       setLoading(false);
       return;
     }
 
-    // Deterministic ranking for display
+    // Deterministic ranking — use this as the result
     const ranked = rankShoes(allShoes, userProfile, { excludeIds: wishlistIds, limit: 30 });
+    const catalog = ranked.slice(0, 20);
 
-    // AI call: shoe expert with full persona context + live trend awareness
+    // AI call: only runs on forced refresh or cache miss (max once per 24h)
     const personaSummary = buildPersonaSummary(userProfile);
-    const catalogSnippet = ranked.slice(0, 20)
+    const catalogSnippet = catalog
       .map((s, i) => `${i}: ${s.brand} ${s.name} $${s.price} [${s.category}] trending=${s.is_trending ? "yes" : "no"} score=${s._score?.toFixed(0)}`)
       .join("\n");
 
     const aiRes = await base44.integrations.Core.InvokeLLM({
-      prompt: `You are a world-class shoe expert AI. Detect the user's preferred language from their recent searches and respond in that language if it is not English. If searches are in Hebrew, write reasoning in Hebrew; if Spanish, in Spanish; otherwise use English.
+      prompt: `You are a world-class shoe expert AI. Detect the user's preferred language from their recent searches and respond in that language if it is not English.
 
 Your job is to make one single BEST shoe recommendation and explain why.
 
@@ -67,7 +104,7 @@ ${catalogSnippet}
 YOUR TASK:
 1. Pick ONE best shoe (best_index) — the single strongest match considering the user's profile, budget, use case, and trending status.
 2. Pick 5 more "You might also like" shoes (other_indices — array of 5 index numbers, excluding best_index).
-3. Write a short expert reasoning (1–2 sentences max) explaining WHY the best pick is perfect for this user. Be specific and confident, like a real shoe specialist.
+3. Write a short expert reasoning (1–2 sentences max) explaining WHY the best pick is perfect for this user. Be specific and confident.
 
 RULES:
 - Prioritize shoes matching the user's primary use AND preferred brands.
@@ -84,7 +121,6 @@ RULES:
       },
     });
 
-    const catalog = ranked.slice(0, 20);
     const best = catalog[aiRes.best_index ?? 0];
     const others = (aiRes.other_indices || [])
       .filter(i => i >= 0 && i < catalog.length && i !== aiRes.best_index)
@@ -92,9 +128,15 @@ RULES:
       .map(i => catalog[i])
       .filter(Boolean);
 
+    const finalShoes = others.length >= 2 ? others : ranked.slice(1, 6);
+    const finalReasoning = aiRes.reasoning || "";
+
     setBestPick(best || null);
-    setShoes(others.length >= 2 ? others : ranked.slice(1, 6));
-    setReasoning(aiRes.reasoning || "");
+    setShoes(finalShoes);
+    setReasoning(finalReasoning);
+
+    // Cache for 24h
+    setCachedAIPicks({ bestPick: best || null, shoes: finalShoes, reasoning: finalReasoning, hasSignals: true });
     setLoading(false);
   };
 

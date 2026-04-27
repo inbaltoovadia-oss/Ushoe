@@ -5,6 +5,24 @@ import { base44 } from '@/api/base44Client';
 import { Link } from 'react-router-dom';
 import ShoeImage from '../ShoeImage';
 
+const PICK_KEY = "ushoe_pick_of_day_v1";
+const PICK_TTL = 24 * 60 * 60 * 1000;
+
+function getCachedPick() {
+  try {
+    const raw = localStorage.getItem(PICK_KEY);
+    if (!raw) return null;
+    const { ts, data } = JSON.parse(raw);
+    if (Date.now() - ts < PICK_TTL) return data;
+    localStorage.removeItem(PICK_KEY);
+  } catch (_) {}
+  return null;
+}
+
+function setCachedPick(data) {
+  try { localStorage.setItem(PICK_KEY, JSON.stringify({ ts: Date.now(), data })); } catch (_) {}
+}
+
 export default function AIPickOfTheDaySection() {
   const [pick, setPick] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -15,9 +33,12 @@ export default function AIPickOfTheDaySection() {
 
   const loadPick = async () => {
     setLoading(true);
+    // Serve from 24h cache first
+    const cached = getCachedPick();
+    if (cached) { setPick(cached); setLoading(false); return; }
     try {
       const response = await base44.functions.invoke('getAIPickOfTheDay', {});
-      setPick(response.data);
+      if (response.data) { setCachedPick(response.data); setPick(response.data); }
     } catch (error) {
       console.error('Failed to load pick:', error);
     } finally {

@@ -9,6 +9,9 @@ import ReactMarkdown from "react-markdown";
 import PreferencesPanel from "../components/assistant/PreferencesPanel";
 import { AnimatePresence as AP } from "framer-motion";
 
+// Module-level cache — catalog stays alive across re-renders, cleared on page reload
+let _catalogCache = null;
+
 const STARTER_PROMPTS = [
   "What's the best running shoe for me right now?",
   "I need a comfortable everyday sneaker under $120",
@@ -118,7 +121,14 @@ export default function Assistant() {
 
   useEffect(() => {
     init();
-    const unsub = subscribeUserProfile(() => init());
+    // On profile updates, silently refresh profile only (catalog is already cached)
+    const unsub = subscribeUserProfile(async () => {
+      if (!_catalogCache) _catalogCache = base44.entities.Shoe.list("-trending_score", 80);
+      const [shoes, profile] = await Promise.all([_catalogCache, getUserProfile()]);
+      const ranked = rankShoes(shoes, profile, { limit: 50 });
+      setCatalogShoes(ranked);
+      setUserProfile(profile);
+    });
     return unsub;
   }, []);
 
@@ -127,10 +137,11 @@ export default function Assistant() {
   }, [messages, loading]);
 
   const init = async () => {
-    const [shoes, profile] = await Promise.all([
-      base44.entities.Shoe.list("-trending_score", 80),
-      getUserProfile(),
-    ]);
+    // Use module-level singleton so we only fetch catalog once per session
+    if (!_catalogCache) {
+      _catalogCache = base44.entities.Shoe.list("-trending_score", 80);
+    }
+    const [shoes, profile] = await Promise.all([_catalogCache, getUserProfile()]);
     const ranked = rankShoes(shoes, profile, { limit: 50 });
     setCatalogShoes(ranked);
     setUserProfile(profile);

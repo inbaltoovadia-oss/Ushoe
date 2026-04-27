@@ -1,7 +1,14 @@
-// Simple in-memory + localStorage search cache to keep AI responses fast
+/**
+ * searchCache — in-memory + localStorage cache for AI search results.
+ * Also deduplicates in-flight requests so identical concurrent searches
+ * don't each fire a separate LLM call.
+ */
 const CACHE_VERSION = "v2";
 const MEM_CACHE = new Map();
 const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+
+// In-flight deduplication: maps cache key → Promise
+const IN_FLIGHT = new Map();
 
 function cacheKey(query) {
   return `ushoe_cache_${CACHE_VERSION}_${query.toLowerCase().trim()}`;
@@ -35,6 +42,38 @@ export function setCache(query, data) {
   const entry = { ts: Date.now(), data };
   MEM_CACHE.set(key, entry);
   try { localStorage.setItem(key, JSON.stringify(entry)); } catch {}
+  // Resolve any waiting in-flight listeners
+  IN_FLIGHT.delete(key);
+}
+
+/**
+ * dedupeRequest — wraps an async factory so that if the same key is already
+ * in-flight, the second caller awaits the same Promise instead of launching a new one.
+ *
+ * Usage:
+ *   const result = await dedupeRequest(query, () => expensiveLLMCall(query));
+ */
+export function dedupeRequest(query, factory) {
+  const key = cacheKey(query);
+
+  // Return from cache immediately if available
+  const cached = getCached(query);
+  if (cached) return Promise.resolve(cached);
+
+  // If already in-flight, return the same promise
+  if (IN_FLIGHT.has(key)) return IN_FLIGHT.get(key);
+
+  // Launch and track
+  const promise = factory().then(result => {
+    IN_FLIGHT.delete(key);
+    return result;
+  }).catch(err => {
+    IN_FLIGHT.delete(key);
+    throw err;
+  });
+
+  IN_FLIGHT.set(key, promise);
+  return promise;
 }
 
 // Preloaded trending data
