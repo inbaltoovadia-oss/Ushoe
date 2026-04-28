@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
   Heart, MapPin, Globe, ArrowLeft, Star, Share2,
-  Flame, Loader2, CheckCircle, ShieldCheck, Truck, Tag,
+  Flame, CheckCircle, ShieldCheck, Truck, Tag, FolderOpen,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import ShareShoeCard from "../components/ShareShoeCard";
@@ -21,6 +21,12 @@ import ReviewsSummary from "../components/ReviewsSummary";
 import { addRecentlyViewed } from "../lib/recentlyViewedStore";
 import ShoeImageGallery from "../components/ShoeImageGallery";
 import ShoeStaticInsights from "../components/ShoeStaticInsights";
+import PriceHistoryCard from "../components/PriceHistoryCard";
+import SizeConfidenceNote from "../components/SizeConfidenceNote";
+import SimilarAlternatives from "../components/SimilarAlternatives";
+import MatchScoreBadge from "../components/MatchScoreBadge";
+import CollectionsManager from "../components/CollectionsManager";
+import { AnimatePresence as AP } from "framer-motion";
 
 const TRUST_BADGES = [
   { icon: ShieldCheck, label: "Verified Catalog" },
@@ -61,7 +67,8 @@ export default function ShoeDetail() {
   const [selectedSize, setSelectedSize]   = useState(null);
   const [selectedColor, setSelectedColor] = useState(null);
   const [activeTab, setActiveTab]     = useState(null); // null | "nearby" | "online"
-  const [showShare, setShowShare]     = useState(false);
+  const [showShare, setShowShare]         = useState(false);
+  const [showCollections, setShowCollections] = useState(false);
 
   useEffect(() => { loadShoe(); }, [id]);
   useEffect(() => subscribeWishlist(() => setWishlisted(isInWishlist(id))), [id]);
@@ -117,6 +124,9 @@ export default function ShoeDetail() {
       <AnimatePresence>
         {showShare && <ShareShoeCard shoe={shoe} onClose={() => setShowShare(false)} />}
       </AnimatePresence>
+      <AP>
+        {showCollections && <CollectionsManager shoe={shoe} onClose={() => setShowCollections(false)} />}
+      </AP>
 
       {/* Back Nav */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
@@ -168,6 +178,7 @@ export default function ShoeDetail() {
                 {shoe.gender && (
                   <span className="text-[10px] font-medium bg-secondary text-muted-foreground px-2 py-0.5 rounded-full">{shoe.gender}</span>
                 )}
+                <MatchScoreBadge shoe={shoe} />
               </div>
               <h1 className="font-heading font-bold text-3xl sm:text-4xl leading-tight">{shoe.name}</h1>
               {shoe.colorway && (
@@ -224,6 +235,9 @@ export default function ShoeDetail() {
             {/* Static Insights — replaces AI summary, zero credits */}
             <ShoeStaticInsights shoe={shoe} />
 
+            {/* Price History */}
+            <PriceHistoryCard shoe={shoe} />
+
             {/* Pros & Cons */}
             <ProsConsCard shoe={shoe} />
 
@@ -257,9 +271,12 @@ export default function ShoeDetail() {
             {/* Sizes */}
             {shoe.sizes_available?.length > 0 && (
               <div>
-                <p className="text-sm font-semibold mb-2">
-                  Size{selectedSize ? <span className="text-muted-foreground font-normal"> — US {selectedSize}</span> : ""}
-                </p>
+                <div className="flex items-center gap-3 mb-2">
+                  <p className="text-sm font-semibold">
+                    Size{selectedSize ? <span className="text-muted-foreground font-normal"> — US {selectedSize}</span> : ""}
+                  </p>
+                  <SizeConfidenceNote shoe={shoe} />
+                </div>
                 <div className="flex flex-wrap gap-2">
                   {shoe.sizes_available.map(size => (
                     <button
@@ -294,8 +311,16 @@ export default function ShoeDetail() {
               <button
                 onClick={() => setShowShare(true)}
                 className="p-3.5 rounded-2xl bg-secondary hover:bg-secondary/70 border border-border transition-colors"
+                title="Share"
               >
                 <Share2 className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setShowCollections(true)}
+                className="p-3.5 rounded-2xl bg-secondary hover:bg-secondary/70 border border-border transition-colors"
+                title="Save to Collection"
+              >
+                <FolderOpen className="w-4 h-4" />
               </button>
               <div className="flex-1">
                 <PriceTrackButton shoe={shoe} />
@@ -350,6 +375,16 @@ export default function ShoeDetail() {
             </div>
           </motion.div>
         </div>
+
+        {/* ── Similar Alternatives ── */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="mt-10"
+        >
+          <SimilarAlternatives shoe={shoe} />
+        </motion.div>
 
         {/* ── Similar Shoes ── */}
         {similar.length > 0 && (

@@ -26,6 +26,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import Subscription from './pages/Subscription';
 import Assistant from './pages/Assistant';
 import ForYou from './pages/ForYou';
+import Collections from './pages/Collections';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -72,6 +73,7 @@ const AuthenticatedApp = () => {
         <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/subscription" element={<Subscription />} />
         <Route path="/for-you" element={<ForYou />} />
+        <Route path="/collections" element={<Collections />} />
         <Route path="/assistant" element={<Assistant />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>

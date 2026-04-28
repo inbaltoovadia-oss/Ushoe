@@ -10,6 +10,8 @@ import { preloadTrending } from "../lib/preloader";
 import PullToRefresh from "../components/PullToRefresh";
 import RecentlyViewed from "../components/RecentlyViewed";
 import TrendingTrendsSection from "../components/home/TrendingTrendsSection";
+import DailyPicksSection from "../components/home/DailyPicksSection";
+import CommunityPicksSection from "../components/home/CommunityPicksSection";
 
 export default function Home() {
   const [sponsoredRefreshKey, setSponsoredRefreshKey] = useState(0);
@@ -29,8 +31,10 @@ export default function Home() {
       <HeroSection />
       {/* Instant content first — no AI calls needed */}
       <RecentlyViewed />
+      <DailyPicksSection />
       <DealsSection />
       <PersonalizedSection />
+      <CommunityPicksSection />
       <SponsoredSection refreshKey={sponsoredRefreshKey} />
       <TrendingTrendsSection />
       <AIFinderCTA />

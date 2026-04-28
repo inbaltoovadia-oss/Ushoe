@@ -205,10 +205,8 @@ Return data for ALL ${visibleShoes.length} shoes.`,
     setLiveLoaded(true);
   };
 
-  // Auto-fetch on mount
-  useEffect(() => {
-    if (visibleShoes.length > 0) fetchLiveData();
-  }, []); // eslint-disable-line
+  // Do NOT auto-fetch — user must click to avoid burning credits
+  // useEffect(() => { if (visibleShoes.length > 0) fetchLiveData(); }, []);
 
   if (shoes.length === 0) {
     return (

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Heart, Trash2, MapPin, Bell, BellOff } from "lucide-react";
+import { Heart, Trash2, MapPin, Bell, BellOff, FolderOpen } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { base44 } from "@/api/base44Client";
 import { Link } from "react-router-dom";
@@ -42,11 +42,17 @@ export default function Wishlist() {
           animate={{ opacity: 1, y: 0 }}
           className="mb-8"
         >
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-red-50 dark:bg-red-950/30 rounded-xl">
-              <Heart className="w-6 h-6 text-red-500" />
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-red-50 dark:bg-red-950/30 rounded-xl">
+                <Heart className="w-6 h-6 text-red-500" />
+              </div>
+              <h1 className="font-heading font-bold text-3xl">Wishlist</h1>
             </div>
-            <h1 className="font-heading font-bold text-3xl">Wishlist</h1>
+            <Link to="/collections" className="flex items-center gap-2 text-sm font-medium text-primary bg-primary/10 px-3 py-2 rounded-xl hover:bg-primary/20 transition-colors">
+              <FolderOpen className="w-4 h-4" />
+              Collections
+            </Link>
           </div>
           <p className="text-muted-foreground">
             {items.length} saved shoe{items.length !== 1 ? "s" : ""}

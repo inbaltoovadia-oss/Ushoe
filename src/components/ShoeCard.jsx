@@ -13,6 +13,7 @@ import ShoeOptionsMenu from "./ShoeOptionsMenu";
 import PriceTrackButton from "./PriceTrackButton";
 import SponsoredModal from "./SponsoredModal";
 import DealIndicator from "./DealIndicator.jsx";
+import MatchScoreBadge from "./MatchScoreBadge";
 
 
 
@@ -188,7 +189,11 @@ export default function ShoeCard({ shoe, index = 0, sponsored = false, onSponsor
               <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{shoe.colorway}</p>
             )}
 
-            <div className="flex items-center justify-between mt-2.5">
+            <div className="mt-1.5">
+              <MatchScoreBadge shoe={shoe} />
+            </div>
+
+            <div className="flex items-center justify-between mt-2">
               <span className="font-heading font-bold text-base">${shoe.price}</span>
               {shoe.rating && (
                 <span className="text-[10px] text-muted-foreground">⭐ {shoe.rating}</span>
