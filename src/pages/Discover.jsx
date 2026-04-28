@@ -10,6 +10,7 @@ import { getInterests, ALL_CATEGORIES } from "../lib/interestStore";
 import { getSizeLabel, subscribeSize, getSize } from "../lib/sizeStore";
 import SizeSelector from "../components/SizeSelector";
 import { getCached, setCache } from "../lib/searchCache";
+import LocationButton from "../components/LocationButton";
 
 import { getUserProfile, invalidateProfileCache } from "../lib/userProfileStore";
 import { buildPersonaSummary, rankShoes } from "../lib/personalizationEngine";
@@ -216,17 +217,21 @@ ${rankedShoes.map((s, i) => `${i}: ${s.brand} ${s.name} $${s.price} ${s.category
 
   const handleInterestSave = (saved) => setInterestsState(saved);
 
-  const loadSuggestions = async (q) => {
-    if (q.length < 2) {
-      setSuggestions([]);
-      return;
-    }
-    try {
-      const response = await base44.functions.invoke('getSmartSearchSuggestions', { query: q });
-      setSuggestions(response.data.suggestions || []);
-    } catch (error) {
-      console.error('Failed to load suggestions:', error);
-    }
+  const loadSuggestions = (q) => {
+    if (q.length < 2) { setSuggestions([]); return; }
+    // Local suggestions from catalog data + static patterns — zero credits
+    const qLower = q.toLowerCase();
+    const local = [];
+    const BRANDS = ["Nike", "Adidas", "Jordan", "New Balance", "Puma", "Converse", "Vans", "Hoka", "Asics", "Reebok", "Saucony", "Brooks"];
+    const CATS = ["Running", "Basketball", "Casual", "Training", "Lifestyle", "Walking", "Hiking"];
+    const PROMPTS = [
+      `Best ${q} shoes`, `${q} shoes under $150`, `${q} shoes for men`, `${q} shoes for women`,
+      `Top rated ${q}`, `Comfortable ${q} shoes`,
+    ];
+    BRANDS.forEach(b => { if (b.toLowerCase().startsWith(qLower)) local.push({ text: `${b} shoes`, icon: "👟", type: "brand" }); });
+    CATS.forEach(c => { if (c.toLowerCase().startsWith(qLower)) local.push({ text: `Best ${c} shoes`, icon: "🏃", type: "category" }); });
+    PROMPTS.slice(0, 4).forEach(p => local.push({ text: p, icon: "✨", type: "suggestion" }));
+    setSuggestions(local.slice(0, 6));
   };
 
   const handleQueryChange = (e) => {
@@ -417,9 +422,12 @@ ${rankedShoes.map((s, i) => `${i}: ${s.brand} ${s.name} $${s.price} ${s.category
             <h1 className="font-heading font-bold text-3xl sm:text-4xl lg:text-5xl mb-3">
               What are you looking for?
             </h1>
-            <p className="text-muted-foreground text-lg mb-6">
+            <p className="text-muted-foreground text-lg mb-4">
               Describe, upload a photo, or pick a category — AI finds your perfect match
             </p>
+            <div className="flex justify-center mb-4">
+              <LocationButton compact />
+            </div>
           </motion.div>
 
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>

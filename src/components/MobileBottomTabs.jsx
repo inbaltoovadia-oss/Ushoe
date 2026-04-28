@@ -1,12 +1,12 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { Home, Compass, Flame, Heart, Sparkles } from "lucide-react";
+import { Home, Compass, Flame, Heart, Calendar } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const TABS = [
   { to: "/",          label: "Home",      icon: Home },
   { to: "/discover",  label: "Discover",  icon: Compass },
-  { to: "/for-you",   label: "For You",   icon: Sparkles },
   { to: "/trending",  label: "Trending",  icon: Flame },
+  { to: "/rotation",  label: "Rotation",  icon: Calendar },
   { to: "/wishlist",  label: "Wishlist",  icon: Heart },
 ];
 

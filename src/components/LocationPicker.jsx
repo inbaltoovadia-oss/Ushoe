@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { MapPin, Search, Loader2, Navigation, X } from "lucide-react";
-import { setLocation, detectLocation } from "../lib/locationStore";
+import { setLocation, requestLocation } from "../lib/locationStore";
 
 export default function LocationPicker({ onClose }) {
   const [query, setQuery] = useState("");
@@ -44,7 +44,7 @@ export default function LocationPicker({ onClose }) {
 
   const handleDetect = async () => {
     setDetecting(true);
-    await detectLocation();
+    await requestLocation();
     setDetecting(false);
     onClose?.();
   };

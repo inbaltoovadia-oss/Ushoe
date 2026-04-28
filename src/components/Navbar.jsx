@@ -8,7 +8,7 @@ import { getSizeLabel, subscribeSize } from "../lib/sizeStore";
 import { AnimatePresence, motion } from "framer-motion";
 import SizeSelector from "./SizeSelector";
 
-const ROOT_PATHS = ["/", "/discover", "/for-you", "/trending", "/wishlist", "/settings", "/assistant"];
+const ROOT_PATHS = ["/", "/discover", "/for-you", "/trending", "/wishlist", "/settings", "/assistant", "/rotation", "/collections"];
 
 const PAGE_TITLES = {
   "/search": "Search",
@@ -24,6 +24,8 @@ const PAGE_TITLES = {
   "/subscription": "Plans",
   "/admin": "Admin",
   "/assistant": "AI Assistant",
+  "/rotation": "Shoe Rotation",
+  "/collections": "Collections",
 };
 
 function getPageTitle(pathname) {
@@ -75,6 +77,7 @@ export default function Navbar() {
     { to: "/nearby-stores", label: "Stores" },
     { to: "/wishlist", label: "Wishlist" },
     { to: "/price-drops", label: "Price Drops" },
+    { to: "/rotation", label: "📅 Rotation" },
   ];
 
   const toolLinks = [
@@ -82,6 +85,8 @@ export default function Navbar() {
     { to: "/fit-predictor", label: "Fit Predictor", emoji: "👟" },
     { to: "/outfit-matcher", label: "Outfit Matcher", emoji: "✨" },
     { to: "/style-quiz", label: "Style Quiz", emoji: "🎯" },
+    { to: "/rotation", label: "Shoe Rotation", emoji: "📅" },
+    { to: "/collections", label: "Collections", emoji: "📂" },
   ];
 
   return (

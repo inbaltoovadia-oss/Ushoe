@@ -2,6 +2,9 @@ import { useState, lazy, Suspense } from "react";
 import { MapPin, Search, Loader2, Star, Navigation, Globe, CheckCircle, AlertTriangle, XCircle, List, Map } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { base44 } from "@/api/base44Client";
+import { getLocation, subscribeLocation } from "../lib/locationStore";
+import LocationButton from "../components/LocationButton";
+import { useEffect } from "react";
 
 const StoreMap = lazy(() => import("../components/StoreMap"));
 
@@ -80,7 +83,14 @@ async function geocodeStoreAddress(address) {
 }
 
 export default function NearbyStoresPage() {
-  const [locationInput, setLocationInput] = useState("");
+  const [locationInput, setLocationInput] = useState(getLocation().city !== "New York" ? getLocation().city : "");
+
+  // Auto-fill from stored location
+  useEffect(() => {
+    return subscribeLocation(loc => {
+      if (loc.detected && loc.city) setLocationInput(loc.city);
+    });
+  }, []);
   const [stores, setStores] = useState([]);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
@@ -208,6 +218,9 @@ Also return a short 1-sentence summary about the shoe store scene in that area.`
             <h1 className="font-heading font-bold text-3xl">Store Finder</h1>
           </div>
           <p className="text-muted-foreground text-sm">Find any shoe store — chains, boutiques, outlets, and more — within 25 miles of you</p>
+          <div className="mt-3">
+            <LocationButton onLocationSet={loc => setLocationInput(loc.city)} />
+          </div>
         </motion.div>
 
         {/* Search Bar */}
