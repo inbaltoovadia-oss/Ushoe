@@ -265,7 +265,7 @@ Return data for ALL ${visibleShoes.length} shoes.`,
         )}
 
         {/* ── Shoe header cards ── */}
-        <div className={`grid gap-3 mb-8 ${visibleShoes.length === 2 ? "grid-cols-2" : visibleShoes.length === 3 ? "grid-cols-3" : "grid-cols-2 sm:grid-cols-4"}`}>
+        <div className={`grid gap-3 mb-6 ${visibleShoes.length === 2 ? "grid-cols-2" : visibleShoes.length === 3 ? "grid-cols-3" : "grid-cols-2 sm:grid-cols-4"}`}>
           {visibleShoes.map((shoe, i) => {
             const live = liveData[shoe.id];
             const isBest = i === bestValueIdx;
@@ -276,14 +276,15 @@ Return data for ALL ${visibleShoes.length} shoes.`,
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.07 }}
-                className={`relative rounded-2xl border-2 overflow-hidden ${isBest ? "border-green-400" : "border-border"} bg-card`}
+                className={`relative rounded-2xl border-2 overflow-hidden ${isBest ? "border-green-400" : "border-border"} bg-card flex flex-row sm:flex-col items-center gap-3 p-3`}
               >
                 {isBest && (
-                  <div className="absolute top-0 left-0 right-0 bg-green-500 text-white text-[10px] text-center py-1 font-bold flex items-center justify-center gap-1">
+                  <div className="absolute top-0 left-0 right-0 bg-green-500 text-white text-[10px] text-center py-1 font-bold hidden sm:flex items-center justify-center gap-1">
                     <TrendingDown className="w-2.5 h-2.5" /> Best Value
                   </div>
                 )}
-                <div className={`aspect-square overflow-hidden bg-secondary/30 ${isBest ? "mt-5" : ""}`}>
+                {/* Image — fixed small size, no aspect-square fill */}
+                <div className="w-16 h-16 sm:w-full sm:h-28 flex-shrink-0 overflow-hidden rounded-xl bg-secondary/30 sm:mt-5">
                   <ShoeImage
                     src={shoe.image_url}
                     brand={shoe.brand}
@@ -291,39 +292,41 @@ Return data for ALL ${visibleShoes.length} shoes.`,
                     className="w-full h-full object-cover"
                   />
                 </div>
-                <div className="p-3 text-center">
+                <div className="flex-1 min-w-0 sm:text-center sm:w-full">
+                  {isBest && <p className="text-[10px] font-bold text-green-600 sm:hidden mb-0.5">★ Best Value</p>}
                   <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium truncate">{shoe.brand}</p>
                   <p className="font-heading font-semibold text-sm leading-tight line-clamp-2 mt-0.5">{shoe.name}</p>
-                  <p className="font-heading font-bold text-xl mt-1.5 text-primary">${shoe.price}</p>
+                  <p className="font-heading font-bold text-base sm:text-xl mt-1 text-primary">${shoe.price}</p>
                   {savings > 0 && (
-                    <p className="text-xs text-green-600 dark:text-green-400 font-medium">Save ${savings}</p>
+                    <p className="text-xs text-green-600 dark:text-green-400 font-medium hidden sm:block">Save ${savings}</p>
                   )}
-                  {/* Live buy button */}
-                  {live?.buy_url ? (
-                    <a
-                      href={live.buy_url.startsWith("http") ? live.buy_url : `https://www.google.com/search?q=${encodeURIComponent(shoe.brand + " " + shoe.name + " buy")}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-2 flex items-center justify-center gap-1 text-[11px] bg-primary text-primary-foreground px-3 py-1.5 rounded-xl font-semibold hover:opacity-90 w-full"
+                  <div className="flex gap-1.5 mt-2 sm:flex-col">
+                    {live?.buy_url ? (
+                      <a
+                        href={live.buy_url.startsWith("http") ? live.buy_url : `https://www.google.com/search?q=${encodeURIComponent(shoe.brand + " " + shoe.name + " buy")}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-center gap-1 text-[11px] bg-primary text-primary-foreground px-2 py-1.5 rounded-lg font-semibold hover:opacity-90 flex-1 sm:w-full"
+                      >
+                        <ExternalLink className="w-3 h-3" /> Buy
+                      </a>
+                    ) : (
+                      <a
+                        href={`https://www.google.com/search?tbm=shop&q=${encodeURIComponent(shoe.brand + " " + shoe.name)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-center gap-1 text-[11px] bg-secondary text-foreground px-2 py-1.5 rounded-lg font-semibold hover:bg-secondary/80 flex-1 sm:w-full"
+                      >
+                        <Globe className="w-3 h-3" /> Shop
+                      </a>
+                    )}
+                    <button
+                      onClick={() => toggleCompare(shoe)}
+                      className="flex items-center justify-center gap-1 text-[11px] text-muted-foreground hover:text-destructive hover:bg-destructive/10 px-2 py-1.5 rounded-lg transition-colors flex-shrink-0"
                     >
-                      <ExternalLink className="w-3 h-3" /> Buy Now
-                    </a>
-                  ) : (
-                    <a
-                      href={`https://www.google.com/search?tbm=shop&q=${encodeURIComponent(shoe.brand + " " + shoe.name)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-2 flex items-center justify-center gap-1 text-[11px] bg-secondary text-foreground px-3 py-1.5 rounded-xl font-semibold hover:bg-secondary/80 w-full"
-                    >
-                      <Globe className="w-3 h-3" /> Find Online
-                    </a>
-                  )}
-                  <button
-                    onClick={() => toggleCompare(shoe)}
-                    className="mt-1.5 text-[10px] text-muted-foreground hover:text-destructive transition-colors flex items-center gap-1 mx-auto"
-                  >
-                    <X className="w-3 h-3" /> Remove
-                  </button>
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
                 </div>
               </motion.div>
             );

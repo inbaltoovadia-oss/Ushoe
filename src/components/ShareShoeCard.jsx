@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { X, Download, Instagram, MessageCircle, Share2, Copy, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -11,8 +11,14 @@ export default function ShareShoeCard({ shoe, onClose }) {
   const [copied, setCopied] = useState(false);
   const [imgError, setImgError] = useState(false);
 
+  // Scroll lock
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = ""; };
+  }, []);
+
   const shopUrl = `https://www.google.com/search?tbm=shop&q=${encodeURIComponent(`${shoe.brand} ${shoe.name}`)}`;
-  const pageUrl = window.location.href;
+  const pageUrl = `${window.location.origin}/shoe/${shoe.id}`;
   const discount = shoe.original_price > shoe.price
     ? Math.round(((shoe.original_price - shoe.price) / shoe.original_price) * 100)
     : 0;
@@ -47,7 +53,6 @@ export default function ShareShoeCard({ shoe, onClose }) {
   };
 
   const shareToTikTok = () => {
-    // TikTok doesn't have a direct share URL — guide user to download + post
     downloadCard();
     toast.info("Card downloaded! Open TikTok and upload as a photo post.", { duration: 4000 });
   };
@@ -66,54 +71,55 @@ export default function ShareShoeCard({ shoe, onClose }) {
 
   const canNativeShare = !!navigator.share;
   const nativeShare = async () => {
-    const canvas = await generateImage();
-    if (!canvas) return;
-    canvas.toBlob(async (blob) => {
-      const file = new File([blob], `${shoe.name}.png`, { type: "image/png" });
-      try {
-        await navigator.share({
-          title: `${shoe.brand} ${shoe.name}`,
-          text: `Check this out — only $${shoe.price}!`,
-          url: pageUrl,
-          files: navigator.canShare?.({ files: [file] }) ? [file] : undefined,
-        });
-      } catch {}
-    });
+    // Try simple URL share first (most reliable)
+    try {
+      await navigator.share({
+        title: `${shoe.brand} ${shoe.name}`,
+        text: `Check this out — only $${shoe.price}!`,
+        url: pageUrl,
+      });
+      return;
+    } catch {}
+    // Fallback: copy link
+    copyLink();
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-[999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      onClick={onClose}
+    >
       <motion.div
-        initial={{ opacity: 0, y: 40 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 40 }}
-        className="bg-card border border-border rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden"
+        initial={{ opacity: 0, scale: 0.93, y: 16 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.93, y: 16 }}
+        transition={{ type: "spring", stiffness: 400, damping: 28 }}
+        className="bg-card border border-border rounded-3xl w-full max-w-sm shadow-2xl flex flex-col"
+        style={{ maxHeight: "90dvh" }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 pt-5 pb-3">
+        {/* Header — sticky */}
+        <div className="flex items-center justify-between px-5 pt-5 pb-3 flex-shrink-0">
           <h3 className="font-heading font-bold text-lg">Share Shoe</h3>
           <button onClick={onClose} className="p-1.5 rounded-xl hover:bg-secondary transition-colors">
             <X className="w-4 h-4 text-muted-foreground" />
           </button>
         </div>
 
-        {/* Preview Card (what gets exported) */}
-        <div className="px-5 pb-4">
+        {/* Scrollable content */}
+        <div className="overflow-y-auto flex-1 px-5 pb-2">
+          {/* Preview Card */}
           <div
             ref={cardRef}
-            className="relative rounded-2xl overflow-hidden"
+            className="relative rounded-2xl overflow-hidden mb-4"
             style={{
               background: "linear-gradient(135deg, #0f172a 0%, #1e293b 60%, #0f172a 100%)",
               aspectRatio: "1 / 1",
             }}
           >
-            {/* Glow accent */}
             <div className="absolute inset-0 opacity-30" style={{
               background: "radial-gradient(ellipse at 70% 30%, hsl(220,90%,56%) 0%, transparent 60%)",
             }} />
-
-            {/* Shoe image */}
             <img
               src={imgError ? FALLBACK_IMG : (shoe.image_url || FALLBACK_IMG)}
               alt={shoe.name}
@@ -122,24 +128,16 @@ export default function ShareShoeCard({ shoe, onClose }) {
               className="absolute inset-0 w-full h-full object-cover opacity-80 mix-blend-luminosity"
               style={{ transform: "scale(1.05)" }}
             />
-
-            {/* Dark overlay for text readability */}
             <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.85) 40%, rgba(0,0,0,0.2) 100%)" }} />
-
-            {/* Discount badge */}
             {discount > 0 && (
               <div className="absolute top-4 right-4 bg-red-500 text-white text-xs font-bold px-2.5 py-1 rounded-full">
                 -{discount}%
               </div>
             )}
-
-            {/* uShoe branding */}
             <div className="absolute top-4 left-4 flex items-center gap-1.5">
               <span className="text-lg">👟</span>
               <span className="text-white font-heading font-bold text-sm">uShoe</span>
             </div>
-
-            {/* Bottom info */}
             <div className="absolute bottom-0 left-0 right-0 p-4">
               <p className="text-white/70 text-xs font-semibold uppercase tracking-widest mb-1">{shoe.brand}</p>
               <h4 className="text-white font-heading font-bold text-xl leading-tight line-clamp-2">{shoe.name}</h4>
@@ -159,55 +157,8 @@ export default function ShareShoeCard({ shoe, onClose }) {
           </div>
         </div>
 
-        {/* Share buttons */}
-        <div className="px-5 pb-5 space-y-3">
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              onClick={shareToInstagram}
-              disabled={generating}
-              className="flex items-center justify-center gap-2 py-3 rounded-2xl font-semibold text-sm transition-all text-white"
-              style={{ background: "linear-gradient(135deg, #f58529, #dd2a7b, #8134af, #515bd4)" }}
-            >
-              <Instagram className="w-4 h-4" />
-              Instagram
-            </button>
-            <button
-              onClick={shareToTikTok}
-              disabled={generating}
-              className="flex items-center justify-center gap-2 py-3 rounded-2xl font-semibold text-sm bg-black text-white transition-all hover:opacity-90"
-            >
-              {/* TikTok icon via SVG */}
-              <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V9.15a8.17 8.17 0 0 0 4.78 1.52V7.22a4.86 4.86 0 0 1-1.01-.53z"/></svg>
-              TikTok
-            </button>
-          </div>
-
-          <button
-            onClick={shareToWhatsApp}
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl font-semibold text-sm bg-green-500 hover:bg-green-600 text-white transition-all"
-          >
-            <MessageCircle className="w-4 h-4" />
-            WhatsApp
-          </button>
-
-          <div className="flex gap-2">
-            <button
-              onClick={downloadCard}
-              disabled={generating}
-              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl font-semibold text-sm bg-secondary hover:bg-secondary/80 text-foreground transition-all disabled:opacity-50"
-            >
-              <Download className="w-4 h-4" />
-              {generating ? "Generating…" : "Save Image"}
-            </button>
-            <button
-              onClick={copyLink}
-              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl font-semibold text-sm bg-secondary hover:bg-secondary/80 text-foreground transition-all"
-            >
-              {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-              {copied ? "Copied!" : "Copy Link"}
-            </button>
-          </div>
-
+        {/* Share buttons — always visible at bottom */}
+        <div className="px-5 pb-5 pt-2 space-y-2.5 flex-shrink-0 border-t border-border/40">
           {canNativeShare && (
             <button
               onClick={nativeShare}
@@ -218,6 +169,43 @@ export default function ShareShoeCard({ shoe, onClose }) {
               Share via Device
             </button>
           )}
+
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={shareToInstagram}
+              disabled={generating}
+              className="flex items-center justify-center gap-2 py-2.5 rounded-2xl font-semibold text-sm transition-all text-white"
+              style={{ background: "linear-gradient(135deg, #f58529, #dd2a7b, #8134af, #515bd4)" }}
+            >
+              <Instagram className="w-4 h-4" />
+              Instagram
+            </button>
+            <button
+              onClick={shareToWhatsApp}
+              className="flex items-center justify-center gap-2 py-2.5 rounded-2xl font-semibold text-sm bg-green-500 hover:bg-green-600 text-white transition-all"
+            >
+              <MessageCircle className="w-4 h-4" />
+              WhatsApp
+            </button>
+          </div>
+
+          <div className="flex gap-2">
+            <button
+              onClick={downloadCard}
+              disabled={generating}
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-2xl font-semibold text-sm bg-secondary hover:bg-secondary/80 text-foreground transition-all disabled:opacity-50"
+            >
+              <Download className="w-4 h-4" />
+              {generating ? "Generating…" : "Save Image"}
+            </button>
+            <button
+              onClick={copyLink}
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-2xl font-semibold text-sm bg-secondary hover:bg-secondary/80 text-foreground transition-all"
+            >
+              {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+              {copied ? "Copied!" : "Copy Link"}
+            </button>
+          </div>
         </div>
       </motion.div>
     </div>
