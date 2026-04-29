@@ -178,57 +178,57 @@ export default function ShoeRotation() {
                   initial={{ opacity: 0, x: -12 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: i * 0.04 }}
-                  className="bg-card border border-border rounded-2xl p-4 flex items-center gap-4"
+                  className="bg-card border border-border rounded-2xl p-4"
                 >
-                  {/* Day label */}
-                  <div className="w-16 flex-shrink-0 text-center">
-                    <p className="font-heading font-bold text-base">{DAY_SHORT[i]}</p>
-                    <p className="text-[10px] text-muted-foreground">{day}</p>
+                  {/* Top row: day label + action buttons */}
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <p className="font-heading font-bold text-base leading-none">{DAY_SHORT[i]}</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">{day}</p>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => setPickingDay(i)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-secondary hover:bg-primary/10 hover:text-primary transition-all text-muted-foreground text-xs font-medium"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        {shoe ? "Change" : "Assign"}
+                      </button>
+                      {shoe && (
+                        <button onClick={() => clearDay(i)} className="p-1.5 rounded-xl text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
                   </div>
 
-                  {/* Shoe */}
-                  <div className="flex-1 min-w-0">
-                    {shoe ? (
-                      <div className="flex items-center gap-3">
-                        <Link to={`/shoe/${shoe.id}`} className="w-14 h-14 rounded-xl overflow-hidden bg-secondary flex-shrink-0 hover:opacity-80 transition-opacity">
-                          <ShoeImage src={shoe.image_url} brand={shoe.brand} name={shoe.name} className="w-full h-full object-cover" />
-                        </Link>
-                        <div className="min-w-0">
-                          <p className="text-xs text-muted-foreground truncate">{shoe.brand}</p>
-                          <p className="text-sm font-semibold truncate group-hover:text-primary">{shoe.name}</p>
+                  {/* Bottom row: shoe info */}
+                  {shoe ? (
+                    <div className="flex items-center gap-3">
+                      <Link to={`/shoe/${shoe.id}`} className="w-14 h-14 rounded-xl overflow-hidden bg-secondary flex-shrink-0 hover:opacity-80 transition-opacity">
+                        <ShoeImage src={shoe.image_url} brand={shoe.brand} name={shoe.name} className="w-full h-full object-cover" />
+                      </Link>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-muted-foreground truncate">{shoe.brand}</p>
+                        <p className="text-sm font-semibold truncate">{shoe.name}</p>
+                        <div className="flex items-center gap-2 flex-wrap mt-0.5">
                           {occ && (
-                            <div className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full mt-0.5 ${occ.bg} ${occ.color}`}>
+                            <div className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full ${occ.bg} ${occ.color}`}>
                               {OccIcon && <OccIcon className="w-3 h-3" />}
                               {occ.label}
                             </div>
                           )}
+                          {wearCount >= 3 && (
+                            <span className="text-[10px] text-amber-600 bg-amber-50 dark:bg-amber-950/30 px-2 py-0.5 rounded-full font-medium">
+                              ⚠️ {wearCount}× this week
+                            </span>
+                          )}
                         </div>
-                        {wearCount >= 3 && (
-                          <div className="flex-shrink-0 text-[10px] text-amber-600 bg-amber-50 dark:bg-amber-950/30 px-2 py-1 rounded-full font-medium">
-                            ⚠️ {wearCount}× this week
-                          </div>
-                        )}
                       </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground italic">No shoe assigned</p>
-                    )}
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <button
-                      onClick={() => setPickingDay(i)}
-                      className="p-2 rounded-xl bg-secondary hover:bg-primary/10 hover:text-primary transition-all text-muted-foreground"
-                      title="Pick shoe"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </button>
-                    {shoe && (
-                      <button onClick={() => clearDay(i)} className="p-2 rounded-xl text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground italic">No shoe assigned yet</p>
+                  )}
                 </motion.div>
               );
             })}
@@ -341,6 +341,12 @@ function IdealRotation({ shoes, title, description }) {
 function ShoePicker({ dayName, shoes, occasions, occasionCategories, currentEntry, onSelect, onClose }) {
   const [selectedOcc, setSelectedOcc] = useState(currentEntry?.occasionId || "casual");
   const [selectedShoe, setSelectedShoe] = useState(currentEntry?.shoeId || null);
+
+  // Scroll lock
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = ""; };
+  }, []);
 
   const cats = occasionCategories[selectedOcc] || [];
   const filtered = shoes.filter(s => cats.length === 0 || cats.includes(s.category)).slice(0, 20);
