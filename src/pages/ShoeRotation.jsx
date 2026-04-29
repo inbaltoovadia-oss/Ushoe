@@ -3,7 +3,7 @@
  * Zero API credits: pure catalog data + localStorage.
  */
 import { useState, useEffect } from "react";
-import { Calendar, Plus, Trash2, Shuffle, CheckCircle, Lightbulb, Star, Dumbbell, Briefcase, Umbrella, Sun, Moon } from "lucide-react";
+import { Calendar, Plus, Trash2, Shuffle, CheckCircle, Lightbulb, Star, Dumbbell, Briefcase, Umbrella, Sun, Moon, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { base44 } from "@/api/base44Client";
 import ShoeImage from "../components/ShoeImage";
@@ -350,47 +350,65 @@ function ShoePicker({ dayName, shoes, occasions, occasionCategories, currentEntr
 
   const cats = occasionCategories[selectedOcc] || [];
   const filtered = shoes.filter(s => cats.length === 0 || cats.includes(s.category)).slice(0, 20);
+  const displayShoes = filtered.length ? filtered : shoes.slice(0, 12);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm">
+    <div
+      className="fixed inset-0 z-[100] flex items-end justify-center bg-black/50 backdrop-blur-sm"
+      onClick={onClose}
+    >
       <motion.div
-        initial={{ y: 80, opacity: 0 }}
+        initial={{ y: "100%", opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        exit={{ y: 80, opacity: 0 }}
-        className="bg-card border border-border rounded-t-3xl shadow-2xl w-full max-w-lg max-h-[85dvh] flex flex-col"
+        exit={{ y: "100%", opacity: 0 }}
+        transition={{ type: "spring", stiffness: 380, damping: 32 }}
+        className="bg-card border border-border rounded-t-3xl shadow-2xl w-full max-w-lg flex flex-col"
+        style={{ maxHeight: "88dvh" }}
+        onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-5 pt-5 pb-2">
-          <h3 className="font-heading font-bold text-lg">Pick for {dayName}</h3>
-          <button onClick={onClose} className="p-1.5 rounded-xl hover:bg-secondary text-muted-foreground">✕</button>
+        {/* Drag handle */}
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-10 h-1.5 bg-border rounded-full" />
         </div>
 
-        {/* Occasion selector */}
-        <div className="px-4 pb-3 overflow-x-auto scrollbar-hide">
-          <div className="flex gap-2 pb-1">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 pb-3 flex-shrink-0">
+          <h3 className="font-heading font-bold text-lg">Pick for {dayName}</h3>
+          <button onClick={onClose} className="p-1.5 rounded-xl hover:bg-secondary text-muted-foreground transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Occasion grid — wraps instead of horizontal scroll */}
+        <div className="px-4 pb-3 flex-shrink-0">
+          <div className="grid grid-cols-4 gap-1.5">
             {occasions.map(occ => {
               const Icon = occ.icon;
+              const active = selectedOcc === occ.id;
               return (
                 <button
                   key={occ.id}
                   onClick={() => setSelectedOcc(occ.id)}
-                  className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all border-2 ${
-                    selectedOcc === occ.id ? "border-primary bg-primary/10 text-primary" : "border-border bg-secondary text-muted-foreground"
+                  className={`flex flex-col items-center gap-1 px-1 py-2 rounded-xl text-[10px] font-medium transition-all border-2 leading-tight text-center ${
+                    active ? "border-primary bg-primary/10 text-primary" : "border-border bg-secondary text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  <Icon className="w-3.5 h-3.5" />
-                  {occ.label}
+                  <Icon className="w-4 h-4 flex-shrink-0" />
+                  <span className="line-clamp-2">{occ.label}</span>
                 </button>
               );
             })}
           </div>
         </div>
 
+        <div className="h-px bg-border/60 mx-4 flex-shrink-0" />
+
         {/* Shoe list */}
-        <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-2">
+        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
           {filtered.length === 0 && (
-            <p className="text-sm text-muted-foreground py-4 text-center">No shoes match this occasion. Showing all.</p>
+            <p className="text-xs text-muted-foreground py-2 text-center">No exact matches — showing all shoes</p>
           )}
-          {(filtered.length ? filtered : shoes.slice(0, 12)).map(shoe => (
+          {displayShoes.map(shoe => (
             <button
               key={shoe.id}
               onClick={() => setSelectedShoe(shoe.id)}
@@ -411,11 +429,12 @@ function ShoePicker({ dayName, shoes, occasions, occasionCategories, currentEntr
           ))}
         </div>
 
-        <div className="px-4 pb-5 pt-2 border-t border-border">
+        {/* Sticky footer */}
+        <div className="px-4 pb-6 pt-3 border-t border-border flex-shrink-0">
           <button
             disabled={!selectedShoe}
             onClick={() => selectedShoe && onSelect(selectedShoe, selectedOcc)}
-            className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:opacity-90 transition-opacity disabled:opacity-40"
+            className="w-full py-3.5 rounded-2xl bg-primary text-primary-foreground font-semibold text-sm hover:opacity-90 transition-all active:scale-[0.98] disabled:opacity-40"
           >
             Assign to {dayName}
           </button>
