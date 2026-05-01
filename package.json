@@ -2,7 +2,7 @@
   "name": "base44-app",
   "private": true,
   "version": "0.0.0",
-  "homepage":"https://inbaltoovadia-oss.github.io/Ushoe/",
+  "homepage": "https://inbaltoovadia-oss.github.io/Ushoe/",
   "type": "module",
   "scripts": {
     "dev": "vite",
