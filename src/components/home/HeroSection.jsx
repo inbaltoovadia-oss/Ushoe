@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { Sparkles, Ruler, Camera, MapPin, Search, ChevronRight } from "lucide-react";
-import { Link as RouterLink } from "react-router-dom";
+import { Sparkles, MapPin, Search, ArrowRight, TrendingUp } from "lucide-react";
+import { Link as RouterLink, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { base44 } from "@/api/base44Client";
 
@@ -25,18 +25,15 @@ const FALLBACK_SHOES = [
   },
 ];
 
-const QUICK_LINKS = [
-  { to: "/search",        label: "Search",      icon: Search,   primary: true },
-  { to: "/nearby-stores", label: "Near Me",     icon: MapPin,   primary: true },
-  { to: "/discover",      label: "AI Finder",   icon: Sparkles, primary: false },
-  { to: "/fit-predictor", label: "Fit Check",   icon: Ruler,    primary: false },
-];
+const QUICK_TAGS = ["Nike Air Max", "Yeezy", "New Balance 550", "Jordan 1", "Adidas Samba"];
 
 export default function HeroSection() {
   const [slides, setSlides] = useState(FALLBACK_SHOES);
   const [current, setCurrent] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
+  const navigate = useNavigate();
 
-  // Load featured shoes from catalog (no credits, pure DB read)
+  // Load featured shoes from catalog
   useEffect(() => {
     base44.entities.Shoe.list("-trending_score", 10).then(shoes => {
       const featured = shoes
@@ -62,17 +59,23 @@ export default function HeroSection() {
 
   const slide = slides[current];
 
+  const handleSearch = (q) => {
+    const query = q || searchQuery.trim();
+    if (!query) return navigate("/search");
+    navigate(`/search?q=${encodeURIComponent(query)}`);
+  };
+
   return (
-    <section className="relative min-h-[92vh] flex items-center justify-center overflow-hidden bg-black">
+    <section className="relative overflow-hidden bg-black" style={{ minHeight: "100svh" }}>
 
       {/* Slideshow background */}
       <AnimatePresence mode="wait">
         <motion.div
           key={current}
-          initial={{ opacity: 0, scale: 1.04 }}
+          initial={{ opacity: 0, scale: 1.06 }}
           animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.97 }}
-          transition={{ duration: 0.8, ease: "easeInOut" }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 1, ease: "easeInOut" }}
           className="absolute inset-0 z-0"
         >
           <img
@@ -81,128 +84,142 @@ export default function HeroSection() {
             className="w-full h-full object-cover"
             onError={e => { e.target.src = FALLBACK_SHOES[0].image; }}
           />
-          {/* Dark overlay — strong gradient */}
-          <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/40 to-black/90" />
-          <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-transparent to-black/50" />
+          {/* Dark overlay — bottom heavy like the reference */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-black/30" />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/40 via-transparent to-black/20" />
         </motion.div>
       </AnimatePresence>
 
-      {/* Ambient glow */}
-      <div className="absolute inset-0 z-0 pointer-events-none">
-        <div className="absolute w-[500px] h-[500px] rounded-full bg-primary/15 blur-3xl top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
-      </div>
+      {/* Orange accent glow (matches reference UI orange accent) */}
+      <div className="absolute bottom-0 left-0 w-80 h-80 rounded-full pointer-events-none z-0"
+        style={{ background: "radial-gradient(circle, rgba(249,115,22,0.18) 0%, transparent 70%)", filter: "blur(40px)" }} />
 
-      {/* ── Content ── */}
-      <div className="relative z-20 w-full max-w-7xl mx-auto px-5 sm:px-8 py-24 flex flex-col items-center text-center">
+      {/* Content */}
+      <div className="relative z-20 w-full max-w-2xl mx-auto px-5 sm:px-8 flex flex-col justify-end" style={{ minHeight: "100svh", paddingBottom: "2.5rem" }}>
 
-        {/* Slide label */}
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={`tag-${current}`}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.4 }}
-            className="mb-6"
-          >
-            <div className="inline-flex items-center gap-2 text-white px-4 py-2 rounded-full text-sm font-semibold"
-              style={{
-                background: "rgba(255,255,255,0.12)",
-                backdropFilter: "blur(24px) saturate(180%)",
-                WebkitBackdropFilter: "blur(24px) saturate(180%)",
-                border: "1px solid rgba(255,255,255,0.28)",
-                boxShadow: "0 1px 0 rgba(255,255,255,0.45) inset, 0 4px 16px rgba(0,0,0,0.25)",
-              }}>
-              {slide.tag}
-              {slide.brand && <span className="text-white/60 ml-1">· {slide.brand}</span>}
-            </div>
-          </motion.div>
-        </AnimatePresence>
+        {/* AI-Powered badge */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="mb-5"
+        >
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold text-white"
+            style={{
+              background: "rgba(255,255,255,0.10)",
+              backdropFilter: "blur(16px)",
+              WebkitBackdropFilter: "blur(16px)",
+              border: "1px solid rgba(255,255,255,0.20)",
+            }}>
+            <Sparkles className="w-3.5 h-3.5 text-orange-400" />
+            AI-Powered Discovery
+          </div>
+        </motion.div>
 
-        {/* Headline */}
+        {/* Headline — large, left-aligned like reference */}
         <motion.h1
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, delay: 0.1 }}
-          className="font-heading font-black text-5xl sm:text-7xl lg:text-8xl leading-[1.02] tracking-tight text-white"
-          style={{ textShadow: "0 2px 24px rgba(0,0,0,0.9), 0 1px 4px rgba(0,0,0,1)" }}
+          className="font-heading font-black leading-[1.0] tracking-tight text-white mb-4"
+          style={{ fontSize: "clamp(3rem, 12vw, 5rem)", textShadow: "0 2px 20px rgba(0,0,0,0.8)" }}
         >
-          Find Your
-          <br />
-          <span className="text-primary" style={{ textShadow: "0 0 60px rgba(59,130,246,0.7), 0 0 20px rgba(59,130,246,0.4)" }}>
-            Perfect
-          </span>
-          <br />
-          Pair.
+          Find Your<br />
+          <span style={{ color: "#F97316" }}>Perfect Pair</span>
         </motion.h1>
 
-        {/* Sub */}
+        {/* Subtitle */}
         <motion.p
-          initial={{ opacity: 0, y: 18 }}
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.22 }}
-          className="text-white/65 text-lg sm:text-xl mt-5 max-w-lg leading-relaxed"
+          transition={{ duration: 0.6, delay: 0.2 }}
+          className="text-white/65 text-base sm:text-lg mb-7 leading-relaxed max-w-md"
         >
-          AI searches the web in real time — compare prices, find nearby stores, and get picks made just for you.
+          Discover shoes powered by AI. Real prices, real stores, real recommendations — all in one place.
         </motion.p>
 
-        {/* CTAs */}
-        <motion.nav
-          initial={{ opacity: 0, y: 18 }}
+        {/* Search bar — matches reference design */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.35 }}
-          aria-label="Main actions"
-          className="flex flex-wrap justify-center gap-3 mt-10"
+          transition={{ duration: 0.6, delay: 0.3 }}
+          className="mb-4"
         >
-          {QUICK_LINKS.map(({ to, label, icon: Icon, primary }) => (
-            <RouterLink
-              key={to}
-              to={to}
-              className={`flex items-center gap-2.5 px-6 py-3.5 rounded-2xl font-semibold text-base transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary min-h-[48px] hover:scale-105 active:scale-95 ${
-                primary ? "bg-primary text-white shadow-xl shadow-primary/40 hover:opacity-90" : ""
-              }`}
-              style={!primary ? {
-                background: "rgba(255,255,255,0.13)",
-                backdropFilter: "blur(20px) saturate(180%)",
-                WebkitBackdropFilter: "blur(20px) saturate(180%)",
-                border: "1px solid rgba(255,255,255,0.32)",
-                boxShadow: "0 1px 0 rgba(255,255,255,0.50) inset, 0 6px 20px rgba(0,0,0,0.22)",
-                color: "white",
-              } : undefined}
+          <form
+            onSubmit={e => { e.preventDefault(); handleSearch(); }}
+            className="flex items-center gap-2"
+          >
+            <div className="flex-1 flex items-center bg-white/10 backdrop-blur-xl rounded-2xl px-4 py-3.5 border border-white/20 focus-within:border-orange-400/60 transition-all">
+              <Search className="w-4 h-4 text-white/40 flex-shrink-0 mr-3" />
+              <input
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search Nike Air Max, Adidas Ultra..."
+                className="flex-1 bg-transparent outline-none text-white text-sm placeholder:text-white/40"
+              />
+            </div>
+            <button
+              type="submit"
+              className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 hover:opacity-90 active:scale-95 transition-all"
+              style={{ background: "#F97316" }}
             >
-              <Icon className="w-4 h-4 flex-shrink-0" />
-              {label}
-            </RouterLink>
-          ))}
-        </motion.nav>
+              <ArrowRight className="w-5 h-5 text-white" />
+            </button>
+          </form>
+        </motion.div>
 
-        {/* Stats */}
+        {/* Quick tag pills */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ duration: 0.6, delay: 0.55 }}
-          className="flex items-center gap-2 mt-14 flex-wrap justify-center"
+          transition={{ delay: 0.45 }}
+          className="flex flex-wrap gap-2 mb-8"
         >
-          {[
-            { value: "50K+",    label: "Shoes Tracked" },
-            { value: "4.9★",    label: "AI Accuracy" },
-            { value: "Instant", label: "Web Results" },
-          ].map(({ value, label }, i) => (
-            <div key={label} className="flex items-center gap-2">
-              {i > 0 && <div className="w-px h-8 bg-white/15" />}
-              <div className="text-center px-5 py-3 rounded-2xl relative overflow-hidden"
-                style={{
-                  background: "rgba(255,255,255,0.08)",
-                  backdropFilter: "blur(20px)",
-                  WebkitBackdropFilter: "blur(20px)",
-                  border: "1px solid rgba(255,255,255,0.18)",
-                  boxShadow: "0 1px 0 rgba(255,255,255,0.30) inset",
-                }}>
-                <p className="font-heading font-bold text-xl text-white">{value}</p>
-                <p className="text-[10px] text-white/50 mt-0.5 uppercase tracking-wider">{label}</p>
-              </div>
-            </div>
+          {QUICK_TAGS.map(tag => (
+            <button
+              key={tag}
+              onClick={() => handleSearch(tag)}
+              className="text-xs px-3.5 py-1.5 rounded-full text-white/70 hover:text-white transition-all"
+              style={{
+                background: "rgba(255,255,255,0.08)",
+                border: "1px solid rgba(255,255,255,0.15)",
+              }}
+            >
+              {tag}
+            </button>
           ))}
+        </motion.div>
+
+        {/* Secondary nav links */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.55 }}
+          className="flex items-center gap-4"
+        >
+          <RouterLink
+            to="/nearby-stores"
+            className="flex items-center gap-2 text-sm text-white/60 hover:text-white transition-colors"
+          >
+            <MapPin className="w-4 h-4" />
+            Find Near Me
+          </RouterLink>
+          <div className="w-px h-4 bg-white/20" />
+          <RouterLink
+            to="/trending"
+            className="flex items-center gap-2 text-sm text-white/60 hover:text-white transition-colors"
+          >
+            <TrendingUp className="w-4 h-4" />
+            Trending
+          </RouterLink>
+          <div className="w-px h-4 bg-white/20" />
+          <RouterLink
+            to="/discover"
+            className="flex items-center gap-2 text-sm text-white/60 hover:text-white transition-colors"
+          >
+            <Sparkles className="w-4 h-4" />
+            AI Finder
+          </RouterLink>
         </motion.div>
 
         {/* Slide dots */}
@@ -212,37 +229,12 @@ export default function HeroSection() {
               <button
                 key={i}
                 onClick={() => setCurrent(i)}
-                className={`transition-all rounded-full ${i === current ? "bg-primary w-6 h-2" : "bg-white/30 w-2 h-2 hover:bg-white/50"}`}
+                className={`transition-all rounded-full ${i === current ? "w-6 h-2" : "w-2 h-2 bg-white/30 hover:bg-white/50"}`}
+                style={i === current ? { background: "#F97316" } : undefined}
               />
             ))}
           </div>
         )}
-
-        {/* Browse CTA */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.8 }}
-          className="mt-10"
-        >
-          {slide.id ? (
-            <RouterLink
-              to={`/shoe/${slide.id}`}
-              className="inline-flex items-center gap-2 text-white/70 hover:text-white text-sm transition-colors group"
-            >
-              View {slide.name}
-              <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </RouterLink>
-          ) : (
-            <RouterLink
-              to="/trending"
-              className="inline-flex items-center gap-2 text-white/70 hover:text-white text-sm transition-colors group"
-            >
-              Browse trending shoes
-              <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </RouterLink>
-          )}
-        </motion.div>
       </div>
     </section>
   );

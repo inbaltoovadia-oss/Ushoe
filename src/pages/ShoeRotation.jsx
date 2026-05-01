@@ -354,22 +354,20 @@ function ShoePicker({ dayName, shoes, occasions, occasionCategories, currentEntr
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-end justify-center bg-black/50 backdrop-blur-sm"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
       onClick={onClose}
     >
       <motion.div
-        initial={{ y: "100%", opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        exit={{ y: "100%", opacity: 0 }}
+        initial={{ scale: 0.92, opacity: 0, y: 20 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.92, opacity: 0, y: 20 }}
         transition={{ type: "spring", stiffness: 380, damping: 32 }}
-        className="bg-card border border-border rounded-t-3xl shadow-2xl w-full max-w-lg flex flex-col"
-        style={{ maxHeight: "88dvh" }}
+        className="bg-card border border-border rounded-3xl shadow-2xl w-full max-w-lg flex flex-col"
+        style={{ maxHeight: "90dvh" }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Drag handle */}
-        <div className="flex justify-center pt-3 pb-1">
-          <div className="w-10 h-1.5 bg-border rounded-full" />
-        </div>
+        {/* Top spacing */}
+        <div className="pt-2" />
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 pb-3 flex-shrink-0">

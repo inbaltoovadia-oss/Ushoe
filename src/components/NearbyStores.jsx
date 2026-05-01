@@ -84,22 +84,41 @@ export default function NearbyStores({
       shoe, city: location.city, size: selectedSize, color: selectedColor,
     }).then(r => {
       inventoryResult = r;
-      setSummary(r.summary);
+      setSummary(r.summary || `Showing stores near ${location.city} that may carry ${shoe.name}.`);
       setInventoryDone(true);
-      const mapped = (r.nearby_stores || []).slice(0, maxCount).map(s => ({
-        id:           `inv_${s.name}`,
+      const nearby = r.nearby_stores || [];
+      // If agent returned no stores, build fallback generic store list
+      const storeList = nearby.length > 0 ? nearby : buildFallbackStores(shoe, location.city);
+      const mapped = storeList.slice(0, maxCount).map((s, idx) => ({
+        id:           `inv_${s.name}_${idx}`,
         name:         s.name,
-        address:      s.address,
-        distance_km:  s.distance_km,
+        address:      s.address || `${location.city}`,
+        distance_km:  s.distance_km || null,
         phone:        s.phone || "",
         stock_status: s.stock_status || "Check in store",
-        maps_url:     `https://www.google.com/maps/search/${encodeURIComponent(s.maps_query || `${s.name} ${s.address}`)}`,
+        maps_url:     `https://www.google.com/maps/search/${encodeURIComponent(`${s.name} shoes ${location.city}`)}`,
         is_best_option: false,
         has_local_deal: false,
         local_deal_info: null,
       }));
-      // Merge with deal data if already available
       setStores(dealResult ? rankStores(mapped, dealResult.retailers) : mapped);
+    }).catch(() => {
+      // Agent unavailable — show fallback stores
+      setInventoryDone(true);
+      const fallback = buildFallbackStores(shoe, location.city).slice(0, maxCount).map((s, idx) => ({
+        id: `fb_${idx}`,
+        name: s.name,
+        address: s.address || location.city,
+        distance_km: null,
+        phone: "",
+        stock_status: "Check in store",
+        maps_url: `https://www.google.com/maps/search/${encodeURIComponent(`${s.name} shoes ${location.city}`)}`,
+        is_best_option: idx === 0,
+        has_local_deal: false,
+        local_deal_info: null,
+      }));
+      setSummary(`Find ${shoe.name} at these major retailers near ${location.city}. Call ahead to confirm availability.`);
+      setStores(fallback);
     });
 
     const dealPromise = runDealAgent({
@@ -109,12 +128,33 @@ export default function NearbyStores({
       const hasDeal = r.has_active_deals;
       setDealSummary(hasDeal ? r.summary : "");
       setDealsDone(true);
-      // Re-rank stores with deal info
       setStores(prev => prev.length > 0 ? rankStores(prev, r.retailers) : prev);
+    }).catch(() => {
+      setDealsDone(true);
     });
 
     await Promise.allSettled([inventoryPromise, dealPromise]);
     setLoading(false);
+  };
+
+  // Fallback: return major shoe retailers for any city
+  const buildFallbackStores = (shoe, city) => {
+    const retailers = [
+      { name: "Foot Locker", address: city },
+      { name: "Nike Store", address: city },
+      { name: "Adidas Store", address: city },
+      { name: "DSW Shoe Warehouse", address: city },
+      { name: "JD Sports", address: city },
+      { name: "Finish Line", address: city },
+    ];
+    // Filter to likely carry the shoe's brand
+    const brand = (shoe?.brand || "").toLowerCase();
+    const prioritized = retailers.sort((a, b) => {
+      const aMatch = a.name.toLowerCase().includes(brand) ? -1 : 0;
+      const bMatch = b.name.toLowerCase().includes(brand) ? -1 : 0;
+      return aMatch - bMatch;
+    });
+    return prioritized;
   };
 
   // Not yet started — show prompt

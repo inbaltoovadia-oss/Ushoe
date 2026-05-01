@@ -110,17 +110,20 @@ export default function WebDealsSection() {
                   )}
                 </div>
 
-                {deal.store_url && (
-                  <a
-                    href={deal.store_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 bg-primary text-primary-foreground rounded-xl font-semibold hover:opacity-90 transition-opacity"
-                  >
-                    <ExternalLink className="w-3 h-3" />
-                    Get Deal
-                  </a>
-                )}
+                {/* Always provide a valid link — use store URL if available and valid, else Google Shopping */}
+                <a
+                  href={
+                    deal.store_url && deal.store_url.startsWith("http")
+                      ? deal.store_url
+                      : `https://www.google.com/search?tbm=shop&q=${encodeURIComponent((deal.brand || "") + " " + (deal.shoe_name || ""))}`
+                  }
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 bg-primary text-primary-foreground rounded-xl font-semibold hover:opacity-90 transition-opacity"
+                >
+                  <ExternalLink className="w-3 h-3" />
+                  Get Deal
+                </a>
               </motion.div>
             ))}
           </div>

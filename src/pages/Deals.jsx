@@ -26,8 +26,10 @@ export default function Deals() {
 
   const loadCatalog = async () => {
     setLoading(true);
-    const all = await base44.entities.Shoe.list("-trending_score", 24);
-    setShoes(all);
+    const all = await base44.entities.Shoe.list("-trending_score", 80);
+    // Only show shoes that are genuinely on sale (have original_price > price)
+    const onSale = all.filter(s => s.original_price && s.original_price > s.price);
+    setShoes(onSale.slice(0, 24));
     setLoading(false);
   };
 
@@ -90,12 +92,12 @@ export default function Deals() {
           <div className="flex items-center gap-2 mb-4">
             <Sparkles className="w-5 h-5 text-primary" />
             <h2 className="font-heading font-bold text-xl">Browse Catalog</h2>
-            <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">
-              Deal badges appear when confirmed
+            <span className="text-xs bg-green-100 dark:bg-green-950/30 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-full font-medium">
+              {shoes.length} on sale now
             </span>
           </div>
           <p className="text-xs text-muted-foreground mb-4">
-            Browse all shoes — green badges appear automatically on cards where our Deal Agent confirms a live promotion available in {loc.city}.
+            Showing only discounted catalog shoes with confirmed price reductions — click any card to view full details and buy.
           </p>
 
           {loading ? (

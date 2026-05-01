@@ -141,22 +141,20 @@ export default function ShareShoeCard({ shoe, onClose }) {
 
   return (
     <div
-      className="fixed inset-0 z-[999] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-[999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
       onClick={onClose}
     >
       <motion.div
-        initial={{ opacity: 0, y: 48 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 48 }}
+        initial={{ opacity: 0, scale: 0.92, y: 24 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.92, y: 24 }}
         transition={{ type: "spring", stiffness: 380, damping: 30 }}
-        className="bg-card border border-border rounded-t-3xl sm:rounded-3xl w-full max-w-sm shadow-2xl flex flex-col"
-        style={{ maxHeight: "92dvh" }}
+        className="bg-card border border-border rounded-3xl w-full max-w-sm shadow-2xl flex flex-col"
+        style={{ maxHeight: "90dvh" }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Drag handle (mobile) */}
-        <div className="flex justify-center pt-3 pb-1 sm:hidden">
-          <div className="w-10 h-1.5 bg-border rounded-full" />
-        </div>
+        {/* Top spacing */}
+        <div className="pt-2" />
 
         {/* Header */}
         <div className="flex items-center gap-3 px-5 pt-3 pb-4 flex-shrink-0">

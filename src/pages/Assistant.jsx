@@ -147,14 +147,56 @@ export default function Assistant() {
     setUserProfile(profile);
     setProfileLoaded(true);
 
-    const hasProfile = profile?.survey_completed || profile?.recent_queries?.length > 0;
-    const welcomeText = hasProfile
-      ? `Hey! I'm your uShoe AI — I've been learning your style. You seem to like **${
-          profile.preferred_brands?.[0] || profile.searched_brands?.[0] || "great shoes"
-        }** and ${profile.main_use?.[0]?.toLowerCase() || "quality kicks"}. What are you looking for today?`
-      : `Hey! I'm your uShoe AI — a real shoe specialist, not a chatbot. Tell me what you need and I'll give you one perfect pick. What are you shopping for?`;
+    const welcomeText = buildPersonalizedWelcome(profile);
+    setMessages([{ role: "assistant", content: welcomeText, followUps: buildPersonalizedPrompts(profile) }]);
+  };
 
-    setMessages([{ role: "assistant", content: welcomeText, followUps: STARTER_PROMPTS.slice(0, 3) }]);
+  const buildPersonalizedWelcome = (profile) => {
+    const hour = new Date().getHours();
+    const timeGreet = hour < 12 ? "Good morning" : hour < 17 ? "Hey" : "Good evening";
+
+    if (profile?.survey_completed && profile?.preferred_brands?.length > 0) {
+      const brand = profile.preferred_brands[0];
+      const use = profile.main_use?.[0]?.toLowerCase() || "everyday wear";
+      const budget = profile.budget_max ? ` under $${profile.budget_max}` : "";
+      return `${timeGreet}! I know you're into **${brand}** and love shoes for **${use}**. I've got the freshest picks waiting for you${budget}. What's the occasion — gym, work, or a new statement piece?`;
+    }
+
+    if (profile?.preferred_brands?.length > 0) {
+      const brand = profile.preferred_brands[0];
+      return `${timeGreet}! Spotted your love for **${brand}** — great taste. What are you hunting for today? A performance upgrade, something stylish, or the best deal you can find?`;
+    }
+
+    if (profile?.main_use?.length > 0) {
+      const use = profile.main_use[0].toLowerCase();
+      return `${timeGreet}! You're into **${use}** shoes — I live for that. What's your budget and vibe? I'll find you the best option right now.`;
+    }
+
+    if (profile?.budget_max) {
+      return `${timeGreet}! Shopping with a **$${profile.budget_max}** budget — smart move, more options means better deals. What style or brand are you after?`;
+    }
+
+    // No profile — still engaging
+    const openers = [
+      `${timeGreet}! I'm your uShoe AI — skip the searching, I'll find your perfect pair in seconds. What's the vibe: running, casual, work, or something else?`,
+      `${timeGreet}! Ready to find your next favorite pair? Tell me your budget and what you'll use them for — I'll give you one perfect pick, not a list of guesses.`,
+      `${timeGreet}! New kicks incoming. What are we shopping for today — performance, style, or the best deal right now?`,
+    ];
+    return openers[Math.floor(Math.random() * openers.length)];
+  };
+
+  const buildPersonalizedPrompts = (profile) => {
+    const prompts = [...STARTER_PROMPTS];
+    if (profile?.preferred_brands?.length > 0) {
+      prompts.unshift(`Best ${profile.preferred_brands[0]} shoes right now`);
+    }
+    if (profile?.main_use?.length > 0) {
+      prompts.unshift(`Top ${profile.main_use[0].toLowerCase()} shoes under $150`);
+    }
+    if (profile?.budget_max) {
+      prompts.unshift(`Best shoes under $${profile.budget_max}`);
+    }
+    return prompts.slice(0, 3);
   };
 
   const sendMessage = async (text) => {

@@ -14,8 +14,10 @@ export default function DealsSection() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    base44.entities.Shoe.list("-trending_score", 8).then(all => {
-      setShoes(all.slice(0, 4));
+    base44.entities.Shoe.list("-trending_score", 40).then(all => {
+      // Only show shoes actually on sale
+      const onSale = all.filter(s => s.original_price && s.original_price > s.price);
+      setShoes(onSale.slice(0, 4));
       setLoading(false);
     });
   }, []);
