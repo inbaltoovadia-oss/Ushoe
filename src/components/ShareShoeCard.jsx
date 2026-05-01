@@ -149,8 +149,8 @@ export default function ShareShoeCard({ shoe, onClose }) {
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.92, y: 24 }}
         transition={{ type: "spring", stiffness: 380, damping: 30 }}
-        className="bg-card border border-border rounded-3xl w-full max-w-sm shadow-2xl flex flex-col"
-        style={{ maxHeight: "90dvh" }}
+        className="bg-card border border-border rounded-3xl w-full max-w-sm shadow-2xl flex flex-col overflow-hidden"
+        style={{ height: "min(88dvh, 560px)" }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top spacing */}

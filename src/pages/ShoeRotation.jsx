@@ -362,8 +362,8 @@ function ShoePicker({ dayName, shoes, occasions, occasionCategories, currentEntr
         animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.92, opacity: 0, y: 20 }}
         transition={{ type: "spring", stiffness: 380, damping: 32 }}
-        className="bg-card border border-border rounded-3xl shadow-2xl w-full max-w-lg flex flex-col"
-        style={{ maxHeight: "90dvh" }}
+        className="bg-card border border-border rounded-3xl shadow-2xl w-full max-w-lg flex flex-col overflow-hidden"
+        style={{ height: "min(88dvh, 680px)" }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top spacing */}
