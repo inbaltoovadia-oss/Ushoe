@@ -3,7 +3,6 @@
   "private": true,
   "version": "0.0.0",
   "homepage":"https://inbaltoovadia-oss.github.io/Ushoe/",
-  "private"=true 
   "type": "module",
   "scripts": {
     "dev": "vite",
