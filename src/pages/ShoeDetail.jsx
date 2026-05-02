@@ -218,34 +218,59 @@ export default function ShoeDetail() {
               <ScarcityBadge shoe={shoe} />
             </div>
 
-            {/* Description */}
-            {shoe.description && (
-              <p className="text-muted-foreground text-sm leading-relaxed border-l-2 border-primary/30 pl-3">{shoe.description}</p>
-            )}
-
-            {/* Features chips */}
-            {shoe.features?.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {shoe.features.map(f => (
-                  <span key={f} className="text-xs px-3 py-1.5 bg-secondary rounded-full text-foreground font-medium">{f}</span>
-                ))}
+            {/* ── Colors ── */}
+            {shoe.colors_available?.length > 0 && (
+              <div>
+                <p className="text-sm font-semibold mb-2">
+                  Color{selectedColor ? <span className="text-muted-foreground font-normal"> — {selectedColor}</span> : ""}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {shoe.colors_available.map(color => (
+                    <button
+                      key={color}
+                      onClick={() => setSelectedColor(selectedColor === color ? null : color)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all border-2 ${
+                        selectedColor === color
+                          ? "bg-primary text-primary-foreground border-primary shadow-md shadow-primary/20"
+                          : "bg-secondary hover:bg-secondary/80 text-foreground border-transparent"
+                      }`}
+                    >
+                      {color}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
 
-            {/* Static Insights — replaces AI summary, zero credits */}
-            <ShoeStaticInsights shoe={shoe} />
-
-            {/* Price History */}
-            <PriceHistoryCard shoe={shoe} />
-
-            {/* Pros & Cons */}
-            <ProsConsCard shoe={shoe} />
-
-            {/* Reviews Summary (static) */}
-            <ReviewsSummary shoe={shoe} />
+            {/* ── Sizes ── */}
+            {shoe.sizes_available?.length > 0 && (
+              <div>
+                <div className="flex items-center gap-3 mb-2">
+                  <p className="text-sm font-semibold">
+                    Size{selectedSize ? <span className="text-muted-foreground font-normal"> — US {selectedSize}</span> : ""}
+                  </p>
+                  <SizeConfidenceNote shoe={shoe} />
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {shoe.sizes_available.map(size => (
+                    <button
+                      key={size}
+                      onClick={() => setSelectedSize(selectedSize === size ? null : size)}
+                      className={`w-12 h-12 rounded-xl text-sm font-semibold transition-all ${
+                        selectedSize === size
+                          ? "bg-primary text-primary-foreground shadow-md shadow-primary/25"
+                          : "bg-secondary hover:bg-secondary/80 text-foreground"
+                      }`}
+                    >
+                      {size}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* ── Primary CTAs ── */}
-            <div className="flex gap-2 pt-1">
+            <div className="flex gap-2">
               <button
                 onClick={toggleWishlist}
                 className={`flex items-center justify-center gap-2 px-4 py-3 rounded-2xl font-semibold text-sm transition-all ${
@@ -277,59 +302,7 @@ export default function ShoeDetail() {
             </div>
 
             {/* ── Find Near You / Buy Online — BIG primary actions ── */}
-            <div className="pt-2 border-t border-border/40">
-
-              {/* Colors */}
-              {shoe.colors_available?.length > 0 && (
-                <div className="mb-4 mt-4">
-                  <p className="text-sm font-semibold mb-2">
-                    Color{selectedColor ? <span className="text-muted-foreground font-normal"> — {selectedColor}</span> : ""}
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {shoe.colors_available.map(color => (
-                      <button
-                        key={color}
-                        onClick={() => setSelectedColor(selectedColor === color ? null : color)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all border-2 ${
-                          selectedColor === color
-                            ? "bg-primary text-primary-foreground border-primary shadow-md shadow-primary/20"
-                            : "bg-secondary hover:bg-secondary/80 text-foreground border-transparent"
-                        }`}
-                      >
-                        {color}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Sizes */}
-              {shoe.sizes_available?.length > 0 && (
-                <div className="mb-4">
-                  <div className="flex items-center gap-3 mb-2">
-                    <p className="text-sm font-semibold">
-                      Size{selectedSize ? <span className="text-muted-foreground font-normal"> — US {selectedSize}</span> : ""}
-                    </p>
-                    <SizeConfidenceNote shoe={shoe} />
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {shoe.sizes_available.map(size => (
-                      <button
-                        key={size}
-                        onClick={() => setSelectedSize(selectedSize === size ? null : size)}
-                        className={`w-12 h-12 rounded-xl text-sm font-semibold transition-all ${
-                          selectedSize === size
-                            ? "bg-primary text-primary-foreground shadow-md shadow-primary/25"
-                            : "bg-secondary hover:bg-secondary/80 text-foreground"
-                        }`}
-                      >
-                        {size}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
+            <div className="pb-2 border-b border-border/40">
               {/* Deal tags + big CTA buttons */}
               <div className="flex gap-3">
                 {/* Find Near You */}
@@ -383,17 +356,43 @@ export default function ShoeDetail() {
 
               <AnimatePresence mode="wait">
                 {activeTab === "nearby" && (
-                  <motion.div key="nearby" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
+                  <motion.div key="nearby" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="mt-3">
                     <NearbyStores title="Stores Near You" maxCount={4} shoe={shoe} selectedSize={selectedSize} selectedColor={selectedColor} />
                   </motion.div>
                 )}
                 {activeTab === "online" && (
-                  <motion.div key="online" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
+                  <motion.div key="online" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="mt-3">
                     <BuyOnline shoe={shoe} selectedSize={selectedSize} selectedColor={selectedColor} />
                   </motion.div>
                 )}
               </AnimatePresence>
             </div>
+
+            {/* Description */}
+            {shoe.description && (
+              <p className="text-muted-foreground text-sm leading-relaxed border-l-2 border-primary/30 pl-3">{shoe.description}</p>
+            )}
+
+            {/* Features chips */}
+            {shoe.features?.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {shoe.features.map(f => (
+                  <span key={f} className="text-xs px-3 py-1.5 bg-secondary rounded-full text-foreground font-medium">{f}</span>
+                ))}
+              </div>
+            )}
+
+            {/* Static Insights */}
+            <ShoeStaticInsights shoe={shoe} />
+
+            {/* Price History */}
+            <PriceHistoryCard shoe={shoe} />
+
+            {/* Pros & Cons */}
+            <ProsConsCard shoe={shoe} />
+
+            {/* Reviews Summary (static) */}
+            <ReviewsSummary shoe={shoe} />
           </motion.div>
         </div>
 
