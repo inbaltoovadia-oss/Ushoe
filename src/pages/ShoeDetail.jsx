@@ -244,57 +244,6 @@ export default function ShoeDetail() {
             {/* Reviews Summary (static) */}
             <ReviewsSummary shoe={shoe} />
 
-            {/* Colors */}
-            {shoe.colors_available?.length > 0 && (
-              <div>
-                <p className="text-sm font-semibold mb-2">
-                  Color{selectedColor ? <span className="text-muted-foreground font-normal"> — {selectedColor}</span> : ""}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {shoe.colors_available.map(color => (
-                    <button
-                      key={color}
-                      onClick={() => setSelectedColor(selectedColor === color ? null : color)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all border-2 ${
-                        selectedColor === color
-                          ? "bg-primary text-primary-foreground border-primary shadow-md shadow-primary/20"
-                          : "bg-secondary hover:bg-secondary/80 text-foreground border-transparent"
-                      }`}
-                    >
-                      {color}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Sizes */}
-            {shoe.sizes_available?.length > 0 && (
-              <div>
-                <div className="flex items-center gap-3 mb-2">
-                  <p className="text-sm font-semibold">
-                    Size{selectedSize ? <span className="text-muted-foreground font-normal"> — US {selectedSize}</span> : ""}
-                  </p>
-                  <SizeConfidenceNote shoe={shoe} />
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {shoe.sizes_available.map(size => (
-                    <button
-                      key={size}
-                      onClick={() => setSelectedSize(selectedSize === size ? null : size)}
-                      className={`w-12 h-12 rounded-xl text-sm font-semibold transition-all ${
-                        selectedSize === size
-                          ? "bg-primary text-primary-foreground shadow-md shadow-primary/25"
-                          : "bg-secondary hover:bg-secondary/80 text-foreground"
-                      }`}
-                    >
-                      {size}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* ── Primary CTAs ── */}
             <div className="flex gap-2 pt-1">
               <button
@@ -327,43 +276,107 @@ export default function ShoeDetail() {
               </div>
             </div>
 
-            {/* Find Near You / Buy Online — primary action buttons */}
-            <div className="pt-2">
-              <div className="flex gap-3 mb-3">
-                <button
-                  onClick={() => setActiveTab(activeTab === "nearby" ? null : "nearby")}
-                  className={`flex-1 py-4 rounded-2xl font-bold text-base transition-all flex items-center justify-center gap-2.5 shadow-sm active:scale-[0.98] ${
-                    activeTab === "nearby"
-                      ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30"
-                      : "bg-primary/10 text-primary border-2 border-primary/30 hover:bg-primary/20"
-                  }`}
-                >
-                  <MapPin className="w-5 h-5" />
-                  Find Near You
-                </button>
-                <button
-                  onClick={() => setActiveTab(activeTab === "online" ? null : "online")}
-                  className={`flex-1 py-4 rounded-2xl font-bold text-base transition-all flex items-center justify-center gap-2.5 shadow-sm active:scale-[0.98] ${
-                    activeTab === "online"
-                      ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30"
-                      : "bg-primary/10 text-primary border-2 border-primary/30 hover:bg-primary/20"
-                  }`}
-                >
-                  <Globe className="w-5 h-5" />
-                  Buy Online
-                </button>
-              </div>
-              {discount > 0 && (
-                <div className="flex items-center gap-2 mb-3 px-3 py-2 bg-green-50 dark:bg-green-950/30 border border-green-200/60 dark:border-green-800/40 rounded-xl">
-                  <Tag className="w-4 h-4 text-green-600 flex-shrink-0" />
-                  <p className="text-sm font-semibold text-green-700 dark:text-green-400">
-                    🎉 Deal available — {discount}% off! Check "Find Near You" or "Buy Online" for the best price.
+            {/* ── Find Near You / Buy Online — BIG primary actions ── */}
+            <div className="pt-2 border-t border-border/40">
+
+              {/* Colors */}
+              {shoe.colors_available?.length > 0 && (
+                <div className="mb-4 mt-4">
+                  <p className="text-sm font-semibold mb-2">
+                    Color{selectedColor ? <span className="text-muted-foreground font-normal"> — {selectedColor}</span> : ""}
                   </p>
+                  <div className="flex flex-wrap gap-2">
+                    {shoe.colors_available.map(color => (
+                      <button
+                        key={color}
+                        onClick={() => setSelectedColor(selectedColor === color ? null : color)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all border-2 ${
+                          selectedColor === color
+                            ? "bg-primary text-primary-foreground border-primary shadow-md shadow-primary/20"
+                            : "bg-secondary hover:bg-secondary/80 text-foreground border-transparent"
+                        }`}
+                      >
+                        {color}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
 
-              {activeTab && !selectedSize && !selectedColor && (
-                <p className="text-xs text-amber-600 dark:text-amber-400 mb-3 flex items-center gap-1.5">
+              {/* Sizes */}
+              {shoe.sizes_available?.length > 0 && (
+                <div className="mb-4">
+                  <div className="flex items-center gap-3 mb-2">
+                    <p className="text-sm font-semibold">
+                      Size{selectedSize ? <span className="text-muted-foreground font-normal"> — US {selectedSize}</span> : ""}
+                    </p>
+                    <SizeConfidenceNote shoe={shoe} />
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {shoe.sizes_available.map(size => (
+                      <button
+                        key={size}
+                        onClick={() => setSelectedSize(selectedSize === size ? null : size)}
+                        className={`w-12 h-12 rounded-xl text-sm font-semibold transition-all ${
+                          selectedSize === size
+                            ? "bg-primary text-primary-foreground shadow-md shadow-primary/25"
+                            : "bg-secondary hover:bg-secondary/80 text-foreground"
+                        }`}
+                      >
+                        {size}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Deal tags + big CTA buttons */}
+              <div className="flex gap-3">
+                {/* Find Near You */}
+                <div className="flex-1 flex flex-col gap-1.5">
+                  {discount > 0 && (
+                    <div className="flex items-center justify-center gap-1.5 px-2 py-1 bg-green-500 text-white rounded-xl text-xs font-bold">
+                      <Tag className="w-3 h-3" />
+                      {discount}% OFF in stores
+                    </div>
+                  )}
+                  <button
+                    onClick={() => setActiveTab(activeTab === "nearby" ? null : "nearby")}
+                    className={`w-full py-5 rounded-2xl font-bold text-lg transition-all flex items-center justify-center gap-2.5 shadow-sm active:scale-[0.98] ${
+                      activeTab === "nearby"
+                        ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30"
+                        : "bg-primary/10 text-primary border-2 border-primary/30 hover:bg-primary/20"
+                    }`}
+                  >
+                    <MapPin className="w-6 h-6" />
+                    Find Near You
+                  </button>
+                </div>
+
+                {/* Buy Online */}
+                <div className="flex-1 flex flex-col gap-1.5">
+                  {discount > 0 && (
+                    <div className="flex items-center justify-center gap-1.5 px-2 py-1 bg-green-500 text-white rounded-xl text-xs font-bold">
+                      <Tag className="w-3 h-3" />
+                      {discount}% OFF online
+                    </div>
+                  )}
+                  <button
+                    onClick={() => setActiveTab(activeTab === "online" ? null : "online")}
+                    className={`w-full py-5 rounded-2xl font-bold text-lg transition-all flex items-center justify-center gap-2.5 shadow-sm active:scale-[0.98] ${
+                      activeTab === "online"
+                        ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30"
+                        : "bg-primary/10 text-primary border-2 border-primary/30 hover:bg-primary/20"
+                    }`}
+                  >
+                    <Globe className="w-6 h-6" />
+                    Buy Online
+                  </button>
+                </div>
+              </div>
+
+              {activeTab && !selectedSize && !selectedColor && (shoe.sizes_available?.length > 0 || shoe.colors_available?.length > 0) && (
+                <p className="text-xs text-amber-600 dark:text-amber-400 mt-2 flex items-center gap-1.5">
                   💡 Select a size or color above to filter by availability
                 </p>
               )}
