@@ -24,7 +24,7 @@ const PAGE_TITLES = {
   "/subscription": "Plans",
   "/admin": "Admin",
   "/assistant": "AI Assistant",
-  "/rotation": "Shoe Rotation",
+  "/rotation": "Best For",
   "/collections": "Collections",
 };
 
@@ -77,7 +77,7 @@ export default function Navbar() {
     { to: "/nearby-stores", label: "Stores" },
     { to: "/wishlist", label: "Wishlist" },
     { to: "/price-drops", label: "Price Drops" },
-    { to: "/rotation", label: "📅 Rotation" },
+    { to: "/rotation", label: "✨ Best For" },
   ];
 
   const toolLinks = [
@@ -85,7 +85,7 @@ export default function Navbar() {
     { to: "/fit-predictor", label: "Fit Predictor", emoji: "👟" },
     { to: "/outfit-matcher", label: "Outfit Matcher", emoji: "✨" },
     { to: "/style-quiz", label: "Style Quiz", emoji: "🎯" },
-    { to: "/rotation", label: "Shoe Rotation", emoji: "📅" },
+    { to: "/rotation", label: "Best For", emoji: "✨" },
     { to: "/collections", label: "Collections", emoji: "📂" },
   ];
 

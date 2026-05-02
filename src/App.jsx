@@ -27,7 +27,7 @@ import Subscription from './pages/Subscription';
 import Assistant from './pages/Assistant';
 import ForYou from './pages/ForYou';
 import Collections from './pages/Collections';
-import ShoeRotation from './pages/ShoeRotation';
+import BestFor from './pages/BestFor';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -75,7 +75,7 @@ const AuthenticatedApp = () => {
         <Route path="/subscription" element={<Subscription />} />
         <Route path="/for-you" element={<ForYou />} />
         <Route path="/collections" element={<Collections />} />
-        <Route path="/rotation" element={<ShoeRotation />} />
+        <Route path="/rotation" element={<BestFor />} />
         <Route path="/assistant" element={<Assistant />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>

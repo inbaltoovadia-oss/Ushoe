@@ -296,10 +296,10 @@ export default function ShoeDetail() {
             )}
 
             {/* ── Primary CTAs ── */}
-            <div className="flex gap-3 pt-1">
+            <div className="flex gap-2 pt-1">
               <button
                 onClick={toggleWishlist}
-                className={`flex items-center justify-center gap-2 px-5 py-3.5 rounded-2xl font-semibold text-sm transition-all ${
+                className={`flex items-center justify-center gap-2 px-4 py-3 rounded-2xl font-semibold text-sm transition-all ${
                   wishlisted
                     ? "bg-red-500 text-white shadow-lg shadow-red-500/25"
                     : "bg-secondary text-foreground hover:bg-secondary/70 border border-border"
@@ -310,14 +310,14 @@ export default function ShoeDetail() {
               </button>
               <button
                 onClick={() => setShowShare(true)}
-                className="p-3.5 rounded-2xl bg-secondary hover:bg-secondary/70 border border-border transition-colors"
+                className="p-3 rounded-2xl bg-secondary hover:bg-secondary/70 border border-border transition-colors"
                 title="Share"
               >
                 <Share2 className="w-4 h-4" />
               </button>
               <button
                 onClick={() => setShowCollections(true)}
-                className="p-3.5 rounded-2xl bg-secondary hover:bg-secondary/70 border border-border transition-colors"
+                className="p-3 rounded-2xl bg-secondary hover:bg-secondary/70 border border-border transition-colors"
                 title="Save to Collection"
               >
                 <FolderOpen className="w-4 h-4" />
@@ -327,32 +327,40 @@ export default function ShoeDetail() {
               </div>
             </div>
 
-            {/* Find Near You / Buy Online tabs */}
-            <div className="pt-1">
-              <div className="flex gap-2 mb-3">
+            {/* Find Near You / Buy Online — primary action buttons */}
+            <div className="pt-2">
+              <div className="flex gap-3 mb-3">
                 <button
                   onClick={() => setActiveTab(activeTab === "nearby" ? null : "nearby")}
-                  className={`flex-1 py-3.5 rounded-2xl font-semibold text-sm transition-all flex items-center justify-center gap-2 ${
+                  className={`flex-1 py-4 rounded-2xl font-bold text-base transition-all flex items-center justify-center gap-2.5 shadow-sm active:scale-[0.98] ${
                     activeTab === "nearby"
-                      ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25"
-                      : "bg-secondary text-foreground hover:bg-secondary/80 border border-border"
+                      ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30"
+                      : "bg-primary/10 text-primary border-2 border-primary/30 hover:bg-primary/20"
                   }`}
                 >
-                  <MapPin className="w-4 h-4" />
+                  <MapPin className="w-5 h-5" />
                   Find Near You
                 </button>
                 <button
                   onClick={() => setActiveTab(activeTab === "online" ? null : "online")}
-                  className={`flex-1 py-3.5 rounded-2xl font-semibold text-sm transition-all flex items-center justify-center gap-2 ${
+                  className={`flex-1 py-4 rounded-2xl font-bold text-base transition-all flex items-center justify-center gap-2.5 shadow-sm active:scale-[0.98] ${
                     activeTab === "online"
-                      ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25"
-                      : "bg-secondary text-foreground hover:bg-secondary/80 border border-border"
+                      ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30"
+                      : "bg-primary/10 text-primary border-2 border-primary/30 hover:bg-primary/20"
                   }`}
                 >
-                  <Globe className="w-4 h-4" />
+                  <Globe className="w-5 h-5" />
                   Buy Online
                 </button>
               </div>
+              {discount > 0 && (
+                <div className="flex items-center gap-2 mb-3 px-3 py-2 bg-green-50 dark:bg-green-950/30 border border-green-200/60 dark:border-green-800/40 rounded-xl">
+                  <Tag className="w-4 h-4 text-green-600 flex-shrink-0" />
+                  <p className="text-sm font-semibold text-green-700 dark:text-green-400">
+                    🎉 Deal available — {discount}% off! Check "Find Near You" or "Buy Online" for the best price.
+                  </p>
+                </div>
+              )}
 
               {activeTab && !selectedSize && !selectedColor && (
                 <p className="text-xs text-amber-600 dark:text-amber-400 mb-3 flex items-center gap-1.5">

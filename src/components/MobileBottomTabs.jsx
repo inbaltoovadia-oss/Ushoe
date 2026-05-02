@@ -1,13 +1,13 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { Home, Compass, Flame, Heart, Calendar } from "lucide-react";
+import { Home, Compass, Flame, Heart, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const TABS = [
-  { to: "/",          label: "Home",      icon: Home },
-  { to: "/discover",  label: "Discover",  icon: Compass },
-  { to: "/trending",  label: "Trending",  icon: Flame },
-  { to: "/rotation",  label: "Rotation",  icon: Calendar },
-  { to: "/wishlist",  label: "Wishlist",  icon: Heart },
+  { to: "/",          label: "Home",     icon: Home },
+  { to: "/discover",  label: "Discover", icon: Compass },
+  { to: "/trending",  label: "Trending", icon: Flame },
+  { to: "/rotation",  label: "Best For", icon: Sparkles },
+  { to: "/wishlist",  label: "Wishlist", icon: Heart },
 ];
 
 export default function MobileBottomTabs() {
@@ -19,21 +19,18 @@ export default function MobileBottomTabs() {
       className="md:hidden fixed bottom-0 left-0 right-0 z-40 flex"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
-      {/* Liquid Glass bar */}
       <div className="flex w-full border-t liquid-glass-bar relative overflow-hidden">
-        {/* Caustic shimmer overlay */}
         <div className="caustic-shimmer absolute inset-0 z-0" aria-hidden="true" />
         {TABS.map(({ to, label, icon: Icon }) => {
           const active = location.pathname === to;
           return (
             <motion.button
-            key={to}
-            onClick={() => navigate(to, { replace: active })}
-            className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 relative z-10"
+              key={to}
+              onClick={() => navigate(to, { replace: active })}
+              className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 relative z-10"
               whileTap={{ scale: 0.82 }}
               transition={{ type: "spring", stiffness: 500, damping: 22 }}
             >
-              {/* Active pill glow background */}
               <AnimatePresence>
                 {active && (
                   <motion.span
@@ -53,7 +50,6 @@ export default function MobileBottomTabs() {
                 )}
               </AnimatePresence>
 
-              {/* Icon with 3D flip on activation */}
               <motion.div
                 animate={active ? { rotateY: [0, -20, 0], scale: [1, 1.15, 1] } : { rotateY: 0, scale: 1 }}
                 transition={{ duration: 0.35, ease: "easeOut" }}

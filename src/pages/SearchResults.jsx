@@ -126,16 +126,28 @@ Indicate data_freshness (e.g. "Live - just now").`,
     if (e.key === "Escape") setShowSuggestions(false);
   };
 
+  // Score each shoe for relevance: exact name/model match scores highest
+  const scoreShoe = (shoe, q) => {
+    if (!q) return 1;
+    const ql = q.toLowerCase();
+    const nl = (shoe.name || "").toLowerCase();
+    const bl = (shoe.brand || "").toLowerCase();
+    const ml = (shoe.model || "").toLowerCase();
+    let score = 0;
+    if (nl === ql || ml === ql) score += 1000;
+    else if (nl.startsWith(ql) || ml.startsWith(ql)) score += 500;
+    else if (nl.includes(ql) || ml.includes(ql)) score += 200;
+    if (bl.includes(ql)) score += 100;
+    if ((shoe.category || "").toLowerCase().includes(ql)) score += 50;
+    if ((shoe.colorway || "").toLowerCase().includes(ql)) score += 30;
+    if ((shoe.description || "").toLowerCase().includes(ql)) score += 10;
+    if ((shoe.features || []).some(f => f.toLowerCase().includes(ql))) score += 10;
+    return score;
+  };
+
   const filtered = shoes.filter(shoe => {
     const q = query.toLowerCase();
-    const matchesQuery = !q ||
-      shoe.name?.toLowerCase().includes(q) ||
-      shoe.brand?.toLowerCase().includes(q) ||
-      (shoe.category || "").toLowerCase().includes(q) ||
-      (shoe.description || "").toLowerCase().includes(q) ||
-      (shoe.colorway || "").toLowerCase().includes(q) ||
-      (shoe.features || []).some(f => f.toLowerCase().includes(q));
-
+    const matchesQuery = !q || scoreShoe(shoe, query) > 0;
     const matchesBrand = !filters.brands.length || filters.brands.includes(shoe.brand);
     const matchesCat = !filters.categories.length || filters.categories.includes(shoe.category);
     const matchesGender = !filters.genders.length || filters.genders.includes(shoe.gender) || shoe.gender === "Unisex";
@@ -148,16 +160,34 @@ Indicate data_freshness (e.g. "Live - just now").`,
     const matchesSize = !filters.sizes.length || filters.sizes.some(s =>
       (shoe.sizes_available || []).includes(s)
     );
-
     return matchesQuery && matchesBrand && matchesCat && matchesGender && matchesPrice && matchesSale && matchesColor && matchesSize;
   });
 
-  const sorted = [...filtered];
-  if (sort === "price_asc") sorted.sort((a, b) => a.price - b.price);
-  else if (sort === "price_desc") sorted.sort((a, b) => b.price - a.price);
-  else if (sort === "rating") sorted.sort((a, b) => (b.rating || 0) - (a.rating || 0));
-  else if (sort === "newest") sorted.sort((a, b) => new Date(b.release_date || 0) - new Date(a.release_date || 0));
-  else sorted.sort((a, b) => (b.trending_score || 0) - (a.trending_score || 0));
+  // Split into exact/strong matches and similar
+  const qLower = query.toLowerCase();
+  const exactMatches = query
+    ? filtered.filter(s => scoreShoe(s, query) >= 100).sort((a, b) => scoreShoe(b, query) - scoreShoe(a, query))
+    : [];
+  const exactIds = new Set(exactMatches.map(s => s.id));
+  // Similar: same category as top exact match, not already in exact
+  const topCategory = exactMatches[0]?.category;
+  const similarShoes = query && topCategory
+    ? filtered.filter(s => !exactIds.has(s.id) && s.category === topCategory).slice(0, 4)
+    : [];
+  const noExactSimilarIds = new Set([...exactIds, ...similarShoes.map(s => s.id)]);
+
+  const sorted = query
+    ? exactMatches // exact matches already sorted by score
+    : [...filtered];
+
+  // Apply user sort on top of relevance (for non-query browsing)
+  if (!query || sort !== "trending") {
+    if (sort === "price_asc") sorted.sort((a, b) => a.price - b.price);
+    else if (sort === "price_desc") sorted.sort((a, b) => b.price - a.price);
+    else if (sort === "rating") sorted.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+    else if (sort === "newest") sorted.sort((a, b) => new Date(b.release_date || 0) - new Date(a.release_date || 0));
+    else if (!query) sorted.sort((a, b) => (b.trending_score || 0) - (a.trending_score || 0));
+  }
 
   const activeFilterCount = [
     filters.brands.length, filters.categories.length, filters.sizes.length,
@@ -345,36 +375,78 @@ Indicate data_freshness (e.g. "Live - just now").`,
           ) : sorted.length > 0 ? (
             <>
               {/* Compare hint */}
-               <div className="flex items-center gap-2 mb-3 text-xs text-muted-foreground">
-                 <GitCompare className="w-3.5 h-3.5" />
-                 Select up to {limits.compareMax} shoes to compare side-by-side
-               </div>
-               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                 {sorted.map((shoe, i) => {
-                   const inCompare = compareIds.includes(shoe.id);
-                   const atMax = !inCompare && compareIds.length >= limits.compareMax;
-                   return (
-                     <div key={shoe.id} className="relative group">
-                       <ShoeCard shoe={shoe} index={i} />
-                       <button
-                         onClick={() => {
-                           if (!atMax || inCompare) toggleCompare(shoe);
-                         }}
-                         title={atMax && !inCompare ? `Max ${limits.compareMax} shoes on your plan` : inCompare ? "Remove from compare" : "Add to compare"}
-                         className={`absolute top-3 left-3 z-10 flex items-center justify-center w-8 h-8 rounded-lg font-semibold transition-all shadow-sm ${
-                           inCompare
-                             ? "bg-primary text-primary-foreground"
-                             : atMax
-                             ? "bg-secondary text-muted-foreground opacity-30 cursor-not-allowed"
-                             : "bg-card border border-border text-foreground hover:border-primary hover:text-primary hover:bg-primary/5"
-                         }`}
-                       >
-                         <GitCompare className="w-4 h-4" />
-                       </button>
-                     </div>
-                   );
-                 })}
-               </div>
+              <div className="flex items-center gap-2 mb-3 text-xs text-muted-foreground">
+                <GitCompare className="w-3.5 h-3.5" />
+                Select up to {limits.compareMax} shoes to compare side-by-side
+              </div>
+
+              {/* Exact / strong matches */}
+              {query && exactMatches.length > 0 && (
+                <>
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-sm font-semibold text-foreground">Best Matches</span>
+                    <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">{exactMatches.length}</span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-8">
+                    {exactMatches.map((shoe, i) => {
+                      const inCompare = compareIds.includes(shoe.id);
+                      const atMax = !inCompare && compareIds.length >= limits.compareMax;
+                      return (
+                        <div key={shoe.id} className="relative group">
+                          <ShoeCard shoe={shoe} index={i} />
+                          <button
+                            onClick={() => { if (!atMax || inCompare) toggleCompare(shoe); }}
+                            title={atMax && !inCompare ? `Max ${limits.compareMax} shoes on your plan` : inCompare ? "Remove from compare" : "Add to compare"}
+                            className={`absolute top-3 left-3 z-10 flex items-center justify-center w-8 h-8 rounded-lg font-semibold transition-all shadow-sm ${inCompare ? "bg-primary text-primary-foreground" : atMax ? "bg-secondary text-muted-foreground opacity-30 cursor-not-allowed" : "bg-card border border-border text-foreground hover:border-primary hover:text-primary hover:bg-primary/5"}`}
+                          >
+                            <GitCompare className="w-4 h-4" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Similar shoes section */}
+                  {similarShoes.length > 0 && (
+                    <>
+                      <div className="h-px bg-border/60 mb-6" />
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className="text-sm font-semibold text-muted-foreground">Similar Shoes</span>
+                        <span className="text-xs bg-secondary text-muted-foreground px-2 py-0.5 rounded-full">Same use case</span>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                        {similarShoes.map((shoe, i) => (
+                          <div key={shoe.id} className="relative group opacity-90 hover:opacity-100 transition-opacity">
+                            <ShoeCard shoe={shoe} index={i} />
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
+
+              {/* No query — show all sorted */}
+              {!query && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {sorted.map((shoe, i) => {
+                    const inCompare = compareIds.includes(shoe.id);
+                    const atMax = !inCompare && compareIds.length >= limits.compareMax;
+                    return (
+                      <div key={shoe.id} className="relative group">
+                        <ShoeCard shoe={shoe} index={i} />
+                        <button
+                          onClick={() => { if (!atMax || inCompare) toggleCompare(shoe); }}
+                          title={atMax && !inCompare ? `Max ${limits.compareMax} shoes on your plan` : inCompare ? "Remove from compare" : "Add to compare"}
+                          className={`absolute top-3 left-3 z-10 flex items-center justify-center w-8 h-8 rounded-lg font-semibold transition-all shadow-sm ${inCompare ? "bg-primary text-primary-foreground" : atMax ? "bg-secondary text-muted-foreground opacity-30 cursor-not-allowed" : "bg-card border border-border text-foreground hover:border-primary hover:text-primary hover:bg-primary/5"}`}
+                        >
+                          <GitCompare className="w-4 h-4" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </>
           ) : (
             <div className="text-center py-16">
