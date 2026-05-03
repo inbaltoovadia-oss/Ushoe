@@ -209,15 +209,15 @@ export default function Assistant() {
     setMessages(prev => [...prev, userMsg]);
     setLoading(true);
 
-    const conversationHistory = history.map(m => ({ role: m.role, content: m.content }));
+    const conversationHistory = history.slice(-4).map(m => ({ role: m.role, content: m.content }));
 
     const res = await base44.functions.invoke("shoeAssistant", {
       message: q,
       conversationHistory,
       userProfile,
-      catalogSnapshot: catalogShoes.slice(0, 20).map(s => ({
+      catalogSnapshot: catalogShoes.slice(0, 8).map(s => ({
         brand: s.brand, name: s.name, price: s.price,
-        category: s.category, is_trending: s.is_trending, _score: s._score, id: s.id,
+        category: s.category, is_trending: s.is_trending, id: s.id,
       })),
     });
 
