@@ -307,12 +307,6 @@ export default function ShoeDetail() {
               <div className="flex gap-3">
                 {/* Find Near You */}
                 <div className="flex-1 flex flex-col gap-1.5">
-                  {discount > 0 && (
-                    <div className="flex items-center justify-center gap-1.5 px-2 py-1 bg-green-500 text-white rounded-xl text-xs font-bold">
-                      <Tag className="w-3 h-3" />
-                      {discount}% OFF in stores
-                    </div>
-                  )}
                   <button
                     onClick={() => setActiveTab(activeTab === "nearby" ? null : "nearby")}
                     className={`w-full py-5 rounded-2xl font-bold text-lg transition-all flex items-center justify-center gap-2.5 shadow-sm active:scale-[0.98] ${
@@ -334,6 +328,7 @@ export default function ShoeDetail() {
                       {discount}% OFF online
                     </div>
                   )}
+
                   <button
                     onClick={() => setActiveTab(activeTab === "online" ? null : "online")}
                     className={`w-full py-5 rounded-2xl font-bold text-lg transition-all flex items-center justify-center gap-2.5 shadow-sm active:scale-[0.98] ${
