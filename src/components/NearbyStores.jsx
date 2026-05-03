@@ -81,7 +81,7 @@ export default function NearbyStores({
     let dealResult = null;
 
     const inventoryPromise = runInventoryAgent({
-      shoe, city: location.city, size: selectedSize, color: selectedColor,
+      shoe: { ...shoe, _country: location.country }, city: location.city, size: selectedSize, color: selectedColor,
     }).then(r => {
       inventoryResult = r;
       setSummary(r.summary || `Showing stores near ${location.city} that may carry ${shoe.name}.`);
@@ -96,6 +96,7 @@ export default function NearbyStores({
         distance_km:  s.distance_km || null,
         phone:        s.phone || "",
         stock_status: s.stock_status || "Check in store",
+        price:        s.price || null,
         maps_url:     `https://www.google.com/maps/search/${encodeURIComponent(`${s.name} shoes ${location.city}`)}`,
         is_best_option: false,
         has_local_deal: false,
@@ -122,7 +123,7 @@ export default function NearbyStores({
     });
 
     const dealPromise = runDealAgent({
-      shoe, city: location.city, size: selectedSize, color: selectedColor,
+      shoe: { ...shoe, _country: location.country }, city: location.city, size: selectedSize, color: selectedColor,
     }).then(r => {
       dealResult = r;
       const hasDeal = r.has_active_deals;
@@ -296,18 +297,25 @@ function StoreRow({ store, index, city }) {
           </span>
         </div>
 
-        {/* Local deal pricing */}
-        {deal && deal.deal_price && (
-          <div className="flex items-center gap-2 mt-0.5">
-            <span className="text-sm font-bold text-green-600 dark:text-green-400">${deal.deal_price}</span>
-            {deal.original_price > deal.deal_price && (
-              <span className="text-xs text-muted-foreground line-through">${deal.original_price}</span>
-            )}
-            {deal.discount_pct > 0 && (
-              <span className="text-[10px] font-bold bg-red-500 text-white px-1.5 py-0.5 rounded-full">-{deal.discount_pct}%</span>
-            )}
-          </div>
-        )}
+        {/* Price display — deal price takes priority, then store price, then catalog */}
+        {(() => {
+          const displayPrice = deal?.deal_price || store.price;
+          const originalPrice = deal?.original_price || (deal?.deal_price && store.price && store.price > deal.deal_price ? store.price : null);
+          if (!displayPrice) return null;
+          return (
+            <div className="flex items-center gap-2 mt-1">
+              <span className={`text-sm font-bold ${hasLocalDeal ? "text-green-600 dark:text-green-400" : "text-foreground"}`}>
+                ${displayPrice}
+              </span>
+              {originalPrice && originalPrice > displayPrice && (
+                <span className="text-xs text-muted-foreground line-through">${originalPrice}</span>
+              )}
+              {deal?.discount_pct > 0 && (
+                <span className="text-[10px] font-bold bg-red-500 text-white px-1.5 py-0.5 rounded-full">-{deal.discount_pct}%</span>
+              )}
+            </div>
+          );
+        })()}
 
         <div className="flex items-center gap-2 mt-0.5 flex-wrap">
           {store.distance_km && (

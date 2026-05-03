@@ -16,7 +16,8 @@ export async function runInventoryAgent({ shoe, city, size = null, color = null 
     prompt: `You are an INVENTORY & STOCK AGENT for shoes. Check real-time availability from official brand and retailer websites.
 
 SHOE: ${shoe.brand} ${shoe.name}${shoe.colorway ? ` (${shoe.colorway})` : ""}
-USER LOCATION: ${city}
+CATALOG PRICE: $${shoe.price}
+USER LOCATION: ${city}, ${shoe._country || ""}
 ${size ? `SIZE REQUESTED: ${size}` : "All sizes"}
 ${color ? `COLOR: ${color}` : ""}
 
@@ -24,10 +25,9 @@ TASK: Determine current stock and availability from official sources.
 
 STRICT RULES:
 - NEVER assume stock — only report confirmed availability
+- CRITICAL: Only include physical stores actually located near ${city}, and only include online stores that ship to the user's country. Do NOT include stores from other countries or that do not serve this location.
 - Prioritize official brand website over third-party
 - If conflicting sources, favor official results
-- Separate stock by region where needed
-- Only include stores that serve ${city} (shipping or physical proximity)
 - Confidence: "high" = official site confirmed, "medium" = authorized retailer, "low" = estimate
 
 Return:
@@ -41,8 +41,8 @@ Return:
 - online_stores: array of stores with online stock for ${city}:
   each: { name, stock_status, sizes_available, ships_to_location, url }
 - nearby_stores: array of physical stores near ${city} with real addresses:
-  each: { name, address, distance_km, stock_status, phone, maps_query }
-  IMPORTANT: Only include REAL stores you can verify. Set stock_status to "Check in store".
+  each: { name, address, distance_km, stock_status, phone, maps_query, price }
+  IMPORTANT: Only include REAL stores physically located near ${city}. Include price if you can find it.
 - pickup_available: boolean
 - summary: one sentence about overall availability near ${city}`,
     add_context_from_internet: true,
@@ -82,6 +82,7 @@ Return:
               stock_status: { type: "string" },
               phone:        { type: "string" },
               maps_query:   { type: "string" },
+              price:        { type: "number" },
             },
           },
         },

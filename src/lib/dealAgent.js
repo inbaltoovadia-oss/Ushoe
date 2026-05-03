@@ -18,19 +18,20 @@ export async function runDealAgent({ shoe, city, size = null, color = null }) {
 
 SHOE: ${shoe.brand} ${shoe.name}${shoe.colorway ? ` (${shoe.colorway})` : ""}
 CATALOG PRICE: $${shoe.price}
-USER LOCATION: ${city}
+USER LOCATION: ${city}, ${shoe._country || ""}
 ${size ? `SIZE NEEDED: ${size}` : ""}
 ${color ? `COLOR: ${color}` : ""}
 
-TASK: Find up to 6 VERIFIED, ACTIVE deals from official brand sites and major retailers. 
+TASK: Find up to 6 VERIFIED, ACTIVE deals from official brand sites and major retailers that SHIP TO OR OPERATE IN the user's country/city.
 
 STRICT RULES:
+- CRITICAL: Only include retailers that ACTUALLY ship to ${city} and the user's country. Do NOT include US-only retailers for users outside the US, or region-locked stores.
 - Only include deals you can CONFIRM are active right now from official sources
-- Exclude expired promotions, region-locked offers, or stores that don't ship to ${city}
-- Only include stores that actually ship to or have locations near ${city}
+- Exclude expired promotions or stores that don't serve ${city}
 - Attach a confidence level: "high" (official site confirmed), "medium" (retailer confirmed), "low" (estimate)
 - If a deal is better than catalog price, flag it as deal_confirmed: true
 - Return buy_link as a real retailer URL (product page or search page)
+- Set ships_to_location: false for any retailer that does NOT ship to the user's location
 
 For each retailer return:
 - retailer_name: string
