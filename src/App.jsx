@@ -25,7 +25,7 @@ import Compare from './pages/Compare.jsx';
 import AdminDashboard from './pages/AdminDashboard';
 import Subscription from './pages/Subscription';
 import Assistant from './pages/Assistant';
-import ForYou from './pages/ForYou';
+import ForYou from './pages/ForYou.jsx';
 import Collections from './pages/Collections';
 import BestFor from './pages/BestFor';
 
