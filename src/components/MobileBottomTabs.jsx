@@ -5,8 +5,8 @@ import { motion, AnimatePresence } from "framer-motion";
 const TABS = [
   { to: "/",          label: "Home",     icon: Home },
   { to: "/discover",  label: "Discover", icon: Compass },
+  { to: "/for-you",   label: "For You",  icon: Sparkles },
   { to: "/trending",  label: "Trending", icon: Flame },
-  { to: "/rotation",  label: "Best For", icon: Sparkles },
   { to: "/wishlist",  label: "Wishlist", icon: Heart },
 ];
 
