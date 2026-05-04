@@ -26,6 +26,7 @@ export default function ForYou() {
   };
 
   return (
+    <>
     <div className="min-h-screen pb-20 px-4 sm:px-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between py-6">
@@ -95,7 +96,9 @@ export default function ForYou() {
         </>
       )}
 
-      {/* Story viewer */}
+    </div>
+
+      {/* Story viewer — outside page container so it fills the full screen */}
       <AnimatePresence>
         {storyIndex !== null && shoes.length > 0 && (
           <StoryViewer
@@ -105,6 +108,6 @@ export default function ForYou() {
           />
         )}
       </AnimatePresence>
-    </div>
+    </>
   );
 }
