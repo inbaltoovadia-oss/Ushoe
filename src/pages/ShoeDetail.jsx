@@ -60,13 +60,15 @@ function DetailSkeleton() {
 
 export default function ShoeDetail() {
   const { id } = useParams();
+  const urlParams = new URLSearchParams(window.location.search);
+  const tabParam = urlParams.get("tab"); // "nearby" | "online"
   const [shoe, setShoe]               = useState(null);
   const [similar, setSimilar]         = useState([]);
   const [loading, setLoading]         = useState(true);
   const [wishlisted, setWishlisted]   = useState(false);
   const [selectedSize, setSelectedSize]   = useState(null);
   const [selectedColor, setSelectedColor] = useState(null);
-  const [activeTab, setActiveTab]     = useState(null); // null | "nearby" | "online"
+  const [activeTab, setActiveTab]     = useState(tabParam || null); // null | "nearby" | "online"
   const [showShare, setShowShare]         = useState(false);
   const [showCollections, setShowCollections] = useState(false);
 
