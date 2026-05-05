@@ -120,43 +120,53 @@ function StoryViewerInner({ shoes, initialIndex = 0, onClose }) {
         onPointerLeave={() => setPaused(false)}
         onClick={handleTap}
       >
-        {/* BG gradient */}
-        <div style={{
-          position: "absolute", inset: 0,
-          background: "linear-gradient(160deg, #0f0f1a 0%, #1a1020 100%)",
-        }} />
+          {/* ── BLURRED BG from shoe image ── */}
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={`bg-${current}`}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.4 }}
+            style={{
+              position: "absolute", inset: 0, overflow: "hidden",
+            }}
+          >
+            <img
+              src={imgSrc}
+              alt=""
+              aria-hidden="true"
+              style={{
+                position: "absolute", inset: "-20%",
+                width: "140%", height: "140%",
+                objectFit: "cover",
+                filter: "blur(40px) brightness(0.35) saturate(1.4)",
+                transform: "scale(1.1)",
+              }}
+            />
+            {/* dark overlay so text is always readable */}
+            <div style={{
+              position: "absolute", inset: 0,
+              background: "linear-gradient(160deg, rgba(10,8,20,0.55) 0%, rgba(5,3,15,0.7) 100%)",
+            }} />
+          </motion.div>
+        </AnimatePresence>
 
-        {/* Ambient glow behind shoe */}
-        <div style={{
-          position: "absolute",
-          top: "8%", left: "10%", right: "10%", height: "52%",
-          pointerEvents: "none",
-          background: "radial-gradient(ellipse 80% 60% at 50% 55%, rgba(99,102,241,0.28) 0%, transparent 70%)",
-          filter: "blur(24px)",
-        }} />
-
-        {/* ── SHOE IMAGE ── */}
+        {/* ── SHOE IMAGE (clean, centered) ── */}
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={`img-${current}`}
-            initial={{ opacity: 0, scale: 0.94, x: direction > 0 ? 30 : -30 }}
-            animate={{ opacity: 1, scale: 1, x: 0 }}
-            exit={{ opacity: 0, scale: 0.96, x: direction > 0 ? -30 : 30 }}
-            transition={{ duration: 0.28, ease: [0.25, 0.46, 0.45, 0.94] }}
+            initial={{ opacity: 0, scale: 0.88, y: 18 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.92, y: -10 }}
+            transition={{ duration: 0.32, ease: [0.25, 0.46, 0.45, 0.94] }}
             style={{
               position: "absolute",
-              top: "10%", left: "5%", right: "5%",
-              height: "52%",
+              top: "12%", left: "6%", right: "6%",
+              height: "46%",
               display: "flex", alignItems: "center", justifyContent: "center",
             }}
           >
-            {!imgLoaded && (
-              <div style={{
-                position: "absolute", inset: 0,
-                background: "rgba(255,255,255,0.03)",
-                borderRadius: 20,
-              }} />
-            )}
             <img
               src={imgSrc}
               alt={shoe.name}
@@ -168,10 +178,10 @@ function StoryViewerInner({ shoes, initialIndex = 0, onClose }) {
                 objectFit: "contain",
                 objectPosition: "center",
                 opacity: imgLoaded ? 1 : 0,
-                transition: "opacity 0.35s ease",
+                transition: "opacity 0.3s ease",
                 userSelect: "none",
                 WebkitUserDrag: "none",
-                filter: "drop-shadow(0 16px 40px rgba(0,0,0,0.55)) drop-shadow(0 4px 12px rgba(0,0,0,0.4))",
+                filter: "drop-shadow(0 20px 48px rgba(0,0,0,0.7)) drop-shadow(0 6px 16px rgba(0,0,0,0.5))",
               }}
             />
           </motion.div>
@@ -180,8 +190,8 @@ function StoryViewerInner({ shoes, initialIndex = 0, onClose }) {
         {/* Bottom gradient scrim */}
         <div style={{
           position: "absolute", bottom: 0, left: 0, right: 0,
-          height: "55%", pointerEvents: "none",
-          background: "linear-gradient(to top, rgba(0,0,0,0.97) 35%, rgba(0,0,0,0.6) 60%, transparent 100%)",
+          height: "52%", pointerEvents: "none",
+          background: "linear-gradient(to top, rgba(0,0,0,0.98) 40%, rgba(0,0,0,0.55) 65%, transparent 100%)",
         }} />
 
         {/* ── PROGRESS BARS ── */}
@@ -276,8 +286,24 @@ function StoryViewerInner({ shoes, initialIndex = 0, onClose }) {
               </h2>
 
               {shoe.colorway && (
-                <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 13, marginTop: 4 }}>
+                <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 12, marginTop: 3 }}>
                   {shoe.colorway}
+                </p>
+              )}
+
+              {/* Short description / features fallback */}
+              {(shoe.description || (shoe.features?.length > 0)) && (
+                <p style={{
+                  color: "rgba(255,255,255,0.62)",
+                  fontSize: 13,
+                  lineHeight: 1.55,
+                  marginTop: 8,
+                  display: "-webkit-box",
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: "vertical",
+                  overflow: "hidden",
+                }}>
+                  {shoe.description || shoe.features.slice(0, 3).join(" · ")}
                 </p>
               )}
 
