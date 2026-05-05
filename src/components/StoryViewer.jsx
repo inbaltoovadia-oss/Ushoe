@@ -1,7 +1,9 @@
 /**
- * StoryViewer — Full-screen 9:16 story card. No scroll. Everything visible at once.
+ * StoryViewer — Full-screen story viewer rendered via React Portal.
+ * Tap right → next, tap left → previous. Hold to pause. Auto-advances every 5s.
  */
 import { useState, useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, MapPin, Globe, Share2, Tag, Flame, Star } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -15,24 +17,25 @@ const BRAND_FALLBACKS = {
   Jordan: "https://images.unsplash.com/photo-1552346154-21d32810aba3?w=800&q=90",
   Puma: "https://images.unsplash.com/photo-1608667508764-33cf0726b13a?w=800&q=90",
   "New Balance": "https://images.unsplash.com/photo-1539185441755-769473a23570?w=800&q=90",
-  Converse: "https://images.unsplash.com/photo-1463100099107-aa0980c362e6?w=800&q=90",
+  Converse: "https://images.unsplash.com/photo-1463100099107-aa0980c362e6?w=800&q=80",
   Vans: "https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?w=800&q=90",
 };
 const DEFAULT_FALLBACK = "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&q=90";
 
 function getImg(shoe) {
-  if (shoe.image_url?.startsWith("http")) return shoe.image_url;
-  const bl = (shoe.brand || "").toLowerCase();
+  if (shoe?.image_url?.startsWith("http")) return shoe.image_url;
+  const bl = (shoe?.brand || "").toLowerCase();
   const key = Object.keys(BRAND_FALLBACKS).find(k => bl.startsWith(k.toLowerCase()));
   return key ? BRAND_FALLBACKS[key] : DEFAULT_FALLBACK;
 }
 
-export default function StoryViewer({ shoes, initialIndex = 0, onClose }) {
+function StoryViewerInner({ shoes, initialIndex = 0, onClose }) {
   const [current, setCurrent] = useState(initialIndex);
   const [progress, setProgress] = useState(0);
   const [paused, setPaused] = useState(false);
   const [direction, setDirection] = useState(1);
-  const [imgSrc, setImgSrc] = useState(getImg(shoes[initialIndex]));
+  const [imgSrc, setImgSrc] = useState(() => getImg(shoes[initialIndex]));
+  const [imgLoaded, setImgLoaded] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const navigate = useNavigate();
   const progressRef = useRef(null);
@@ -40,6 +43,13 @@ export default function StoryViewer({ shoes, initialIndex = 0, onClose }) {
 
   const shoe = shoes[current];
 
+  // Update image when slide changes
+  useEffect(() => {
+    setImgLoaded(false);
+    setImgSrc(getImg(shoe));
+  }, [current]);
+
+  // Preload next
   useEffect(() => {
     if (shoes[current + 1]) {
       const img = new Image();
@@ -47,28 +57,24 @@ export default function StoryViewer({ shoes, initialIndex = 0, onClose }) {
     }
   }, [current]);
 
+  // Lock body scroll
   useEffect(() => {
-    setImgSrc(getImg(shoe));
-  }, [current]);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, []);
 
   const goNext = useCallback(() => {
     if (current < shoes.length - 1) {
-      setDirection(1);
-      setCurrent(i => i + 1);
-      setProgress(0);
-    } else {
-      onClose();
-    }
+      setDirection(1); setCurrent(i => i + 1); setProgress(0);
+    } else { onClose(); }
   }, [current, shoes.length, onClose]);
 
   const goPrev = useCallback(() => {
-    if (current > 0) {
-      setDirection(-1);
-      setCurrent(i => i - 1);
-      setProgress(0);
-    }
+    if (current > 0) { setDirection(-1); setCurrent(i => i - 1); setProgress(0); }
   }, [current]);
 
+  // Auto-advance timer
   useEffect(() => {
     if (paused) { clearInterval(progressRef.current); return; }
     setProgress(0);
@@ -83,141 +89,218 @@ export default function StoryViewer({ shoes, initialIndex = 0, onClose }) {
 
   const handleTap = (e) => {
     if (showShare) return;
-    const x = e.clientX || e.touches?.[0]?.clientX || 0;
+    const x = e.clientX ?? e.touches?.[0]?.clientX ?? 0;
     if (x < window.innerWidth / 2) goPrev(); else goNext();
   };
 
-  const discount = shoe.original_price > shoe.price
+  const discount = (shoe.original_price > shoe.price)
     ? Math.round(((shoe.original_price - shoe.price) / shoe.original_price) * 100)
     : 0;
 
   return (
-    // Full-screen black backdrop
-    <div className="fixed inset-0 z-[200] bg-black flex items-center justify-center">
-
-      {/* Story card — max 9:16, centered, never overflows */}
+    <div
+      style={{
+        position: "fixed", inset: 0, zIndex: 9999,
+        background: "#000",
+        display: "flex", alignItems: "center", justifyContent: "center",
+      }}
+    >
+      {/* Story card */}
       <div
-        className="relative w-full bg-black overflow-hidden"
         style={{
-          // 9:16 aspect ratio, capped at full viewport
-          maxWidth: "min(100vw, calc(100vh * 9 / 16))",
+          position: "relative",
+          width: "100%",
           height: "100dvh",
-          maxHeight: "100dvh",
+          maxWidth: "calc(100dvh * 9 / 16)",
+          overflow: "hidden",
+          background: "#0a0a12",
         }}
-        onPointerDown={() => { if (!showShare) setPaused(true); }}
+        onPointerDown={(e) => { if (!showShare) setPaused(true); }}
         onPointerUp={() => setPaused(false)}
         onPointerLeave={() => setPaused(false)}
         onClick={handleTap}
       >
+        {/* BG gradient */}
+        <div style={{
+          position: "absolute", inset: 0,
+          background: "linear-gradient(160deg, #0f0f1a 0%, #1a1020 100%)",
+        }} />
 
-        {/* ── BACKGROUND IMAGE (fills entire card) ── */}
+        {/* Ambient glow */}
+        <div style={{
+          position: "absolute", inset: 0, pointerEvents: "none",
+          background: "radial-gradient(ellipse 65% 45% at 50% 42%, rgba(99,102,241,0.22) 0%, transparent 65%)",
+        }} />
+
+        {/* ── SHOE IMAGE ── */}
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
-            key={current}
-            initial={{ opacity: 0, x: direction > 0 ? 30 : -30 }}
+            key={`img-${current}`}
+            initial={{ opacity: 0, x: direction > 0 ? 40 : -40 }}
             animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: direction > 0 ? -30 : 30 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-            className="absolute inset-0"
+            exit={{ opacity: 0, x: direction > 0 ? -40 : 40 }}
+            transition={{ duration: 0.22, ease: "easeOut" }}
+            style={{
+              position: "absolute",
+              top: "10%", left: "8%", right: "8%",
+              height: "50%",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}
           >
-            {/* Dark gradient bg so image has depth */}
-            <div className="absolute inset-0" style={{ background: "linear-gradient(160deg, #0f0f1a 0%, #1a1020 100%)" }} />
-            {/* Soft ambient glow behind shoe */}
-            <div className="absolute inset-0 pointer-events-none"
-              style={{ background: "radial-gradient(ellipse 70% 50% at 50% 45%, rgba(99,102,241,0.18) 0%, transparent 70%)" }} />
-            {/* The shoe image — centered, contained, top portion */}
-            <div className="absolute left-0 right-0" style={{ top: "10%", height: "48%" }}>
-              <img
-                src={imgSrc}
-                alt={shoe.name}
-                className="w-full h-full object-contain"
-                style={{ padding: "0 10%" }}
-                onError={() => setImgSrc(DEFAULT_FALLBACK)}
-                draggable={false}
-              />
-            </div>
-            {/* Bottom gradient for text legibility */}
-            <div className="absolute bottom-0 left-0 right-0 h-2/3 pointer-events-none"
-              style={{ background: "linear-gradient(to top, rgba(0,0,0,0.92) 40%, rgba(0,0,0,0.3) 70%, transparent 100%)" }} />
+            {!imgLoaded && (
+              <div style={{
+                position: "absolute", inset: 0,
+                background: "rgba(255,255,255,0.04)",
+                borderRadius: 16,
+                animation: "pulse 1.5s ease-in-out infinite",
+              }} />
+            )}
+            <img
+              src={imgSrc}
+              alt={shoe.name}
+              onLoad={() => setImgLoaded(true)}
+              onError={() => { setImgSrc(DEFAULT_FALLBACK); setImgLoaded(true); }}
+              draggable={false}
+              style={{
+                width: "100%", height: "100%",
+                objectFit: "contain",
+                opacity: imgLoaded ? 1 : 0,
+                transition: "opacity 0.3s ease",
+                userSelect: "none",
+                WebkitUserDrag: "none",
+              }}
+            />
           </motion.div>
         </AnimatePresence>
 
-        {/* ── PROGRESS BARS — absolute top ── */}
-        <div className="absolute top-0 left-0 right-0 z-20 flex gap-1 px-3 pt-3 pb-2">
+        {/* Bottom gradient scrim */}
+        <div style={{
+          position: "absolute", bottom: 0, left: 0, right: 0,
+          height: "58%", pointerEvents: "none",
+          background: "linear-gradient(to top, rgba(0,0,0,0.95) 45%, rgba(0,0,0,0.5) 70%, transparent 100%)",
+        }} />
+
+        {/* ── PROGRESS BARS ── */}
+        <div style={{
+          position: "absolute", top: 0, left: 0, right: 0, zIndex: 10,
+          display: "flex", gap: 4, padding: "12px 12px 0",
+        }}>
           {shoes.map((_, i) => (
-            <div key={i} className="flex-1 h-0.5 rounded-full bg-white/25 overflow-hidden">
-              <div
-                className="h-full bg-white rounded-full"
-                style={{ width: i < current ? "100%" : i === current ? `${progress}%` : "0%", transition: "none" }}
-              />
+            <div key={i} style={{
+              flex: 1, height: 2.5, borderRadius: 99,
+              background: "rgba(255,255,255,0.25)", overflow: "hidden",
+            }}>
+              <div style={{
+                height: "100%", borderRadius: 99, background: "#fff",
+                width: i < current ? "100%" : i === current ? `${progress}%` : "0%",
+              }} />
             </div>
           ))}
         </div>
 
-        {/* ── TOP BAR: brand avatar + trending + close ── */}
-        <div className="absolute top-7 left-0 right-0 z-20 flex items-center justify-between px-4">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-white/15 backdrop-blur-md flex items-center justify-center border border-white/25">
-              <span className="text-white font-bold text-[11px]">{(shoe.brand || "?")[0]}</span>
+        {/* ── TOP BAR ── */}
+        <div style={{
+          position: "absolute", top: 22, left: 0, right: 0, zIndex: 10,
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "0 16px",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{
+              width: 34, height: 34, borderRadius: "50%",
+              background: "rgba(255,255,255,0.15)",
+              border: "1px solid rgba(255,255,255,0.3)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              backdropFilter: "blur(12px)",
+            }}>
+              <span style={{ color: "#fff", fontWeight: 700, fontSize: 11 }}>
+                {(shoe.brand || "?")[0]}
+              </span>
             </div>
             <div>
-              <p className="text-white font-semibold text-xs leading-none">{shoe.brand}</p>
-              <p className="text-white/50 text-[10px] mt-0.5">{shoe.category}</p>
+              <p style={{ color: "#fff", fontWeight: 600, fontSize: 12, lineHeight: 1 }}>{shoe.brand}</p>
+              <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 10, marginTop: 2 }}>{shoe.category}</p>
             </div>
             {shoe.is_trending && (
-              <div className="flex items-center gap-1 bg-orange-500/90 backdrop-blur-sm px-2 py-0.5 rounded-full">
-                <Flame className="w-3 h-3 text-white" />
-                <span className="text-white text-[10px] font-bold">Trending</span>
+              <div style={{
+                display: "flex", alignItems: "center", gap: 4,
+                background: "rgba(249,115,22,0.9)",
+                padding: "3px 8px", borderRadius: 99,
+                backdropFilter: "blur(8px)",
+              }}>
+                <Flame style={{ width: 11, height: 11, color: "#fff" }} />
+                <span style={{ color: "#fff", fontSize: 10, fontWeight: 700 }}>Trending</span>
               </div>
             )}
           </div>
           <button
             onClick={(e) => { e.stopPropagation(); onClose(); }}
-            className="w-9 h-9 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center"
+            style={{
+              width: 36, height: 36, borderRadius: "50%",
+              background: "rgba(0,0,0,0.5)",
+              backdropFilter: "blur(12px)",
+              border: "none", cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}
           >
-            <X className="w-4 h-4 text-white" />
+            <X style={{ width: 16, height: 16, color: "#fff" }} />
           </button>
         </div>
 
-        {/* ── BOTTOM CONTENT: absolutely positioned, no scroll ── */}
+        {/* ── BOTTOM INFO + ACTIONS ── */}
         <div
-          className="absolute bottom-0 left-0 right-0 z-20 px-5"
-          style={{ paddingBottom: "max(24px, env(safe-area-inset-bottom))" }}
+          style={{
+            position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 10,
+            padding: "0 20px 28px",
+          }}
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Shoe info */}
           <AnimatePresence mode="wait">
             <motion.div
               key={`info-${current}`}
-              initial={{ opacity: 0, y: 8 }}
+              initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.2 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.18 }}
             >
-              <h2 className="text-white font-heading font-black leading-tight" style={{ fontSize: "clamp(1.25rem, 5vw, 1.75rem)" }}>
+              {/* Shoe name */}
+              <h2 style={{
+                color: "#fff", fontWeight: 900, lineHeight: 1.15,
+                fontSize: "clamp(1.3rem, 5.5vw, 1.85rem)",
+                margin: 0,
+              }}>
                 {shoe.name}
               </h2>
+
               {shoe.colorway && (
-                <p className="text-white/50 text-sm mt-0.5 truncate">{shoe.colorway}</p>
+                <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 13, marginTop: 4 }}>
+                  {shoe.colorway}
+                </p>
               )}
 
-              {/* Price row */}
-              <div className="flex items-center gap-2.5 mt-2 flex-wrap">
-                <span className="text-white font-black" style={{ fontSize: "clamp(1.5rem, 6vw, 2rem)" }}>
+              {/* Price + badges */}
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
+                <span style={{ color: "#fff", fontWeight: 900, fontSize: "clamp(1.6rem, 6.5vw, 2.2rem)" }}>
                   ${shoe.price}
                 </span>
                 {shoe.original_price > shoe.price && (
-                  <span className="text-white/35 text-base line-through">${shoe.original_price}</span>
+                  <span style={{ color: "rgba(255,255,255,0.35)", fontSize: 15, textDecoration: "line-through" }}>
+                    ${shoe.original_price}
+                  </span>
                 )}
                 {discount > 0 && (
-                  <span className="inline-flex items-center gap-1 bg-green-500 text-white text-xs font-bold px-2.5 py-1 rounded-full">
-                    <Tag className="w-3 h-3" />
+                  <span style={{
+                    display: "inline-flex", alignItems: "center", gap: 4,
+                    background: "#22c55e", color: "#fff",
+                    fontSize: 11, fontWeight: 700,
+                    padding: "4px 10px", borderRadius: 99,
+                  }}>
+                    <Tag style={{ width: 11, height: 11 }} />
                     {discount}% OFF
                   </span>
                 )}
                 {shoe.rating && (
-                  <span className="inline-flex items-center gap-1 text-white/60 text-sm ml-1">
-                    <Star className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400" />
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "rgba(255,255,255,0.55)", fontSize: 13 }}>
+                    <Star style={{ width: 13, height: 13, fill: "#facc15", color: "#facc15" }} />
                     {shoe.rating}
                   </span>
                 )}
@@ -225,37 +308,56 @@ export default function StoryViewer({ shoes, initialIndex = 0, onClose }) {
             </motion.div>
           </AnimatePresence>
 
-          {/* Action buttons */}
-          <div className="flex gap-2 mt-4">
+          {/* Buttons */}
+          <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
             <button
               onClick={() => navigate(`/shoe/${shoe.id}?tab=nearby`)}
-              className="flex-1 flex items-center justify-center gap-2 font-semibold text-sm rounded-2xl"
-              style={{ height: 52, background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.18)", color: "#fff", backdropFilter: "blur(12px)" }}
+              style={{
+                flex: 1, height: 52, borderRadius: 16,
+                background: "rgba(255,255,255,0.12)",
+                border: "1px solid rgba(255,255,255,0.2)",
+                color: "#fff", fontWeight: 600, fontSize: 14,
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                cursor: "pointer", backdropFilter: "blur(12px)",
+              }}
             >
-              <MapPin className="w-4 h-4 flex-shrink-0" />
+              <MapPin style={{ width: 16, height: 16 }} />
               Nearby
             </button>
 
             <button
               onClick={() => navigate(`/shoe/${shoe.id}?tab=online`)}
-              className="flex-1 flex items-center justify-center gap-2 font-semibold text-sm rounded-2xl bg-white text-black"
-              style={{ height: 52 }}
+              style={{
+                flex: 1, height: 52, borderRadius: 16,
+                background: "#fff",
+                border: "none",
+                color: "#000", fontWeight: 700, fontSize: 14,
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                cursor: "pointer",
+              }}
             >
-              <Globe className="w-4 h-4 flex-shrink-0" />
+              <Globe style={{ width: 16, height: 16 }} />
               Buy Online
             </button>
 
             <button
               onClick={(e) => { e.stopPropagation(); setPaused(true); setShowShare(true); }}
-              className="flex items-center justify-center rounded-2xl"
-              style={{ width: 52, height: 52, background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.18)", backdropFilter: "blur(12px)" }}
+              style={{
+                width: 52, height: 52, borderRadius: 16,
+                background: "rgba(255,255,255,0.12)",
+                border: "1px solid rgba(255,255,255,0.2)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                cursor: "pointer", backdropFilter: "blur(12px)",
+              }}
             >
-              <Share2 className="w-4 h-4 text-white" />
+              <Share2 style={{ width: 16, height: 16, color: "#fff" }} />
             </button>
           </div>
 
-          {/* Story counter */}
-          <p className="text-center text-white/25 text-[10px] mt-3">{current + 1} / {shoes.length}</p>
+          {/* Counter */}
+          <p style={{ color: "rgba(255,255,255,0.2)", fontSize: 10, textAlign: "center", marginTop: 12 }}>
+            {current + 1} / {shoes.length}
+          </p>
         </div>
       </div>
 
@@ -267,4 +369,8 @@ export default function StoryViewer({ shoes, initialIndex = 0, onClose }) {
       </AnimatePresence>
     </div>
   );
+}
+
+export default function StoryViewer(props) {
+  return createPortal(<StoryViewerInner {...props} />, document.body);
 }
