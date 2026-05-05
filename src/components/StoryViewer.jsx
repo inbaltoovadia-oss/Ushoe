@@ -126,33 +126,35 @@ function StoryViewerInner({ shoes, initialIndex = 0, onClose }) {
           background: "linear-gradient(160deg, #0f0f1a 0%, #1a1020 100%)",
         }} />
 
-        {/* Ambient glow */}
+        {/* Ambient glow behind shoe */}
         <div style={{
-          position: "absolute", inset: 0, pointerEvents: "none",
-          background: "radial-gradient(ellipse 65% 45% at 50% 42%, rgba(99,102,241,0.22) 0%, transparent 65%)",
+          position: "absolute",
+          top: "8%", left: "10%", right: "10%", height: "52%",
+          pointerEvents: "none",
+          background: "radial-gradient(ellipse 80% 60% at 50% 55%, rgba(99,102,241,0.28) 0%, transparent 70%)",
+          filter: "blur(24px)",
         }} />
 
         {/* ── SHOE IMAGE ── */}
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={`img-${current}`}
-            initial={{ opacity: 0, x: direction > 0 ? 40 : -40 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: direction > 0 ? -40 : 40 }}
-            transition={{ duration: 0.22, ease: "easeOut" }}
+            initial={{ opacity: 0, scale: 0.94, x: direction > 0 ? 30 : -30 }}
+            animate={{ opacity: 1, scale: 1, x: 0 }}
+            exit={{ opacity: 0, scale: 0.96, x: direction > 0 ? -30 : 30 }}
+            transition={{ duration: 0.28, ease: [0.25, 0.46, 0.45, 0.94] }}
             style={{
               position: "absolute",
-              top: "10%", left: "8%", right: "8%",
-              height: "50%",
+              top: "10%", left: "5%", right: "5%",
+              height: "52%",
               display: "flex", alignItems: "center", justifyContent: "center",
             }}
           >
             {!imgLoaded && (
               <div style={{
                 position: "absolute", inset: 0,
-                background: "rgba(255,255,255,0.04)",
-                borderRadius: 16,
-                animation: "pulse 1.5s ease-in-out infinite",
+                background: "rgba(255,255,255,0.03)",
+                borderRadius: 20,
               }} />
             )}
             <img
@@ -164,10 +166,12 @@ function StoryViewerInner({ shoes, initialIndex = 0, onClose }) {
               style={{
                 width: "100%", height: "100%",
                 objectFit: "contain",
+                objectPosition: "center",
                 opacity: imgLoaded ? 1 : 0,
-                transition: "opacity 0.3s ease",
+                transition: "opacity 0.35s ease",
                 userSelect: "none",
                 WebkitUserDrag: "none",
+                filter: "drop-shadow(0 16px 40px rgba(0,0,0,0.55)) drop-shadow(0 4px 12px rgba(0,0,0,0.4))",
               }}
             />
           </motion.div>
@@ -176,8 +180,8 @@ function StoryViewerInner({ shoes, initialIndex = 0, onClose }) {
         {/* Bottom gradient scrim */}
         <div style={{
           position: "absolute", bottom: 0, left: 0, right: 0,
-          height: "58%", pointerEvents: "none",
-          background: "linear-gradient(to top, rgba(0,0,0,0.95) 45%, rgba(0,0,0,0.5) 70%, transparent 100%)",
+          height: "55%", pointerEvents: "none",
+          background: "linear-gradient(to top, rgba(0,0,0,0.97) 35%, rgba(0,0,0,0.6) 60%, transparent 100%)",
         }} />
 
         {/* ── PROGRESS BARS ── */}
