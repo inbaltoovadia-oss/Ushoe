@@ -1,4 +1,4 @@
-import { useLocation, useNavigationType } from "react-router-dom";
+import { useLocation, useNavigationType, Link } from "react-router-dom";
 import { Outlet } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { useRef } from "react";
@@ -66,6 +66,14 @@ export default function Layout() {
       </main>
       <CompareBar />
       <MobileBottomTabs />
+      {/* Footer */}
+      <footer className="relative z-10 border-t border-border/40 py-6 px-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-muted-foreground">
+        <span>© {new Date().getFullYear()} uShoe. All rights reserved.</span>
+        <div className="flex items-center gap-4">
+          <Link to="/about" className="hover:text-foreground transition-colors">About</Link>
+          <Link to="/contact" className="hover:text-foreground transition-colors">Contact</Link>
+        </div>
+      </footer>
     </div>
   );
 }

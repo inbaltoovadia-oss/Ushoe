@@ -28,6 +28,8 @@ import Assistant from './pages/Assistant';
 import ForYou from './pages/ForYou.jsx';
 import Collections from './pages/Collections';
 import BestFor from './pages/BestFor';
+import About from './pages/About';
+import Contact from './pages/Contact';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -77,6 +79,8 @@ const AuthenticatedApp = () => {
         <Route path="/collections" element={<Collections />} />
         <Route path="/rotation" element={<BestFor />} />
         <Route path="/assistant" element={<Assistant />} />
+        <Route path="/about" element={<About />} />
+        <Route path="/contact" element={<Contact />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>
     </Routes>
