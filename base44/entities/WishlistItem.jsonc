@@ -29,6 +29,11 @@
     "alert_price": {
       "type": "number",
       "title": "Alert Price"
+    },
+    "description": {
+      "type": "string",
+      "title": "Description",
+      "maxLength": 1000
     }
   },
   "required": [

@@ -49,6 +49,11 @@
     "image_url": {
       "type": "string",
       "title": "Image URL"
+    },
+    "description": {
+      "type": "string",
+      "title": "Description",
+      "maxLength": 1000
     }
   },
   "required": [

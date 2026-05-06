@@ -41,6 +41,11 @@
       "type": "number",
       "title": "Total Triggers",
       "default": 0
+    },
+    "description": {
+      "type": "string",
+      "title": "Description",
+      "maxLength": 1000
     }
   },
   "required": [
