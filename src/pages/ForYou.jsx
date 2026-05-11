@@ -7,14 +7,43 @@ import { rankShoes } from "../lib/personalizationEngine";
 import ShoeCard from "../components/ShoeCard";
 import StoryViewer from "../components/StoryViewer";
 
+const STORY_CACHE_KEY = "ushoe_daily_stories";
+
+function getTodayKey(profile) {
+  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  // A simple hash of preference signals so the cache busts when preferences change
+  const prefSig = [
+    ...(profile.preferred_brands || []),
+    ...(profile.main_use || []),
+    profile.gender || "",
+    String(profile.budget_max || ""),
+  ].join("|");
+  return `${today}__${prefSig}`;
+}
+
+function loadStoryCache() {
+  try {
+    const raw = localStorage.getItem(STORY_CACHE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch { return null; }
+}
+
+function saveStoryCache(key, stories) {
+  try {
+    localStorage.setItem(STORY_CACHE_KEY, JSON.stringify({ key, stories }));
+  } catch {}
+}
+
 export default function ForYou() {
   const [shoes, setShoes] = useState([]);
+  const [storyShoes, setStoryShoes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [storyIndex, setStoryIndex] = useState(null);
 
   useEffect(() => { loadShoes(); }, []);
 
-  const loadShoes = async () => {
+  const loadShoes = async (force = false) => {
     setLoading(true);
     const [allShoes, profile] = await Promise.all([
       base44.entities.Shoe.list("-trending_score", 80),
@@ -22,6 +51,21 @@ export default function ForYou() {
     ]);
     const ranked = rankShoes(allShoes, profile, { limit: 40 });
     setShoes(ranked);
+
+    // Daily story selection — use cache unless forced or date/prefs changed
+    const todayKey = getTodayKey(profile);
+    const cached = loadStoryCache();
+    if (!force && cached && cached.key === todayKey && cached.stories?.length > 0) {
+      // Restore story shoes from cache (match by id against fresh data)
+      const idSet = new Set(cached.stories.map(s => s.id));
+      const restored = ranked.filter(s => idSet.has(s.id)).slice(0, 10);
+      setStoryShoes(restored.length > 0 ? restored : ranked.slice(0, 10));
+    } else {
+      const daily = ranked.slice(0, 10);
+      setStoryShoes(daily);
+      saveStoryCache(todayKey, daily);
+    }
+
     setLoading(false);
   };
 
@@ -38,7 +82,7 @@ export default function ForYou() {
           <p className="text-sm text-muted-foreground mt-0.5">Personalized picks based on your style</p>
         </div>
         <button
-          onClick={loadShoes}
+          onClick={() => loadShoes(true)}
           className="p-2 rounded-xl bg-secondary hover:bg-secondary/70 transition-colors"
           disabled={loading}
         >
@@ -52,12 +96,12 @@ export default function ForYou() {
         </div>
       ) : (
         <>
-          {/* Story entry row */}
-          {shoes.length > 0 && (
+          {/* Story entry row — refreshes daily based on preferences */}
+          {storyShoes.length > 0 && (
             <div className="mb-6">
-              <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-3">Tap to explore</p>
+              <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-3">Today's picks · tap to explore</p>
               <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-2">
-                {shoes.slice(0, 10).map((shoe, i) => (
+                {storyShoes.map((shoe, i) => (
                   <button
                     key={shoe.id}
                     onClick={() => setStoryIndex(i)}
@@ -100,9 +144,9 @@ export default function ForYou() {
 
       {/* Story viewer — outside page container so it fills the full screen */}
       <AnimatePresence>
-        {storyIndex !== null && shoes.length > 0 && (
+        {storyIndex !== null && storyShoes.length > 0 && (
           <StoryViewer
-            shoes={shoes.slice(0, 10)}
+            shoes={storyShoes}
             initialIndex={storyIndex}
             onClose={() => setStoryIndex(null)}
           />
