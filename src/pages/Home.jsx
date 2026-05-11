@@ -12,6 +12,7 @@ import RecentlyViewed from "../components/RecentlyViewed";
 import TrendingTrendsSection from "../components/home/TrendingTrendsSection";
 import DailyPicksSection from "../components/home/DailyPicksSection";
 import CommunityPicksSection from "../components/home/CommunityPicksSection";
+import UseMyLocationButton from "../components/UseMyLocationButton";
 
 export default function Home() {
   const [sponsoredRefreshKey, setSponsoredRefreshKey] = useState(0);
@@ -30,6 +31,10 @@ export default function Home() {
   return (
     <PullToRefresh onRefresh={handleRefresh}>
       <HeroSection />
+      {/* Location bar */}
+      <div className="px-4 sm:px-6 max-w-7xl mx-auto py-2">
+        <UseMyLocationButton />
+      </div>
       {/* Instant content first — no AI calls needed */}
       <RecentlyViewed />
       <DailyPicksSection />
