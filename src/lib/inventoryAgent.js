@@ -29,6 +29,8 @@ STRICT RULES:
 - Prioritize official brand website over third-party
 - If conflicting sources, favor official results
 - Confidence: "high" = official site confirmed, "medium" = authorized retailer, "low" = estimate
+- For online_stores: url MUST be a real, working URL to the actual product page or the retailer's website search for this shoe. NEVER fabricate a URL. If you cannot find a real URL for a store, omit the url field and set stock_status to "Check in store".
+- For nearby_stores: if you cannot confirm a store is physically near ${city}, set stock_status to "Check in store".
 
 Return:
 - overall_status: "in_stock" | "limited_stock" | "out_of_stock" | "unknown"
@@ -39,10 +41,10 @@ Return:
 - ships_to_city: boolean — does any retailer ship to ${city}?
 - estimated_delivery: string (e.g. "2-5 business days")
 - online_stores: array of stores with online stock for ${city}:
-  each: { name, stock_status, sizes_available, ships_to_location, url }
+  each: { name, stock_status, sizes_available, ships_to_location, url } — url must be a real URL or omitted
 - nearby_stores: array of physical stores near ${city} with real addresses:
   each: { name, address, distance_km, stock_status, phone, maps_query, price }
-  IMPORTANT: Only include REAL stores physically located near ${city}. Include price if you can find it.
+  IMPORTANT: Only include REAL stores physically located near ${city}. If stock is unconfirmed, set stock_status to "Check in store". Include price if you can find it.
 - pickup_available: boolean
 - summary: one sentence about overall availability near ${city}`,
     add_context_from_internet: true,

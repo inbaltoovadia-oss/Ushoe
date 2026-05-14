@@ -386,7 +386,7 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
                   )}
                 </div>
 
-                {r.buy_link && (
+                {r.buy_link ? (
                   <a
                     href={r.buy_link}
                     target="_blank"
@@ -398,6 +398,10 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
                     <ExternalLink className="w-3.5 h-3.5" />
                     {isBest ? `Best Deal at ${r.name}` : `Buy at ${r.name}`}
                   </a>
+                ) : (
+                  <span className="mt-3 inline-flex items-center gap-1.5 text-xs px-4 py-2 rounded-xl font-medium bg-secondary text-muted-foreground">
+                    Check in store
+                  </span>
                 )}
               </motion.div>
             );

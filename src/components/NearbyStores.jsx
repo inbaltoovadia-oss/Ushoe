@@ -326,18 +326,24 @@ function StoreRow({ store, index, city }) {
 
         <p className="text-xs text-muted-foreground truncate mt-0.5">{store.address}</p>
 
-        <div className="flex gap-2 mt-2">
-          <a
-            href={store.maps_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg hover:opacity-90 transition-opacity ${
-              hasLocalDeal ? "bg-green-500 text-white" : isBest ? "bg-amber-500 text-white" : "bg-primary text-primary-foreground"
-            }`}
-          >
-            <Navigation className="w-3 h-3" />
-            {hasLocalDeal ? "Get Deal" : isBest ? "Go Now" : "Maps"}
-          </a>
+        <div className="flex gap-2 mt-2 flex-wrap">
+          {store.maps_url ? (
+            <a
+              href={store.maps_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg hover:opacity-90 transition-opacity ${
+                hasLocalDeal ? "bg-green-500 text-white" : isBest ? "bg-amber-500 text-white" : "bg-primary text-primary-foreground"
+              }`}
+            >
+              <Navigation className="w-3 h-3" />
+              {hasLocalDeal ? "Get Deal" : isBest ? "Go Now" : "Maps"}
+            </a>
+          ) : (
+            <span className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-secondary text-muted-foreground">
+              Check in store
+            </span>
+          )}
           {store.phone && (
             <a href={`tel:${store.phone}`} className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors">
               <Phone className="w-3 h-3" />

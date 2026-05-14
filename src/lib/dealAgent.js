@@ -30,7 +30,7 @@ STRICT RULES:
 - Exclude expired promotions or stores that don't serve ${city}
 - Attach a confidence level: "high" (official site confirmed), "medium" (retailer confirmed), "low" (estimate)
 - If a deal is better than catalog price, flag it as deal_confirmed: true
-- Return buy_link as a real retailer URL (product page or search page)
+- buy_link MUST be a real, working URL from the official retailer or brand website (e.g. https://www.nike.com/...). Use the actual product page URL if found, otherwise use the retailer's search URL for this shoe. NEVER fabricate a URL — if you cannot find a real URL for this retailer, omit the buy_link field entirely.
 - Set ships_to_location: false for any retailer that does NOT ship to the user's location
 
 For each retailer return:
@@ -47,7 +47,7 @@ For each retailer return:
 - confidence: "high" | "medium" | "low"
 - deal_confirmed: boolean
 - ships_to_location: boolean
-- buy_link: string
+- buy_link: string (REAL URL only — omit if not found, do not fabricate)
 - is_best_deal: boolean (mark only ONE as true)
 - is_time_limited: boolean
 
