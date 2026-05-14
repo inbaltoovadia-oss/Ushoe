@@ -102,6 +102,15 @@ export function setCachedTrends(city, data) {
   writeCache(cacheKey("trends", "global", city), data);
 }
 
+// ── Clear All ────────────────────────────────────────────────────────────
+export function clearAllAgentCache() {
+  try {
+    Object.keys(localStorage)
+      .filter(k => k.startsWith(PREFIX))
+      .forEach(k => localStorage.removeItem(k));
+  } catch (_) {}
+}
+
 // ── Deal Indicator (per card) ─────────────────────────────────────────────
 export function getCachedIndicator(shoeId, city) {
   return readCache("indicator", cacheKey("indicator", shoeId, city));

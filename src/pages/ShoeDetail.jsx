@@ -27,6 +27,13 @@ import SimilarAlternatives from "../components/SimilarAlternatives";
 import MatchScoreBadge from "../components/MatchScoreBadge";
 import CollectionsManager from "../components/CollectionsManager";
 import { AnimatePresence as AP } from "framer-motion";
+import { clearAllAgentCache } from "../lib/agentCache";
+
+// One-time bust of old cached agent results (runs once per session)
+if (!sessionStorage.getItem("ushoe_cache_v2")) {
+  clearAllAgentCache();
+  sessionStorage.setItem("ushoe_cache_v2", "1");
+}
 
 const TRUST_BADGES = [
   { icon: ShieldCheck, label: "Verified Catalog" },

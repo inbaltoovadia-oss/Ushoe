@@ -12,7 +12,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { getLocation } from "../lib/locationStore";
 import { runDealAgent } from "../lib/dealAgent";
 import { runInventoryAgent } from "../lib/inventoryAgent";
-import { runShippingAgent, mergeShippingValidation } from "../lib/shippingAgent";
 import AuthenticityBadge from "./AuthenticityBadge";
 import DeliveryConfidenceBadges from "./DeliveryConfidenceBadges";
 
@@ -96,14 +95,14 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
   const [retailers, setRetailers]       = useState([]);
   const [dealSummary, setDealSummary]   = useState("");
   const [stockSummary, setStockSummary] = useState("");
-  const [shippingSummary, setShippingSummary] = useState("");
+  const [shippingSummary] = useState("");
   const [bestPrice, setBestPrice]       = useState(null);
   const [hasDeals, setHasDeals]         = useState(false);
   const [loading, setLoading]           = useState(false);
   const [started, setStarted]           = useState(false);
   const [dealsDone, setDealsDone]       = useState(false);
   const [stockDone, setStockDone]       = useState(false);
-  const [shippingDone, setShippingDone] = useState(false);
+  const [shippingDone] = useState(true);
   const loc = getLocation();
 
   // Reset when shoe changes so user can re-trigger
@@ -112,10 +111,8 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
     setRetailers([]);
     setDealsDone(false);
     setStockDone(false);
-    setShippingDone(false);
     setDealSummary("");
     setStockSummary("");
-    setShippingSummary("");
   }, [shoe?.id]);
 
   const load = async () => {
@@ -123,14 +120,11 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
     setRetailers([]);
     setDealsDone(false);
     setStockDone(false);
-    setShippingDone(false);
     setDealSummary("");
     setStockSummary("");
-    setShippingSummary("");
 
     let dealResult = null;
     let stockResult = null;
-    let shippingResult = null;
 
     const dealPromise = runDealAgent({ shoe: { ...shoe, _country: loc.country }, city: loc.city, size: selectedSize, color: selectedColor })
       .then(r => {
@@ -150,25 +144,7 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
         setRetailers(mergeResults(dealResult, stockResult));
       });
 
-    // Run shipping validation after deals/stock initiate (needs retailer list)
-    const shippingPromise = Promise.allSettled([dealPromise, stockPromise]).then(async () => {
-      const allRetailers = [
-        ...(dealResult?.retailers || []),
-        ...(stockResult?.online_stores || []).map(s => ({ retailer_name: s.name })),
-      ];
-      shippingResult = await runShippingAgent({
-        shoe, country: loc.country, city: loc.city, retailers: allRetailers,
-      });
-      setShippingSummary(shippingResult.summary);
-      setShippingDone(true);
-
-      // Re-merge with shipping validation applied
-      const merged = mergeResults(dealResult, stockResult);
-      const validated = mergeShippingValidation(merged, shippingResult);
-      setRetailers(validated.length > 0 ? validated : merged);
-    });
-
-    await Promise.allSettled([dealPromise, stockPromise, shippingPromise]);
+    await Promise.allSettled([dealPromise, stockPromise]);
     setLoading(false);
   };
 
@@ -225,9 +201,8 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
       {/* Agent status pills */}
       <div className="flex flex-wrap gap-2 mb-4">
         {[
-          { done: dealsDone,     icon: Tag,         label: "Deal Agent" },
-          { done: stockDone,     icon: CheckCircle, label: "Inventory Agent" },
-          { done: shippingDone,  icon: ShieldCheck, label: "Shipping Validator" },
+          { done: dealsDone, icon: Tag,         label: "Deal Agent" },
+          { done: stockDone, icon: CheckCircle, label: "Inventory Agent" },
         ].map(({ done, icon: Icon, label }) => (
           <div key={label} className={`flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-full font-medium ${
             done ? "bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400" : "bg-secondary text-muted-foreground"
