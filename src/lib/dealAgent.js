@@ -16,9 +16,10 @@ export async function runDealAgent({ shoe, city, size = null, color = null }) {
   const retailerList = retailers.map(r => `- ${r.name} (${r.domain})`).join("\n");
 
   const res = await base44.integrations.Core.InvokeLLM({
-    prompt: `You are a shoe deal research agent. Search for current prices and active deals for this shoe.
+    prompt: `You are a shoe deal research agent. Search for current prices and deals for this shoe.
 
 SHOE: ${shoe.brand} ${shoe.name}${shoe.colorway ? ` (${shoe.colorway})` : ""}
+BRAND: ${shoe.brand}
 CATALOG PRICE: $${shoe.price}
 USER LOCATION: ${city}, ${country}
 ${size ? `SIZE: ${size}` : ""}
@@ -26,7 +27,11 @@ ${size ? `SIZE: ${size}` : ""}
 THESE ARE THE ONLY RETAILERS TO CHECK (they all serve ${country}):
 ${retailerList}
 
-For each retailer, search their website NOW and return:
+CRITICAL: For each retailer, actually search their website for "${shoe.brand} ${shoe.name}".
+- If a retailer does NOT carry ${shoe.brand} products, set deal_price to null and confidence to "low".
+- Do NOT assume a retailer sells a brand just because it's a shoe store. Verify it.
+
+For each retailer that DOES carry this shoe, return:
 - retailer_name: exact name from the list above
 - deal_price: current selling price in local currency (convert to USD if needed), or null if not found
 - original_price: original price if on sale, or null

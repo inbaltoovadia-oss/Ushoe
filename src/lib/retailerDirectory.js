@@ -96,18 +96,45 @@ function buildSearchUrl(retailer, shoeName, brand) {
   return retailer.domain + retailer.searchPath.replace("{query}", query);
 }
 
+// Known competitor brand pairs — if shoe is brand A, exclude brand B's dedicated stores
+const BRAND_EXCLUSIONS = {
+  "nike":    ["adidas", "puma", "reebok", "new balance", "converse owned by nike is ok"],
+  "adidas":  ["nike", "puma", "reebok"],
+  "puma":    ["nike", "adidas", "reebok"],
+  "reebok":  ["nike", "adidas", "puma"],
+  "jordan":  ["adidas", "puma", "reebok"],
+  "new balance": ["nike", "adidas", "puma"],
+  "converse": ["adidas", "puma", "reebok"],
+  "vans":    ["nike", "adidas", "puma"],
+  "skechers":["nike", "adidas", "puma"],
+};
+
 /**
  * Returns a list of retailers with real URLs for the given country.
- * Optionally filters to prefer retailers that carry the shoe's brand.
+ * Filters out dedicated competitor brand stores (e.g. won't show Adidas store for a Nike shoe).
  */
 export function getRetailersForCountry(country, shoeName, brand) {
   const code = getCountryCode(country);
   const list = RETAILER_BY_REGION[code] || RETAILER_BY_REGION["DEFAULT"];
+  const brandLower = (brand || "").toLowerCase();
+
+  // Get which competitor brands to exclude
+  const excludedBrands = BRAND_EXCLUSIONS[brandLower] || [];
+
+  // Filter: remove retailers whose brands array contains ONLY a competing brand
+  const filtered = list.filter(r => {
+    if (r.brands.length === 0) return true; // multi-brand retailer, always include
+    // If this retailer is dedicated to a competitor brand, exclude it
+    const isCompetitor = r.brands.some(b =>
+      excludedBrands.some(ex => b.toLowerCase().includes(ex))
+    );
+    return !isCompetitor;
+  });
 
   // Sort: brand-specific retailers first
-  const sorted = [...list].sort((a, b) => {
-    const aMatch = a.brands.includes(brand) ? -1 : 0;
-    const bMatch = b.brands.includes(brand) ? -1 : 0;
+  const sorted = [...filtered].sort((a, b) => {
+    const aMatch = a.brands.some(b => b.toLowerCase() === brandLower) ? -1 : 0;
+    const bMatch = b.brands.some(b => b.toLowerCase() === brandLower) ? -1 : 0;
     return aMatch - bMatch;
   });
 
