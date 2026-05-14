@@ -24,15 +24,16 @@ import ShoeStaticInsights from "../components/ShoeStaticInsights";
 import PriceHistoryCard from "../components/PriceHistoryCard";
 import SizeConfidenceNote from "../components/SizeConfidenceNote";
 import SimilarAlternatives from "../components/SimilarAlternatives";
+import AlternativeStyles from "../components/AlternativeStyles";
 import MatchScoreBadge from "../components/MatchScoreBadge";
 import CollectionsManager from "../components/CollectionsManager";
 import { AnimatePresence as AP } from "framer-motion";
 import { clearAllAgentCache } from "../lib/agentCache";
 
 // One-time bust of old cached agent results (runs once per session)
-if (!sessionStorage.getItem("ushoe_cache_v3")) {
+if (!sessionStorage.getItem("ushoe_cache_v4")) {
   clearAllAgentCache();
-  sessionStorage.setItem("ushoe_cache_v3", "1");
+  sessionStorage.setItem("ushoe_cache_v4", "1");
 }
 
 const TRUST_BADGES = [
@@ -400,12 +401,22 @@ export default function ShoeDetail() {
           </motion.div>
         </div>
 
-        {/* ── Similar Alternatives ── */}
+        {/* ── Alternative Styles (AI colorways + similar) ── */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
           className="mt-10"
+        >
+          <AlternativeStyles shoe={shoe} />
+        </motion.div>
+
+        {/* ── Similar Alternatives (price/trend tabs) ── */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25 }}
+          className="mt-6"
         >
           <SimilarAlternatives shoe={shoe} />
         </motion.div>

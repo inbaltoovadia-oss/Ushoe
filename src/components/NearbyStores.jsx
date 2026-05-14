@@ -84,42 +84,26 @@ export default function NearbyStores({
       shoe: { ...shoe, _country: location.country }, city: location.city, size: selectedSize, color: selectedColor,
     }).then(r => {
       inventoryResult = r;
-      setSummary(r.summary || `Showing stores near ${location.city} that may carry ${shoe.name}.`);
+      setSummary(r.summary || "");
       setInventoryDone(true);
-      const nearby = r.nearby_stores || [];
-      // If agent returned no stores, build fallback generic store list
-      const storeList = nearby.length > 0 ? nearby : buildFallbackStores(shoe, location.city);
-      const mapped = storeList.slice(0, maxCount).map((s, idx) => ({
-        id:           `inv_${s.name}_${idx}`,
-        name:         s.name,
-        address:      s.address || `${location.city}`,
-        distance_km:  s.distance_km || null,
-        phone:        s.phone || "",
-        stock_status: s.stock_status || "Check in store",
-        price:        s.price || null,
-        maps_url:     `https://www.google.com/maps/search/${encodeURIComponent(`${s.name} shoes ${location.city}`)}`,
+      const nearby = (r.nearby_stores || []).slice(0, maxCount);
+      const mapped = nearby.map((s, idx) => ({
+        id:             `inv_${s.name}_${idx}`,
+        name:           s.name,
+        address:        s.address || "",
+        distance_km:    s.distance_km || null,
+        phone:          s.phone || "",
+        stock_status:   s.stock_status || "Check in store",
+        price:          s.price || null,
+        maps_url:       s.maps_url || `https://www.google.com/maps/search/${encodeURIComponent(`${s.name} ${s.address || location.city}`)}`,
         is_best_option: false,
         has_local_deal: false,
         local_deal_info: null,
       }));
       setStores(dealResult ? rankStores(mapped, dealResult.retailers) : mapped);
     }).catch(() => {
-      // Agent unavailable — show fallback stores
       setInventoryDone(true);
-      const fallback = buildFallbackStores(shoe, location.city).slice(0, maxCount).map((s, idx) => ({
-        id: `fb_${idx}`,
-        name: s.name,
-        address: s.address || location.city,
-        distance_km: null,
-        phone: "",
-        stock_status: "Check in store",
-        maps_url: `https://www.google.com/maps/search/${encodeURIComponent(`${s.name} shoes ${location.city}`)}`,
-        is_best_option: idx === 0,
-        has_local_deal: false,
-        local_deal_info: null,
-      }));
-      setSummary(`Find ${shoe.name} at these major retailers near ${location.city}. Call ahead to confirm availability.`);
-      setStores(fallback);
+      setSummary("");
     });
 
     const dealPromise = runDealAgent({
@@ -136,26 +120,6 @@ export default function NearbyStores({
 
     await Promise.allSettled([inventoryPromise, dealPromise]);
     setLoading(false);
-  };
-
-  // Fallback: return major shoe retailers for any city
-  const buildFallbackStores = (shoe, city) => {
-    const retailers = [
-      { name: "Foot Locker", address: city },
-      { name: "Nike Store", address: city },
-      { name: "Adidas Store", address: city },
-      { name: "DSW Shoe Warehouse", address: city },
-      { name: "JD Sports", address: city },
-      { name: "Finish Line", address: city },
-    ];
-    // Filter to likely carry the shoe's brand
-    const brand = (shoe?.brand || "").toLowerCase();
-    const prioritized = retailers.sort((a, b) => {
-      const aMatch = a.name.toLowerCase().includes(brand) ? -1 : 0;
-      const bMatch = b.name.toLowerCase().includes(brand) ? -1 : 0;
-      return aMatch - bMatch;
-    });
-    return prioritized;
   };
 
   // Not yet started — show prompt
@@ -233,7 +197,20 @@ export default function NearbyStores({
           <div className="space-y-3">
             {stores.map((store, i) => <StoreRow key={store.id || i} store={store} index={i} city={loc.city} />)}
             {stores.length === 0 && !loading && (
-              <p className="text-sm text-muted-foreground py-4">No stores found near {loc.city}.</p>
+              <div className="py-6 text-center">
+                <MapPin className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
+                <p className="text-sm font-medium text-foreground">No confirmed stores found near {loc.city}</p>
+                <p className="text-xs text-muted-foreground mt-1">The agent couldn't verify physical {shoe?.brand} stores with this shoe in stock near you.</p>
+                <a
+                  href={`https://www.google.com/maps/search/${encodeURIComponent(`${shoe?.brand} store ${loc.city}`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-3 inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
+                >
+                  <MapPin className="w-3 h-3" />
+                  Search on Google Maps
+                </a>
+              </div>
             )}
           </div>
         </AnimatePresence>

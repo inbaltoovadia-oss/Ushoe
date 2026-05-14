@@ -16,36 +16,33 @@ export async function runInventoryAgent({ shoe, city, size = null, color = null 
   const retailerList = retailers.map(r => `- ${r.name} (${r.domain})`).join("\n");
 
   const res = await base44.integrations.Core.InvokeLLM({
-    prompt: `You are a shoe stock agent. Check availability for this specific shoe.
+    prompt: `You are a shoe inventory agent. Check real-time availability for this exact shoe.
 
 SHOE: ${shoe.brand} ${shoe.name}${shoe.colorway ? ` (${shoe.colorway})` : ""}
 BRAND: ${shoe.brand}
 USER LOCATION: ${city}, ${country}
 ${size ? `SIZE: ${size}` : ""}
 
-ONLINE RETAILERS TO CHECK (all serve ${country}):
+ONLINE RETAILERS TO CHECK:
 ${retailerList}
 
-CRITICAL RULES:
-1. Only check the retailers listed above. Do NOT add other retailers.
-2. For each retailer, actually visit their website and search for "${shoe.brand} ${shoe.name}" to verify they carry it.
-3. If a retailer does NOT sell ${shoe.brand} products (e.g. an Adidas store won't have Nike shoes), set stock_status to "Out of stock" and do NOT mark it as available.
-4. For nearby physical stores: ONLY include stores that would realistically stock ${shoe.brand} products near ${city} (e.g. the brand's own stores, or multi-brand retailers like Foot Locker, JD Sports, department stores). Do NOT include a competitor brand's store.
+CRITICAL INSTRUCTIONS:
+1. Search each retailer's website NOW for "${shoe.brand} ${shoe.name}".
+2. Set found_on_site: true ONLY if this exact shoe is listed on their site.
+3. NEVER include a retailer that doesn't carry this brand (e.g. Adidas site won't have Nike shoes).
+4. For nearby physical stores: ONLY list stores that physically exist near ${city} AND carry ${shoe.brand}. Use real street addresses. No generic city names.
 
-Return:
-- overall_status: "in_stock" | "limited_stock" | "out_of_stock" | "unknown"
-- available_sizes: confirmed US sizes in stock across all retailers
-- estimated_delivery: estimated delivery to ${city}
-- online_stores: for each retailer above: { name, stock_status, sizes_available }
+Return ONLY for online retailers where you confirmed the shoe is listed:
+- online_stores: [{ name, found_on_site (bool), stock_status, sizes_available }]
   - stock_status: "In stock" | "Limited stock" | "Out of stock" | "Check in store"
-  - Use "Out of stock" if the retailer doesn't carry this brand at all
-  - Use "Check in store" only if unclear from online data
-- nearby_stores: up to 4 REAL physical stores near ${city} that STOCK ${shoe.brand} products, with actual street addresses.
-  For each: { name, address, distance_km, stock_status, phone }
-  ONLY include stores you can confirm physically exist near ${city} AND would carry ${shoe.brand}.
-  Set stock_status to "Check in store" if stock level is unknown but store likely carries the brand.
-  Return empty array if you cannot find confirmed physical stores.
-- summary: one sentence about where to buy ${shoe.brand} ${shoe.name} near ${city}`,
+  - Only include entries where found_on_site is true
+- nearby_stores: up to 4 real physical stores near ${city} confirmed to carry ${shoe.brand}.
+  [{ name, address (real street address), distance_km, stock_status, phone }]
+  Return [] if no confirmed stores found.
+- overall_status: "in_stock" | "limited_stock" | "out_of_stock" | "unknown"
+- available_sizes: confirmed US sizes in stock
+- estimated_delivery: estimated shipping time to ${city}
+- summary: one line about where to find ${shoe.brand} ${shoe.name} near ${city}`,
     add_context_from_internet: true,
     response_json_schema: {
       type: "object",
@@ -86,38 +83,31 @@ Return:
   const retailerMap = {};
   retailers.forEach(r => { retailerMap[r.name.toLowerCase()] = r; });
 
-  const onlineStores = (res.online_stores || []).map(s => {
+  // Only keep online stores the LLM confirmed carry this shoe
+  const confirmedOnline = (res.online_stores || []).filter(s => s.found_on_site !== false);
+
+  const onlineStores = confirmedOnline.map(s => {
     const key = (s.name || "").toLowerCase();
     const dirEntry = retailerMap[key]
       || Object.values(retailerMap).find(d => key.includes(d.name.toLowerCase().split(" ")[0]));
+    if (!dirEntry) return null;
     return {
-      name:            s.name,
-      stock_status:    s.stock_status || "Check in store",
-      sizes_available: s.sizes_available || [],
+      name:              s.name,
+      stock_status:      s.stock_status || "Check in store",
+      sizes_available:   s.sizes_available || [],
       ships_to_location: true,
-      url:             dirEntry?.url || null,
+      url:               dirEntry.url,
     };
-  });
+  }).filter(Boolean);
 
-  // Add any directory retailers the LLM didn't mention
-  const mentionedOnline = new Set(onlineStores.map(s => s.name?.toLowerCase()));
-  retailers.forEach(r => {
-    if (!mentionedOnline.has(r.name.toLowerCase())) {
-      onlineStores.push({
-        name:            r.name,
-        stock_status:    "Check in store",
-        sizes_available: [],
-        ships_to_location: true,
-        url:             r.url,
-      });
-    }
-  });
-
-  const nearbyStores = (res.nearby_stores || []).map(s => ({
-    ...s,
-    stock_status: s.stock_status || "Check in store",
-    maps_url: `https://www.google.com/maps/search/${encodeURIComponent(`${s.name} ${city}`)}`,
-  }));
+  // Only include nearby stores with real addresses (not generic city names)
+  const nearbyStores = (res.nearby_stores || [])
+    .filter(s => s.name && s.address && s.address.toLowerCase() !== city.toLowerCase())
+    .map(s => ({
+      ...s,
+      stock_status: s.stock_status || "Check in store",
+      maps_url: `https://www.google.com/maps/search/${encodeURIComponent(`${s.name} ${s.address}`)}`,
+    }));
 
   const result = {
     overall_status:     res.overall_status || "unknown",
