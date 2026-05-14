@@ -55,6 +55,7 @@ export default function NearbyStores({
   const [inventoryDone, setInventoryDone] = useState(false);
   const [dealsDone, setDealsDone]     = useState(false);
   const [loc, setLoc]                 = useState(getLocation());
+  const [maxDistance, setMaxDistance] = useState(20);
 
   useEffect(() => {
     // Reset on shoe change so user can re-trigger
@@ -122,12 +123,31 @@ export default function NearbyStores({
     setLoading(false);
   };
 
+  const DISTANCE_OPTIONS = [5, 10, 20, 50, 100];
+  const filteredStores = stores.filter(s => !s.distance_km || s.distance_km <= maxDistance);
+
   // Not yet started — show prompt
   if (!started) {
     return (
       <div className="flex flex-col items-center justify-center py-8 gap-3">
         <MapPin className="w-8 h-8 text-muted-foreground/30" />
         <p className="text-sm text-muted-foreground text-center">Find stores carrying this shoe near {loc.city}</p>
+        <div className="flex items-center gap-2 flex-wrap justify-center">
+          <span className="text-xs text-muted-foreground">Max distance:</span>
+          {DISTANCE_OPTIONS.map(d => (
+            <button
+              key={d}
+              onClick={() => setMaxDistance(d)}
+              className={`text-xs px-3 py-1.5 rounded-full font-medium transition-all ${
+                maxDistance === d
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-secondary text-muted-foreground hover:bg-secondary/70"
+              }`}
+            >
+              {d} km
+            </button>
+          ))}
+        </div>
         <button
           onClick={() => { setStarted(true); loadAll(loc); }}
           className="flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity"
@@ -141,10 +161,26 @@ export default function NearbyStores({
 
   return (
     <div>
-      <div className="flex items-center gap-2 mb-3">
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
         <MapPin className="w-4 h-4 text-primary" />
         <h3 className="font-heading font-semibold text-lg">{title}</h3>
         <span className="text-xs text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">near {loc.city}</span>
+        <div className="ml-auto flex items-center gap-1.5 flex-wrap">
+          <span className="text-[10px] text-muted-foreground">Max:</span>
+          {DISTANCE_OPTIONS.map(d => (
+            <button
+              key={d}
+              onClick={() => setMaxDistance(d)}
+              className={`text-[10px] px-2 py-0.5 rounded-full font-medium transition-all ${
+                maxDistance === d
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-secondary text-muted-foreground hover:bg-secondary/70"
+              }`}
+            >
+              {d}km
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Agent status */}
@@ -195,8 +231,8 @@ export default function NearbyStores({
       ) : (
         <AnimatePresence>
           <div className="space-y-3">
-            {stores.map((store, i) => <StoreRow key={store.id || i} store={store} index={i} city={loc.city} />)}
-            {stores.length === 0 && !loading && (
+            {filteredStores.map((store, i) => <StoreRow key={store.id || i} store={store} index={i} city={loc.city} />)}
+            {filteredStores.length === 0 && !loading && (
               <div className="py-6 text-center">
                 <MapPin className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
                 <p className="text-sm font-medium text-foreground">No confirmed stores found near {loc.city}</p>

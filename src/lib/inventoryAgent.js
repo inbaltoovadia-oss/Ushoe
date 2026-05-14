@@ -26,19 +26,17 @@ ${size ? `SIZE: ${size}` : ""}
 ONLINE RETAILERS TO CHECK:
 ${retailerList}
 
-CRITICAL INSTRUCTIONS:
-1. Search each retailer's website NOW for "${shoe.brand} ${shoe.name}".
-2. Set found_on_site: true ONLY if this exact shoe is listed on their site.
-3. NEVER include a retailer that doesn't carry this brand (e.g. Adidas site won't have Nike shoes).
-4. For nearby physical stores: ONLY list stores that physically exist near ${city} AND carry ${shoe.brand}. Use real street addresses. No generic city names.
+INSTRUCTIONS:
+1. Search for "${shoe.brand} ${shoe.name}" across the retailers listed above.
+2. Include a retailer in online_stores if it likely carries this brand/shoe (use your knowledge of what retailers stock which brands).
+3. For stock_status, use your best knowledge — default to "Check in store" if unsure.
+4. For nearby physical stores: list real shoe stores near ${city} that are known to carry ${shoe.brand}. Use real store names and real street addresses. Prefer brand flagship stores and large multi-brand retailers (Foot Locker, JD Sports, etc). Include up to 6 stores.
 
-Return ONLY for online retailers where you confirmed the shoe is listed:
-- online_stores: [{ name, found_on_site (bool), stock_status, sizes_available }]
+Return:
+- online_stores: [{ name, stock_status, sizes_available }]
   - stock_status: "In stock" | "Limited stock" | "Out of stock" | "Check in store"
-  - Only include entries where found_on_site is true
-- nearby_stores: up to 4 real physical stores near ${city} confirmed to carry ${shoe.brand}.
+- nearby_stores: up to 6 physical stores near ${city} that carry ${shoe.brand}.
   [{ name, address (real street address), distance_km, stock_status, phone }]
-  Return [] if no confirmed stores found.
 - overall_status: "in_stock" | "limited_stock" | "out_of_stock" | "unknown"
 - available_sizes: confirmed US sizes in stock
 - estimated_delivery: estimated shipping time to ${city}
@@ -83,22 +81,19 @@ Return ONLY for online retailers where you confirmed the shoe is listed:
   const retailerMap = {};
   retailers.forEach(r => { retailerMap[r.name.toLowerCase()] = r; });
 
-  // Only keep online stores the LLM confirmed carry this shoe
-  const confirmedOnline = (res.online_stores || []).filter(s => s.found_on_site !== false);
-
-  const onlineStores = confirmedOnline.map(s => {
+  const onlineStores = (res.online_stores || []).map(s => {
     const key = (s.name || "").toLowerCase();
     const dirEntry = retailerMap[key]
-      || Object.values(retailerMap).find(d => key.includes(d.name.toLowerCase().split(" ")[0]));
-    if (!dirEntry) return null;
+      || Object.values(retailerMap).find(d => key.includes(d.name.toLowerCase().split(" ")[0]))
+      || Object.values(retailerMap).find(d => d.name.toLowerCase().split(" ")[0] && key.includes(d.name.toLowerCase().split(" ")[0]));
     return {
       name:              s.name,
       stock_status:      s.stock_status || "Check in store",
       sizes_available:   s.sizes_available || [],
       ships_to_location: true,
-      url:               dirEntry.url,
+      url:               dirEntry?.url || null,
     };
-  }).filter(Boolean);
+  }).filter(s => s.name);
 
   // Only include nearby stores with real addresses (not generic city names)
   const nearbyStores = (res.nearby_stores || [])
