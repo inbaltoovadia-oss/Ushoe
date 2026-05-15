@@ -126,7 +126,9 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
     let dealResult = null;
     let stockResult = null;
 
-    const dealPromise = runDealAgent({ shoe: { ...shoe, _country: loc.country }, city: loc.city, size: selectedSize, color: selectedColor })
+    const agentArgs = { shoe: { ...shoe, _country: loc.country, _countryCode: loc.countryCode }, city: loc.city, size: selectedSize, color: selectedColor, countryCode: loc.countryCode };
+
+    const dealPromise = runDealAgent(agentArgs)
       .then(r => {
         dealResult = r;
         setDealSummary(r.summary);
@@ -136,7 +138,7 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
         setRetailers(mergeResults(dealResult, stockResult));
       });
 
-    const stockPromise = runInventoryAgent({ shoe: { ...shoe, _country: loc.country }, city: loc.city, size: selectedSize, color: selectedColor })
+    const stockPromise = runInventoryAgent(agentArgs)
       .then(r => {
         stockResult = r;
         setStockSummary(r.summary);

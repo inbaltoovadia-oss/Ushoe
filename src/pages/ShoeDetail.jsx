@@ -31,9 +31,9 @@ import { AnimatePresence as AP } from "framer-motion";
 import { clearAllAgentCache } from "../lib/agentCache";
 
 // One-time bust of old cached agent results (runs once per session)
-if (!sessionStorage.getItem("ushoe_cache_v4")) {
+if (!sessionStorage.getItem("ushoe_cache_v5")) {
   clearAllAgentCache();
-  sessionStorage.setItem("ushoe_cache_v4", "1");
+  sessionStorage.setItem("ushoe_cache_v5", "1");
 }
 
 const TRUST_BADGES = [

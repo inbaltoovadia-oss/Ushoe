@@ -1,62 +1,63 @@
 /**
  * DEAL SEARCH AGENT
- * Uses real retailer directory for URLs, LLM for pricing/deal intelligence.
+ * Uses gemini_3_flash (the only model that supports add_context_from_internet)
+ * to do real live web searches for the best current prices.
  */
 
 import { base44 } from "@/api/base44Client";
 import { getCachedDeals, setCachedDeals } from "./agentCache";
 import { getRetailersForCountry } from "./retailerDirectory";
 
-export async function runDealAgent({ shoe, city, size = null, color = null }) {
+export async function runDealAgent({ shoe, city, size = null, color = null, countryCode = "" }) {
   const cached = getCachedDeals(shoe.id, city, size, color);
   if (cached) return cached;
 
-  const country = shoe._country || "";
-  const retailers = getRetailersForCountry(country, shoe.name, shoe.brand);
-  const retailerList = retailers.map(r => `- ${r.name} (${r.domain})`).join("\n");
+  const country = shoe._country || "United States";
+  const code = countryCode || shoe._countryCode || "US";
+  const retailers = getRetailersForCountry(code, shoe.name, shoe.brand);
+  const retailerList = retailers.map(r => `- ${r.name}: ${r.url}`).join("\n");
 
   const res = await base44.integrations.Core.InvokeLLM({
-    prompt: `You are a shoe deal research agent. Search the web NOW for current prices for this exact shoe.
+    model: "gemini_3_flash",
+    add_context_from_internet: true,
+    prompt: `You are a shoe deal finder. Search the web RIGHT NOW for the best current prices for this shoe.
 
-SHOE: ${shoe.brand} ${shoe.name}${shoe.colorway ? ` (${shoe.colorway})` : ""}
-BRAND: ${shoe.brand}
+SHOE: "${shoe.brand} ${shoe.name}"${shoe.colorway ? ` colorway: ${shoe.colorway}` : ""}
 CATALOG PRICE: $${shoe.price}
 USER LOCATION: ${city}, ${country}
-${size ? `SIZE: ${size}` : ""}
+${size ? `SIZE: US ${size}` : ""}
 
-VERIFIED MULTI-BRAND RESELLERS TO CHECK (these are authorised shoe retailers, not brand stores):
+Search these verified multi-brand resellers for LIVE prices:
 ${retailerList}
 
-INSTRUCTIONS:
-1. For each reseller above, search their website NOW for "${shoe.brand} ${shoe.name}" using live web search (e.g. search "site:footlocker.com ${shoe.brand} ${shoe.name}").
-2. Set found_on_site: true ONLY if a real matching product listing for this exact shoe appears on that retailer's site. Set found_on_site: false if no matching listing is found.
-3. OMIT any retailer where found_on_site is false — do not include them in results at all.
-4. Price must come from the actual listing found, not estimated or assumed.
+Also search: "${shoe.brand} ${shoe.name} best price 2025" and "${shoe.brand} ${shoe.name} sale discount"
 
-For EACH retailer where you found a real matching listing for this shoe:
-- retailer_name: exact name from the list above
-- found_on_site: true (ONLY include retailers where this is true)
-- deal_price: current selling price in USD (convert if needed)
-- original_price: original/crossed-out price if on sale, or null
-- discount_pct: discount percentage, 0 if none
-- discount_value: dollar amount saved, 0 if none
-- shipping_free: boolean
-- coupon_code: active coupon code or null
-- deal_type: "sale" | "coupon" | "clearance" | "regular"
-- confidence: "high" if you found the exact product page, "medium" if found via search
-- deal_confirmed: true only if price is below $${shoe.price}
-- is_best_deal: true for the single best value
-- is_time_limited: boolean
+For each retailer where you find this shoe listed with a real price, return:
+- retailer_name: store name
+- deal_price: current price in USD (number)
+- original_price: crossed-out/was price if on sale, null otherwise
+- discount_pct: percentage off (0 if no sale)
+- shipping_free: true/false
+- coupon_code: any active promo code found, or null
+- deal_type: "sale" | "clearance" | "coupon" | "regular"
+- confidence: "high" if you found the exact product page, "medium" if via search result snippet
+- deal_confirmed: true if price < $${shoe.price}
+- is_best_deal: true for the single cheapest option found
+- buy_link: the direct URL to buy this shoe
 
 Also return:
-- summary: one sentence about the best deal found
-- best_price_found: the lowest price found as a number, or null
-- has_active_deals: true if any price is below $${shoe.price}`,
-    add_context_from_internet: true,
+- summary: one sentence naming the best deal found with price and retailer
+- best_price_found: the lowest price number found (or null)
+- has_active_deals: true if any price is below $${shoe.price}
+
+RULES:
+- Only include retailers with REAL prices you actually found via web search
+- Do NOT guess or estimate prices — only confirmed prices from real listings
+- Do NOT include brand-owned stores (no Nike.com, no Adidas.com)`,
     response_json_schema: {
       type: "object",
       properties: {
-        summary: { type: "string" },
+        summary:          { type: "string" },
         best_price_found: { type: "number" },
         has_active_deals: { type: "boolean" },
         retailers: {
@@ -64,19 +65,17 @@ Also return:
           items: {
             type: "object",
             properties: {
-              retailer_name:      { type: "string" },
-              found_on_site:      { type: "boolean" },
-              deal_price:         { type: "number" },
-              original_price:     { type: "number" },
-              discount_pct:       { type: "number" },
-              discount_value:     { type: "number" },
-              shipping_free:      { type: "boolean" },
-              coupon_code:        { type: "string" },
-              deal_type:          { type: "string" },
-              confidence:         { type: "string" },
-              deal_confirmed:     { type: "boolean" },
-              is_best_deal:       { type: "boolean" },
-              is_time_limited:    { type: "boolean" },
+              retailer_name:   { type: "string" },
+              deal_price:      { type: "number" },
+              original_price:  { type: "number" },
+              discount_pct:    { type: "number" },
+              shipping_free:   { type: "boolean" },
+              coupon_code:     { type: "string" },
+              deal_type:       { type: "string" },
+              confidence:      { type: "string" },
+              deal_confirmed:  { type: "boolean" },
+              is_best_deal:    { type: "boolean" },
+              buy_link:        { type: "string" },
             },
           },
         },
@@ -84,34 +83,32 @@ Also return:
     },
   });
 
-  // Merge LLM price data with real URLs from directory
+  // Build retailer URL map for fallback link resolution
   const retailerMap = {};
   retailers.forEach(r => { retailerMap[r.name.toLowerCase()] = r; });
 
-  const merged = (res.retailers || []).filter(r => r.found_on_site !== false).map(r => {
+  const merged = (res.retailers || []).map(r => {
     const key = (r.retailer_name || "").toLowerCase();
-    const dirEntry = retailerMap[key]
-      || Object.values(retailerMap).find(d => key.includes(d.name.toLowerCase().split(" ")[0]))
-      || Object.values(retailerMap).find(d => d.name.toLowerCase().split(" ")[0] && key.includes(d.name.toLowerCase().split(" ")[0]));
-    if (!dirEntry) return null;
-
+    const dirEntry = Object.values(retailerMap).find(d =>
+      key.includes(d.name.toLowerCase().split(" ")[0]) || d.name.toLowerCase().includes(key.split(" ")[0])
+    );
     return {
       retailer_name:   r.retailer_name,
       deal_price:      r.deal_price || null,
       original_price:  r.original_price || null,
       discount_pct:    r.discount_pct || 0,
-      discount_value:  r.discount_value || 0,
-      shipping_free:   r.shipping_free,
+      discount_value:  r.deal_price && shoe.price ? Math.max(0, shoe.price - r.deal_price) : 0,
+      shipping_free:   !!r.shipping_free,
       coupon_code:     r.coupon_code || null,
       deal_type:       r.deal_type || "regular",
       confidence:      r.confidence || "medium",
       deal_confirmed:  !!r.deal_confirmed,
       is_best_deal:    !!r.is_best_deal,
-      is_time_limited: !!r.is_time_limited,
+      is_time_limited: false,
       ships_to_location: true,
-      buy_link:        dirEntry.url,
+      buy_link:        r.buy_link || dirEntry?.url || null,
     };
-  }).filter(Boolean);
+  }).filter(r => r.retailer_name && r.deal_price);
 
   const result = {
     summary:          res.summary || "",

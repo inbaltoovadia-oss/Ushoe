@@ -81,9 +81,9 @@ export default function NearbyStores({
     let inventoryResult = null;
     let dealResult = null;
 
-    const inventoryPromise = runInventoryAgent({
-      shoe: { ...shoe, _country: location.country }, city: location.city, size: selectedSize, color: selectedColor,
-    }).then(r => {
+    const agentArgs = { shoe: { ...shoe, _country: location.country, _countryCode: location.countryCode }, city: location.city, size: selectedSize, color: selectedColor, countryCode: location.countryCode };
+
+    const inventoryPromise = runInventoryAgent(agentArgs).then(r => {
       inventoryResult = r;
       setSummary(r.summary || "");
       setInventoryDone(true);
@@ -107,9 +107,7 @@ export default function NearbyStores({
       setSummary("");
     });
 
-    const dealPromise = runDealAgent({
-      shoe: { ...shoe, _country: location.country }, city: location.city, size: selectedSize, color: selectedColor,
-    }).then(r => {
+    const dealPromise = runDealAgent(agentArgs).then(r => {
       dealResult = r;
       const hasDeal = r.has_active_deals;
       setDealSummary(hasDeal ? r.summary : "");

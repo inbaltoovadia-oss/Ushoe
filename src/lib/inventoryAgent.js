@@ -1,64 +1,77 @@
 /**
  * INVENTORY & STOCK AGENT
- * Uses real retailer directory for URLs, LLM for stock status intelligence.
+ * Uses gemini_3_flash (the only model that supports add_context_from_internet)
+ * to do real live web searches on verified multi-brand shoe resellers.
  */
 
 import { base44 } from "@/api/base44Client";
 import { getCachedStock, setCachedStock } from "./agentCache";
 import { getRetailersForCountry } from "./retailerDirectory";
 
-export async function runInventoryAgent({ shoe, city, size = null, color = null }) {
+export async function runInventoryAgent({ shoe, city, size = null, color = null, countryCode = "" }) {
   const cached = getCachedStock(shoe.id, city, size, color);
   if (cached) return cached;
 
-  const country = shoe._country || "";
-  const retailers = getRetailersForCountry(country, shoe.name, shoe.brand);
-  const retailerList = retailers.map(r => `- ${r.name} (${r.domain})`).join("\n");
+  const country = shoe._country || "United States";
+  const code = countryCode || shoe._countryCode || "US";
+  const retailers = getRetailersForCountry(code, shoe.name, shoe.brand);
+  const retailerList = retailers.map(r => `- ${r.name}: ${r.url}`).join("\n");
 
   const res = await base44.integrations.Core.InvokeLLM({
-    prompt: `You are a shoe inventory agent. Check real-time availability for this exact shoe.
+    model: "gemini_3_flash",
+    add_context_from_internet: true,
+    prompt: `You are a shoe availability research agent. Use live web search to find real stock for this shoe RIGHT NOW.
 
-SHOE: ${shoe.brand} ${shoe.name}${shoe.colorway ? ` (${shoe.colorway})` : ""}
-BRAND: ${shoe.brand}
+SHOE: "${shoe.brand} ${shoe.name}"${shoe.colorway ? ` colorway: ${shoe.colorway}` : ""}
 USER LOCATION: ${city}, ${country}
-${size ? `SIZE: ${size}` : ""}
+${size ? `REQUESTED SIZE: US ${size}` : ""}
 
-VERIFIED MULTI-BRAND RESELLERS TO CHECK (these are all authorised shoe retailers, not brand stores):
+TASK 1 — ONLINE RETAILERS:
+Search each of these verified multi-brand resellers for the shoe. Use queries like:
+"${shoe.brand} ${shoe.name} site:footlocker.com" or just search "${shoe.brand} ${shoe.name} buy" and check these sites:
 ${retailerList}
 
-INSTRUCTIONS:
-1. For each reseller above, search their website NOW for "${shoe.brand} ${shoe.name}" using live web search (e.g. search "site:footlocker.com ${shoe.brand} ${shoe.name}").
-2. Set found_on_site: true ONLY if a real matching product listing for this exact shoe appears in the search results on that retailer's site. Set found_on_site: false if no match is found.
-3. OMIT any retailer where found_on_site is false — do not include them in results.
-4. For stock_status, use what the listing shows — default to "Check in store" if not specified.
-5. For nearby physical stores: search for real Foot Locker, JD Sports, Finish Line, DSW, Champs Sports, or similar verified multi-brand shoe store locations near ${city}. Use real store names and real street addresses. Do NOT include brand-owned stores (no Nike Store, no Adidas store). Do NOT invent stores.
+For each retailer you find the shoe listed on, return:
+- name: retailer name
+- stock_status: "In stock" | "Limited stock" | "Out of stock" | "Check in store"
+- price: number (USD)
+- sizes_available: array of US sizes if shown
+- url: the direct product/search page URL you found
 
-Return:
-- online_stores: [{ name, found_on_site (boolean — only true entries), stock_status, sizes_available }]
-  - stock_status: "In stock" | "Limited stock" | "Out of stock" | "Check in store"
-- nearby_stores: up to 6 verified multi-brand shoe retailers physically near ${city}.
-  [{ name, address (real street address), distance_km, stock_status, phone }]
-- overall_status: "in_stock" | "limited_stock" | "out_of_stock" | "unknown"
-- available_sizes: confirmed US sizes in stock
-- estimated_delivery: estimated shipping time to ${city}
-- summary: one line about where to find ${shoe.brand} ${shoe.name} near ${city}`,
-    add_context_from_internet: true,
+TASK 2 — NEARBY PHYSICAL STORES:
+Search Google Maps / web for these specific store chains near ${city}:
+Foot Locker, JD Sports, Finish Line, Champs Sports, DSW, Rack Room Shoes, Famous Footwear, Shoe Carnival
+
+For each store you find a real location for near ${city}, return:
+- name: exact store name (e.g. "Foot Locker - Times Square")
+- address: full street address
+- distance_km: estimated km from city center
+- stock_status: "Check in store" (default unless you find specific info)
+- phone: phone number if found
+- maps_url: Google Maps link
+
+IMPORTANT:
+- Only include retailers/stores you actually found via web search
+- Do NOT include single-brand stores (no Nike Store, no Adidas Store, no Under Armour store)
+- Do NOT invent stores or addresses
+- Nearby stores should be REAL locations near ${city} with real addresses`,
     response_json_schema: {
       type: "object",
       properties: {
-        overall_status:    { type: "string" },
-        available_sizes:   { type: "array", items: { type: "number" } },
-        estimated_delivery:{ type: "string" },
-        summary:           { type: "string" },
+        overall_status:     { type: "string" },
+        available_sizes:    { type: "array", items: { type: "number" } },
+        estimated_delivery: { type: "string" },
+        summary:            { type: "string" },
         online_stores: {
           type: "array",
           items: {
             type: "object",
             properties: {
               name:            { type: "string" },
-              found_on_site:   { type: "boolean" },
               stock_status:    { type: "string" },
+              price:           { type: "number" },
               sizes_available: { type: "array", items: { type: "number" } },
+              url:             { type: "string" },
             },
           },
         },
@@ -72,6 +85,7 @@ Return:
               distance_km:  { type: "number" },
               stock_status: { type: "string" },
               phone:        { type: "string" },
+              maps_url:     { type: "string" },
             },
           },
         },
@@ -79,39 +93,37 @@ Return:
     },
   });
 
-  // Merge stock status with real URLs from directory
+  // Build retailer URL map for fallback
   const retailerMap = {};
   retailers.forEach(r => { retailerMap[r.name.toLowerCase()] = r; });
 
-  const onlineStores = (res.online_stores || []).filter(s => s.found_on_site !== false).map(s => {
+  const onlineStores = (res.online_stores || []).map(s => {
     const key = (s.name || "").toLowerCase();
-    const dirEntry = retailerMap[key]
-      || Object.values(retailerMap).find(d => key.includes(d.name.toLowerCase().split(" ")[0]))
-      || Object.values(retailerMap).find(d => d.name.toLowerCase().split(" ")[0] && key.includes(d.name.toLowerCase().split(" ")[0]));
+    const dirEntry = Object.values(retailerMap).find(d =>
+      key.includes(d.name.toLowerCase().split(" ")[0]) || d.name.toLowerCase().includes(key.split(" ")[0])
+    );
     return {
-      name:              s.name,
-      stock_status:      s.stock_status || "Check in store",
-      sizes_available:   s.sizes_available || [],
+      name:            s.name,
+      stock_status:    s.stock_status || "Check in store",
+      price:           s.price || null,
+      sizes_available: s.sizes_available || [],
       ships_to_location: true,
-      url:               dirEntry?.url || null,
+      url:             s.url || dirEntry?.url || null,
     };
   }).filter(s => s.name);
 
-  // Only include nearby stores with real addresses (not generic city names)
   const nearbyStores = (res.nearby_stores || [])
-    .filter(s => s.name && s.address && s.address.toLowerCase() !== city.toLowerCase())
+    .filter(s => s.name && s.address && s.address.trim() !== city.trim())
     .map(s => ({
       ...s,
       stock_status: s.stock_status || "Check in store",
-      maps_url: `https://www.google.com/maps/search/${encodeURIComponent(`${s.name} ${s.address}`)}`,
+      maps_url: s.maps_url || `https://www.google.com/maps/search/${encodeURIComponent(`${s.name} ${s.address}`)}`,
     }));
 
   const result = {
     overall_status:     res.overall_status || "unknown",
-    confidence:         "medium",
+    confidence:         "high",
     available_sizes:    res.available_sizes || [],
-    low_stock_sizes:    [],
-    colors_available:   [],
     ships_to_city:      onlineStores.length > 0,
     estimated_delivery: res.estimated_delivery || null,
     pickup_available:   nearbyStores.length > 0,
