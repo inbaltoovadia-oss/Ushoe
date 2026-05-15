@@ -23,21 +23,20 @@ BRAND: ${shoe.brand}
 USER LOCATION: ${city}, ${country}
 ${size ? `SIZE: ${size}` : ""}
 
-ONLINE RETAILERS TO CHECK:
+VERIFIED MULTI-BRAND RESELLERS TO CHECK (these are all authorised shoe retailers, not brand stores):
 ${retailerList}
 
 INSTRUCTIONS:
-1. Search each retailer's website for "${shoe.brand} ${shoe.name}" using live web search.
-2. Only include a retailer in online_stores if you actually find a matching product listing for this exact shoe on their site. Do NOT include a retailer if the search returns no matching results or the brand doesn't match.
-3. Set found_on_site: true ONLY when a real product listing for this shoe appears in search results. Set found_on_site: false otherwise.
-4. For stock_status, use what the listing shows — default to "Check in store" if the listing doesn't specify.
-5. For nearby physical stores: search for real ${shoe.brand} stores or major multi-brand retailers (Foot Locker, JD Sports, etc.) near ${city} that actually carry this brand. Use real store names and real street addresses. Do NOT invent stores.
+1. For each reseller above, search their website NOW for "${shoe.brand} ${shoe.name}" using live web search (e.g. search "site:footlocker.com ${shoe.brand} ${shoe.name}").
+2. Set found_on_site: true ONLY if a real matching product listing for this exact shoe appears in the search results on that retailer's site. Set found_on_site: false if no match is found.
+3. OMIT any retailer where found_on_site is false — do not include them in results.
+4. For stock_status, use what the listing shows — default to "Check in store" if not specified.
+5. For nearby physical stores: search for real Foot Locker, JD Sports, Finish Line, DSW, Champs Sports, or similar verified multi-brand shoe store locations near ${city}. Use real store names and real street addresses. Do NOT include brand-owned stores (no Nike Store, no Adidas store). Do NOT invent stores.
 
 Return:
-- online_stores: [{ name, found_on_site (boolean), stock_status, sizes_available }]
+- online_stores: [{ name, found_on_site (boolean — only true entries), stock_status, sizes_available }]
   - stock_status: "In stock" | "Limited stock" | "Out of stock" | "Check in store"
-  - ONLY include entries where found_on_site is true
-- nearby_stores: up to 6 verified physical stores near ${city} that carry ${shoe.brand}.
+- nearby_stores: up to 6 verified multi-brand shoe retailers physically near ${city}.
   [{ name, address (real street address), distance_km, stock_status, phone }]
 - overall_status: "in_stock" | "limited_stock" | "out_of_stock" | "unknown"
 - available_sizes: confirmed US sizes in stock

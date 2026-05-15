@@ -1,76 +1,79 @@
 /**
- * retailerDirectory — real URLs for major shoe retailers by region.
- * Used to build actual buy links instead of relying on LLM to generate them.
+ * retailerDirectory — verified multi-brand shoe resellers by region.
+ * ONLY includes authorised multi-brand retailers (no single-brand stores).
+ * Brand-owned stores (Nike.com, Adidas.com, etc.) are intentionally excluded
+ * because agents must only search verified resellers that carry multiple brands.
  */
 
-// Map country codes / common country names to known retailer domains
 const RETAILER_BY_REGION = {
-  // Israel
+  // Israel — verified multi-brand resellers
   IL: [
-    { name: "adidas Israel", domain: "https://www.adidas.co.il", searchPath: "/search?q={query}", brands: ["Adidas"] },
-    { name: "Nike Israel", domain: "https://www.nike.com/il", searchPath: "/search?q={query}", brands: ["Nike"] },
-    { name: "Fox Shoes", domain: "https://www.foxshoes.co.il", searchPath: "/search?q={query}", brands: [] },
-    { name: "Ace", domain: "https://www.ace.co.il", searchPath: "/catalogsearch/result/?q={query}", brands: [] },
-    { name: "Shilav", domain: "https://www.shilav.co.il", searchPath: "/search?q={query}", brands: [] },
-    { name: "Intisport", domain: "https://www.intisport.co.il", searchPath: "/search?q={query}", brands: [] },
+    { name: "Fox Shoes",   domain: "https://www.foxshoes.co.il", searchPath: "/search?q={query}" },
+    { name: "Ace",         domain: "https://www.ace.co.il",      searchPath: "/catalogsearch/result/?q={query}" },
+    { name: "Shilav",      domain: "https://www.shilav.co.il",   searchPath: "/search?q={query}" },
+    { name: "Intisport",   domain: "https://www.intisport.co.il",searchPath: "/search?q={query}" },
+    { name: "Terminal X",  domain: "https://www.terminalx.com",  searchPath: "/search?q={query}" },
+    { name: "Sport Depot", domain: "https://www.sport-depot.co.il", searchPath: "/search?q={query}" },
   ],
-  // United States
+  // United States — verified multi-brand resellers
   US: [
-    { name: "Nike", domain: "https://www.nike.com", searchPath: "/search?q={query}", brands: ["Nike"] },
-    { name: "Adidas", domain: "https://www.adidas.com", searchPath: "/search?q={query}", brands: ["Adidas"] },
-    { name: "Foot Locker", domain: "https://www.footlocker.com", searchPath: "/search?query={query}", brands: [] },
-    { name: "Finish Line", domain: "https://www.finishline.com", searchPath: "/store/browse/search.jsp?query={query}", brands: [] },
-    { name: "DSW", domain: "https://www.dsw.com", searchPath: "/en/us/search?q={query}", brands: [] },
-    { name: "JD Sports", domain: "https://www.jdsports.com", searchPath: "/search/{query}", brands: [] },
+    { name: "Foot Locker",  domain: "https://www.footlocker.com",  searchPath: "/search?query={query}" },
+    { name: "Finish Line",  domain: "https://www.finishline.com",  searchPath: "/store/browse/search.jsp?query={query}" },
+    { name: "DSW",          domain: "https://www.dsw.com",         searchPath: "/en/us/search?q={query}" },
+    { name: "JD Sports",    domain: "https://www.jdsports.com",    searchPath: "/search/{query}" },
+    { name: "Champs Sports",domain: "https://www.champssports.com",searchPath: "/search?query={query}" },
+    { name: "Eastbay",      domain: "https://www.eastbay.com",     searchPath: "/search?query={query}" },
+    { name: "Zappos",       domain: "https://www.zappos.com",      searchPath: "/search/term/{query}" },
+    { name: "Amazon",       domain: "https://www.amazon.com",      searchPath: "/s?k={query}" },
   ],
-  // United Kingdom
+  // United Kingdom — verified multi-brand resellers
   GB: [
-    { name: "Nike UK", domain: "https://www.nike.com/gb", searchPath: "/search?q={query}", brands: ["Nike"] },
-    { name: "Adidas UK", domain: "https://www.adidas.co.uk", searchPath: "/search?q={query}", brands: ["Adidas"] },
-    { name: "JD Sports UK", domain: "https://www.jdsports.co.uk", searchPath: "/search/{query}", brands: [] },
-    { name: "Foot Locker UK", domain: "https://www.footlocker.co.uk", searchPath: "/search?query={query}", brands: [] },
-    { name: "Size?", domain: "https://www.size.co.uk", searchPath: "/search/{query}", brands: [] },
-    { name: "ASOS", domain: "https://www.asos.com", searchPath: "/search/?q={query}", brands: [] },
+    { name: "JD Sports",    domain: "https://www.jdsports.co.uk",  searchPath: "/search/{query}" },
+    { name: "Foot Locker",  domain: "https://www.footlocker.co.uk",searchPath: "/search?query={query}" },
+    { name: "Size?",        domain: "https://www.size.co.uk",      searchPath: "/search/{query}" },
+    { name: "ASOS",         domain: "https://www.asos.com",        searchPath: "/search/?q={query}" },
+    { name: "Sports Direct",domain: "https://www.sportsdirect.com",searchPath: "/search?term={query}" },
+    { name: "Footasylum",   domain: "https://www.footasylum.com",  searchPath: "/search?q={query}" },
   ],
-  // Germany
+  // Germany — verified multi-brand resellers
   DE: [
-    { name: "Nike DE", domain: "https://www.nike.com/de", searchPath: "/search?q={query}", brands: ["Nike"] },
-    { name: "Adidas DE", domain: "https://www.adidas.de", searchPath: "/search?q={query}", brands: ["Adidas"] },
-    { name: "Zalando", domain: "https://www.zalando.de", searchPath: "/catalog/?q={query}", brands: [] },
-    { name: "JD Sports DE", domain: "https://www.jdsports.de", searchPath: "/search/{query}", brands: [] },
-    { name: "Snipes", domain: "https://www.snipes.com", searchPath: "/c/sneakers?search={query}", brands: [] },
+    { name: "Zalando",      domain: "https://www.zalando.de",      searchPath: "/catalog/?q={query}" },
+    { name: "JD Sports",    domain: "https://www.jdsports.de",     searchPath: "/search/{query}" },
+    { name: "Snipes",       domain: "https://www.snipes.com",      searchPath: "/c/sneakers?search={query}" },
+    { name: "Foot Locker",  domain: "https://www.footlocker.de",   searchPath: "/search?query={query}" },
+    { name: "About You",    domain: "https://www.aboutyou.de",     searchPath: "/search?term={query}" },
   ],
-  // France
+  // France — verified multi-brand resellers
   FR: [
-    { name: "Nike FR", domain: "https://www.nike.com/fr", searchPath: "/search?q={query}", brands: ["Nike"] },
-    { name: "Adidas FR", domain: "https://www.adidas.fr", searchPath: "/search?q={query}", brands: ["Adidas"] },
-    { name: "Zalando FR", domain: "https://www.zalando.fr", searchPath: "/catalog/?q={query}", brands: [] },
-    { name: "JD Sports FR", domain: "https://www.jdsports.fr", searchPath: "/search/{query}", brands: [] },
-    { name: "Foot Locker FR", domain: "https://www.footlocker.fr", searchPath: "/search?query={query}", brands: [] },
+    { name: "Zalando",      domain: "https://www.zalando.fr",      searchPath: "/catalog/?q={query}" },
+    { name: "JD Sports",    domain: "https://www.jdsports.fr",     searchPath: "/search/{query}" },
+    { name: "Foot Locker",  domain: "https://www.footlocker.fr",   searchPath: "/search?query={query}" },
+    { name: "Snipes",       domain: "https://www.snipes.fr",       searchPath: "/c/sneakers?search={query}" },
+    { name: "ASOS",         domain: "https://www.asos.com/fr",     searchPath: "/search/?q={query}" },
   ],
-  // Australia
+  // Australia — verified multi-brand resellers
   AU: [
-    { name: "Nike AU", domain: "https://www.nike.com/au", searchPath: "/search?q={query}", brands: ["Nike"] },
-    { name: "Adidas AU", domain: "https://www.adidas.com.au", searchPath: "/search?q={query}", brands: ["Adidas"] },
-    { name: "JD Sports AU", domain: "https://www.jdsports.com.au", searchPath: "/search/{query}", brands: [] },
-    { name: "The Iconic", domain: "https://www.theiconic.com.au", searchPath: "/search/?q={query}", brands: [] },
-    { name: "Platypus Shoes", domain: "https://www.platypusshoes.com.au", searchPath: "/search?q={query}", brands: [] },
+    { name: "JD Sports",       domain: "https://www.jdsports.com.au",   searchPath: "/search/{query}" },
+    { name: "The Iconic",      domain: "https://www.theiconic.com.au",  searchPath: "/search/?q={query}" },
+    { name: "Platypus Shoes",  domain: "https://www.platypusshoes.com.au", searchPath: "/search?q={query}" },
+    { name: "Foot Locker AU",  domain: "https://www.footlocker.com.au", searchPath: "/search?query={query}" },
+    { name: "Stylerunner",     domain: "https://www.stylerunner.com",   searchPath: "/search?type=product&q={query}" },
   ],
-  // Canada
+  // Canada — verified multi-brand resellers
   CA: [
-    { name: "Nike CA", domain: "https://www.nike.com/ca", searchPath: "/search?q={query}", brands: ["Nike"] },
-    { name: "Adidas CA", domain: "https://www.adidas.ca", searchPath: "/search?q={query}", brands: ["Adidas"] },
-    { name: "Foot Locker CA", domain: "https://www.footlocker.ca", searchPath: "/search?query={query}", brands: [] },
-    { name: "Sport Chek", domain: "https://www.sportchek.ca", searchPath: "/search-results/search={query}", brands: [] },
-    { name: "DSW CA", domain: "https://www.dsw.ca", searchPath: "/en/ca/search?q={query}", brands: [] },
+    { name: "Foot Locker",  domain: "https://www.footlocker.ca",   searchPath: "/search?query={query}" },
+    { name: "Sport Chek",   domain: "https://www.sportchek.ca",    searchPath: "/search-results/search={query}" },
+    { name: "DSW",          domain: "https://www.dsw.ca",          searchPath: "/en/ca/search?q={query}" },
+    { name: "Champs Sports",domain: "https://www.champssports.com",searchPath: "/search?query={query}" },
+    { name: "Zappos",       domain: "https://www.zappos.com",      searchPath: "/search/term/{query}" },
   ],
   // Default fallback (international)
   DEFAULT: [
-    { name: "Nike", domain: "https://www.nike.com", searchPath: "/search?q={query}", brands: ["Nike"] },
-    { name: "Adidas", domain: "https://www.adidas.com", searchPath: "/search?q={query}", brands: ["Adidas"] },
-    { name: "ASOS", domain: "https://www.asos.com", searchPath: "/search/?q={query}", brands: [] },
-    { name: "Amazon", domain: "https://www.amazon.com", searchPath: "/s?k={query}", brands: [] },
-    { name: "eBay", domain: "https://www.ebay.com", searchPath: "/sch/i.html?_nkw={query}", brands: [] },
+    { name: "Foot Locker",  domain: "https://www.footlocker.com",  searchPath: "/search?query={query}" },
+    { name: "JD Sports",    domain: "https://www.jdsports.com",    searchPath: "/search/{query}" },
+    { name: "Zappos",       domain: "https://www.zappos.com",      searchPath: "/search/term/{query}" },
+    { name: "ASOS",         domain: "https://www.asos.com",        searchPath: "/search/?q={query}" },
+    { name: "Amazon",       domain: "https://www.amazon.com",      searchPath: "/s?k={query}" },
   ],
 };
 
@@ -96,49 +99,14 @@ function buildSearchUrl(retailer, shoeName, brand) {
   return retailer.domain + retailer.searchPath.replace("{query}", query);
 }
 
-// Known competitor brand pairs — if shoe is brand A, exclude brand B's dedicated stores
-const BRAND_EXCLUSIONS = {
-  "nike":    ["adidas", "puma", "reebok", "new balance", "converse owned by nike is ok"],
-  "adidas":  ["nike", "puma", "reebok"],
-  "puma":    ["nike", "adidas", "reebok"],
-  "reebok":  ["nike", "adidas", "puma"],
-  "jordan":  ["adidas", "puma", "reebok"],
-  "new balance": ["nike", "adidas", "puma"],
-  "converse": ["adidas", "puma", "reebok"],
-  "vans":    ["nike", "adidas", "puma"],
-  "skechers":["nike", "adidas", "puma"],
-};
-
 /**
- * Returns a list of retailers with real URLs for the given country.
- * Filters out dedicated competitor brand stores (e.g. won't show Adidas store for a Nike shoe).
+ * Returns a list of verified multi-brand resellers with real search URLs for the given country.
+ * All retailers in the directory are multi-brand — no single-brand stores included.
  */
 export function getRetailersForCountry(country, shoeName, brand) {
   const code = getCountryCode(country);
   const list = RETAILER_BY_REGION[code] || RETAILER_BY_REGION["DEFAULT"];
-  const brandLower = (brand || "").toLowerCase();
-
-  // Get which competitor brands to exclude
-  const excludedBrands = BRAND_EXCLUSIONS[brandLower] || [];
-
-  // Filter: remove retailers whose brands array contains ONLY a competing brand
-  const filtered = list.filter(r => {
-    if (r.brands.length === 0) return true; // multi-brand retailer, always include
-    // If this retailer is dedicated to a competitor brand, exclude it
-    const isCompetitor = r.brands.some(b =>
-      excludedBrands.some(ex => b.toLowerCase().includes(ex))
-    );
-    return !isCompetitor;
-  });
-
-  // Sort: brand-specific retailers first
-  const sorted = [...filtered].sort((a, b) => {
-    const aMatch = a.brands.some(b => b.toLowerCase() === brandLower) ? -1 : 0;
-    const bMatch = b.brands.some(b => b.toLowerCase() === brandLower) ? -1 : 0;
-    return aMatch - bMatch;
-  });
-
-  return sorted.map(r => ({
+  return list.map(r => ({
     name: r.name,
     url: buildSearchUrl(r, shoeName, brand),
     domain: r.domain,

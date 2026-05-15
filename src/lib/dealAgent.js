@@ -24,16 +24,16 @@ CATALOG PRICE: $${shoe.price}
 USER LOCATION: ${city}, ${country}
 ${size ? `SIZE: ${size}` : ""}
 
-RETAILERS TO CHECK (all ship to ${country}):
+VERIFIED MULTI-BRAND RESELLERS TO CHECK (these are authorised shoe retailers, not brand stores):
 ${retailerList}
 
 INSTRUCTIONS:
-1. Search each retailer's website for "${shoe.brand} ${shoe.name}" using live web search.
-2. Only include a retailer if you find an actual matching product listing for this exact shoe on their site. Do NOT include a retailer if the search returns no results or wrong products.
-3. Set found_on_site: true ONLY when a real product page or listing for this shoe appears. Set found_on_site: false otherwise — and omit those retailers entirely.
-4. Price must come from the actual listing, not estimated.
+1. For each reseller above, search their website NOW for "${shoe.brand} ${shoe.name}" using live web search (e.g. search "site:footlocker.com ${shoe.brand} ${shoe.name}").
+2. Set found_on_site: true ONLY if a real matching product listing for this exact shoe appears on that retailer's site. Set found_on_site: false if no matching listing is found.
+3. OMIT any retailer where found_on_site is false — do not include them in results at all.
+4. Price must come from the actual listing found, not estimated or assumed.
 
-For EACH retailer where you find a real listing for this shoe:
+For EACH retailer where you found a real matching listing for this shoe:
 - retailer_name: exact name from the list above
 - found_on_site: true (ONLY include retailers where this is true)
 - deal_price: current selling price in USD (convert if needed)
