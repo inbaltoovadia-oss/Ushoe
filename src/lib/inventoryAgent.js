@@ -1,12 +1,11 @@
 /**
  * INVENTORY & STOCK AGENT
- * Calls the fastWebSearch backend function to find online stock,
- * and uses InvokeLLM (no internet) for nearby physical store info.
+ * Uses fastWebSearch for online retailers (real web access).
+ * Uses InvokeLLM for nearby physical store suggestions.
  */
 
 import { base44 } from "@/api/base44Client";
 import { getCachedStock, setCachedStock } from "./agentCache";
-import { getRetailersForCountry } from "./retailerDirectory";
 
 export async function runInventoryAgent({ shoe, city, size = null, color = null, countryCode = "" }) {
   const cached = getCachedStock(shoe.id, city, size, color);
@@ -14,9 +13,12 @@ export async function runInventoryAgent({ shoe, city, size = null, color = null,
 
   const country = shoe._country || "United States";
   const code = countryCode || shoe._countryCode || "US";
-  const query = `${shoe.brand} ${shoe.name}${size ? ` size ${size}` : ""}${color ? ` ${color}` : ""}`;
 
-  // 1. Online stock — use fastWebSearch backend (has real web access)
+  const sizeStr = size ? ` US size ${size}` : "";
+  const colorStr = (color || shoe.colorway) ? ` ${color || shoe.colorway}` : "";
+  const query = `${shoe.brand} ${shoe.name}${colorStr}${sizeStr} in stock`;
+
+  // 1. Online stock via fastWebSearch
   const webRes = await base44.functions.fastWebSearch({
     query,
     category: shoe.category,
@@ -33,23 +35,21 @@ export async function runInventoryAgent({ shoe, city, size = null, color = null,
       price:           priceNum,
       sizes_available: [],
       ships_to_location: p.ships_to_user !== false,
-      url:             null,
+      url:             p.buy_link || null,
     };
   });
 
-  // 2. Nearby stores — use InvokeLLM with knowledge of real store locations
-  const retailers = getRetailersForCountry(code, shoe.name, shoe.brand);
-  const chainNames = [...new Set(retailers.map(r => r.name))].join(", ");
-
+  // 2. Nearby physical stores via LLM (knowledge-based, no internet needed)
   let nearbyStores = [];
   try {
     const nearbyRes = await base44.integrations.Core.InvokeLLM({
-      prompt: `List real physical shoe store locations near ${city}, ${country}.
-Known chains to look for: ${chainNames}
+      prompt: `List up to 5 real multi-brand shoe store locations (Foot Locker, JD Sports, Finish Line, DSW, Champs Sports, Zalando, Sports Direct, etc.) near ${city}, ${country}.
 
-Return up to 5 real store locations. Only include stores you are confident exist in or near ${city}.
-For each store return: name, address (full street address in ${city}), distance_km (estimated from city center), phone (if known), maps_url (Google Maps search link).
-Do NOT invent addresses. If you don't know real locations near ${city}, return an empty array.`,
+Only include stores you are confident are real locations in or near ${city}. Include exact street addresses.
+Do NOT include single-brand stores (no Nike Store, no Adidas Store).
+Do NOT invent addresses. If unsure about a location, skip it.
+
+Return JSON with field "stores" containing each store's: name, address (full), distance_km, phone, maps_url.`,
       response_json_schema: {
         type: "object",
         properties: {
@@ -71,13 +71,13 @@ Do NOT invent addresses. If you don't know real locations near ${city}, return a
     });
 
     nearbyStores = (nearbyRes?.stores || [])
-      .filter(s => s.name && s.address)
+      .filter(s => s.name && s.address && s.address.length > 5)
       .map(s => ({
         ...s,
         stock_status: "Check in store",
         maps_url: s.maps_url || `https://www.google.com/maps/search/${encodeURIComponent(`${s.name} ${s.address}`)}`,
       }));
-  } catch (_) {
+  } catch {
     nearbyStores = [];
   }
 
@@ -85,12 +85,12 @@ Do NOT invent addresses. If you don't know real locations near ${city}, return a
     overall_status:     onlineStores.length > 0 ? "available" : "unknown",
     confidence:         "high",
     available_sizes:    [],
-    ships_to_city:      onlineStores.length > 0,
+    ships_to_city:      onlineStores.some(s => s.ships_to_location),
     estimated_delivery: null,
     pickup_available:   nearbyStores.length > 0,
     summary:            onlineStores.length > 0
-      ? `Found ${onlineStores.length} online retailer${onlineStores.length > 1 ? "s" : ""} carrying this shoe`
-      : `No online retailers confirmed near ${city}`,
+      ? `Found ${onlineStores.length} retailer${onlineStores.length > 1 ? "s" : ""} online for ${shoe.brand} ${shoe.name}`
+      : `No online retailers confirmed for your region`,
     online_stores:      onlineStores,
     nearby_stores:      nearbyStores,
   };

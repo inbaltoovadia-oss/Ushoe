@@ -1,13 +1,19 @@
 /**
- * NearbyStores — Inventory Agent + Deal Agent running in parallel.
- * Shows ranked local stores: local deal store first, then others sorted by distance.
+ * NearbyStores — Rebuilt with:
+ * - LocationInput (GPS + manual city/zip)
+ * - Size standard toggle (US / EU / UK)
+ * - Accurate inventory matching via agents
+ * - Deal-first ranking
  */
 import { useState, useEffect } from "react";
-import { MapPin, Loader2, Star, Navigation, Sparkles, Tag, CheckCircle, Phone, RefreshCw, Store, TrendingDown, ShieldCheck } from "lucide-react";
+import { MapPin, Loader2, Navigation, Sparkles, Tag, RefreshCw, Store, TrendingDown, ShieldCheck, Phone } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getLocation, subscribeLocation } from "../lib/locationStore";
 import { runInventoryAgent } from "../lib/inventoryAgent";
 import { runDealAgent } from "../lib/dealAgent";
+import SizeStandardToggle, { DisplaySize } from "./SizeStandardToggle";
+import LocationInput from "./LocationInput";
+import { fromUSSize } from "../lib/sizeConverter";
 
 const stockColors = {
   "In stock":       "text-green-600 bg-green-50 dark:bg-green-950/30",
@@ -16,8 +22,7 @@ const stockColors = {
   "Check in store": "text-blue-600 bg-blue-50 dark:bg-blue-950/30",
 };
 
-function rankStores(stores, dealRetailers) {
-  // Build a set of retailer names that have deals
+function rankStores(stores, dealRetailers = []) {
   const dealNames = new Set(
     (dealRetailers || [])
       .filter(r => r.deal_confirmed || r.discount_pct > 0)
@@ -35,18 +40,12 @@ function rankStores(stores, dealRetailers) {
     is_best_option: i === 0,
     has_local_deal: dealNames.has((s.name || "").toLowerCase()),
     local_deal_info: dealNames.has((s.name || "").toLowerCase())
-      ? dealRetailers?.find(r => (r.retailer_name || "").toLowerCase() === (s.name || "").toLowerCase())
+      ? (dealRetailers || []).find(r => (r.retailer_name || "").toLowerCase() === (s.name || "").toLowerCase())
       : null,
   }));
 }
 
-export default function NearbyStores({
-  title = "Nearby Stores",
-  maxCount = 6,
-  shoe = null,
-  selectedSize = null,
-  selectedColor = null,
-}) {
+export default function NearbyStores({ title = "Nearby Stores", maxCount = 6, shoe = null, selectedSize = null, selectedColor = null }) {
   const [stores, setStores]           = useState([]);
   const [summary, setSummary]         = useState("");
   const [dealSummary, setDealSummary] = useState("");
@@ -56,16 +55,20 @@ export default function NearbyStores({
   const [dealsDone, setDealsDone]     = useState(false);
   const [loc, setLoc]                 = useState(getLocation());
   const [maxDistance, setMaxDistance] = useState(20);
+  const [sizeStandard, setSizeStandard] = useState("US");
 
   useEffect(() => {
-    // Reset on shoe change so user can re-trigger
     setStarted(false);
     setStores([]);
     setSummary("");
     setDealSummary("");
     setInventoryDone(false);
     setDealsDone(false);
-    const unsub = subscribeLocation(setLoc);
+    const unsub = subscribeLocation(newLoc => {
+      setLoc(newLoc);
+      // Auto-reload if we already started and location changed
+      setStarted(false);
+    });
     return unsub;
   }, [shoe?.id]);
 
@@ -81,41 +84,40 @@ export default function NearbyStores({
     let inventoryResult = null;
     let dealResult = null;
 
-    const agentArgs = { shoe: { ...shoe, _country: location.country, _countryCode: location.countryCode }, city: location.city, size: selectedSize, color: selectedColor, countryCode: location.countryCode };
+    const agentArgs = {
+      shoe: { ...shoe, _country: location.country, _countryCode: location.countryCode },
+      city: location.city,
+      size: selectedSize,
+      color: selectedColor,
+      countryCode: location.countryCode,
+    };
 
     const inventoryPromise = runInventoryAgent(agentArgs).then(r => {
       inventoryResult = r;
       setSummary(r.summary || "");
       setInventoryDone(true);
-      const nearby = (r.nearby_stores || []).slice(0, maxCount);
-      const mapped = nearby.map((s, idx) => ({
-        id:             `inv_${s.name}_${idx}`,
-        name:           s.name,
-        address:        s.address || "",
-        distance_km:    s.distance_km || null,
-        phone:          s.phone || "",
-        stock_status:   s.stock_status || "Check in store",
-        price:          s.price || null,
-        maps_url:       s.maps_url || `https://www.google.com/maps/search/${encodeURIComponent(`${s.name} ${s.address || location.city}`)}`,
+      const nearby = (r.nearby_stores || []).slice(0, maxCount).map((s, idx) => ({
+        id: `inv_${s.name}_${idx}`,
+        name: s.name,
+        address: s.address || "",
+        distance_km: s.distance_km || null,
+        phone: s.phone || "",
+        stock_status: s.stock_status || "Check in store",
+        price: s.price || null,
+        maps_url: s.maps_url || `https://www.google.com/maps/search/${encodeURIComponent(`${s.name} ${s.address || location.city}`)}`,
         is_best_option: false,
         has_local_deal: false,
         local_deal_info: null,
       }));
-      setStores(dealResult ? rankStores(mapped, dealResult.retailers) : mapped);
-    }).catch(() => {
-      setInventoryDone(true);
-      setSummary("");
-    });
+      setStores(dealResult ? rankStores(nearby, dealResult.retailers) : nearby);
+    }).catch(() => { setInventoryDone(true); setSummary(""); });
 
     const dealPromise = runDealAgent(agentArgs).then(r => {
       dealResult = r;
-      const hasDeal = r.has_active_deals;
-      setDealSummary(hasDeal ? r.summary : "");
+      setDealSummary(r.has_active_deals ? r.summary : "");
       setDealsDone(true);
       setStores(prev => prev.length > 0 ? rankStores(prev, r.retailers) : prev);
-    }).catch(() => {
-      setDealsDone(true);
-    });
+    }).catch(() => { setDealsDone(true); });
 
     await Promise.allSettled([inventoryPromise, dealPromise]);
     setLoading(false);
@@ -124,99 +126,102 @@ export default function NearbyStores({
   const DISTANCE_OPTIONS = [5, 10, 20, 50, 100];
   const filteredStores = stores.filter(s => !s.distance_km || s.distance_km <= maxDistance);
 
-  // Not yet started — show prompt
+  const displaySize = selectedSize && sizeStandard !== "US"
+    ? fromUSSize(selectedSize, sizeStandard, shoe?.gender)
+    : selectedSize;
+
   if (!started) {
     return (
-      <div className="flex flex-col items-center justify-center py-8 gap-3">
-        <MapPin className="w-8 h-8 text-muted-foreground/30" />
-        <p className="text-sm text-muted-foreground text-center">Find stores carrying this shoe near {loc.city}</p>
-        <div className="flex items-center gap-2 flex-wrap justify-center">
-          <span className="text-xs text-muted-foreground">Max distance:</span>
-          {DISTANCE_OPTIONS.map(d => (
-            <button
-              key={d}
-              onClick={() => setMaxDistance(d)}
-              className={`text-xs px-3 py-1.5 rounded-full font-medium transition-all ${
-                maxDistance === d
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-secondary text-muted-foreground hover:bg-secondary/70"
-              }`}
-            >
-              {d} km
-            </button>
-          ))}
+      <div className="flex flex-col gap-4 py-4">
+        <div className="flex flex-col items-center gap-2">
+          <MapPin className="w-8 h-8 text-muted-foreground/30" />
+          <p className="text-sm text-muted-foreground text-center">
+            Find stores carrying <strong>{shoe?.name}</strong>{displaySize ? ` in size ${displaySize} ${sizeStandard}` : ""} near you
+          </p>
         </div>
+
+        <LocationInput onLocated={(newLoc) => setLoc(newLoc)} compact />
+
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <SizeStandardToggle standard={sizeStandard} onChange={setSizeStandard} />
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-xs text-muted-foreground">Max dist:</span>
+            {DISTANCE_OPTIONS.map(d => (
+              <button key={d} onClick={() => setMaxDistance(d)} className={`text-xs px-2.5 py-1 rounded-full font-medium transition-all ${
+                maxDistance === d ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:bg-secondary/70"
+              }`}>{d}km</button>
+            ))}
+          </div>
+        </div>
+
         <button
           onClick={() => { setStarted(true); loadAll(loc); }}
-          className="flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity"
+          className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
         >
           <MapPin className="w-4 h-4" />
-          Find Nearby Stores
+          Find Nearby Stores in {loc.city}
         </button>
       </div>
     );
   }
 
   return (
-    <div>
-      <div className="flex items-center gap-2 mb-3 flex-wrap">
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center gap-2 flex-wrap">
         <MapPin className="w-4 h-4 text-primary" />
         <h3 className="font-heading font-semibold text-lg">{title}</h3>
         <span className="text-xs text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">near {loc.city}</span>
-        <div className="ml-auto flex items-center gap-1.5 flex-wrap">
-          <span className="text-[10px] text-muted-foreground">Max:</span>
-          {DISTANCE_OPTIONS.map(d => (
-            <button
-              key={d}
-              onClick={() => setMaxDistance(d)}
-              className={`text-[10px] px-2 py-0.5 rounded-full font-medium transition-all ${
-                maxDistance === d
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-secondary text-muted-foreground hover:bg-secondary/70"
-              }`}
-            >
-              {d}km
-            </button>
-          ))}
-        </div>
+      </div>
+
+      {/* Controls row */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <SizeStandardToggle standard={sizeStandard} onChange={setSizeStandard} />
+        <LocationInput onLocated={(newLoc) => { setLoc(newLoc); setStarted(false); }} compact />
+      </div>
+
+      {/* Distance filter */}
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <span className="text-[10px] text-muted-foreground">Max dist:</span>
+        {DISTANCE_OPTIONS.map(d => (
+          <button key={d} onClick={() => setMaxDistance(d)} className={`text-[10px] px-2 py-0.5 rounded-full font-medium transition-all ${
+            maxDistance === d ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:bg-secondary/70"
+          }`}>{d}km</button>
+        ))}
       </div>
 
       {/* Agent status */}
-      <div className="flex flex-wrap gap-2 mb-3">
-        <div className={`flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-full font-medium ${
-          inventoryDone ? "bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400" : "bg-secondary text-muted-foreground"
-        }`}>
-          <Store className="w-3 h-3" />
-          Inventory {inventoryDone ? "✓" : <Loader2 className="w-2.5 h-2.5 animate-spin inline ml-0.5" />}
-        </div>
-        <div className={`flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-full font-medium ${
-          dealsDone ? "bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400" : "bg-secondary text-muted-foreground"
-        }`}>
-          <Tag className="w-3 h-3" />
-          Local Deals {dealsDone ? "✓" : <Loader2 className="w-2.5 h-2.5 animate-spin inline ml-0.5" />}
-        </div>
+      <div className="flex flex-wrap gap-2">
+        {[
+          { done: inventoryDone, icon: Store, label: "Inventory" },
+          { done: dealsDone,     icon: Tag,   label: "Local Deals" },
+        ].map(({ done, icon: Icon, label }) => (
+          <div key={label} className={`flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-full font-medium ${
+            done ? "bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400" : "bg-secondary text-muted-foreground"
+          }`}>
+            <Icon className="w-3 h-3" />
+            {label} {done ? "✓" : <Loader2 className="w-2.5 h-2.5 animate-spin inline ml-0.5" />}
+          </div>
+        ))}
       </div>
 
       {summary && !loading && (
-        <div className="flex items-start gap-2 bg-primary/5 border border-primary/10 rounded-xl p-3 mb-2">
+        <div className="flex items-start gap-2 bg-primary/5 border border-primary/10 rounded-xl p-3">
           <Sparkles className="w-3.5 h-3.5 text-primary mt-0.5 flex-shrink-0" />
           <p className="text-xs text-muted-foreground">{summary}</p>
         </div>
       )}
 
       {dealSummary && dealsDone && (
-        <div className="flex items-start gap-2 bg-accent/5 border border-accent/10 rounded-xl p-3 mb-2">
+        <div className="flex items-start gap-2 bg-accent/5 border border-accent/10 rounded-xl p-3">
           <TrendingDown className="w-3.5 h-3.5 text-accent mt-0.5 flex-shrink-0" />
           <p className="text-xs text-muted-foreground">{dealSummary}</p>
         </div>
       )}
 
-      {!loading && stores.length > 0 && (
-        <p className="text-[10px] text-muted-foreground mb-2 flex items-center gap-1">
-          <ShieldCheck className="w-3 h-3 flex-shrink-0" />
-          Stores ranked: local deal stores first, then by distance. Call to confirm stock.
-        </p>
-      )}
+      <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+        <ShieldCheck className="w-3 h-3 flex-shrink-0" />
+        Deal stores shown first, then nearest. Call ahead to confirm stock.
+      </p>
 
       {loading && !inventoryDone ? (
         <div className="space-y-3">
@@ -229,20 +234,28 @@ export default function NearbyStores({
       ) : (
         <AnimatePresence>
           <div className="space-y-3">
-            {filteredStores.map((store, i) => <StoreRow key={store.id || i} store={store} index={i} city={loc.city} />)}
+            {filteredStores.map((store, i) => (
+              <StoreCard
+                key={store.id || i}
+                store={store}
+                index={i}
+                shoe={shoe}
+                selectedSize={selectedSize}
+                sizeStandard={sizeStandard}
+                city={loc.city}
+              />
+            ))}
             {filteredStores.length === 0 && !loading && (
               <div className="py-6 text-center">
                 <MapPin className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
-                <p className="text-sm font-medium text-foreground">No confirmed stores found near {loc.city}</p>
-                <p className="text-xs text-muted-foreground mt-1">The agent couldn't verify physical {shoe?.brand} stores with this shoe in stock near you.</p>
+                <p className="text-sm font-medium">No stores confirmed near {loc.city}</p>
+                <p className="text-xs text-muted-foreground mt-1 mb-3">Try increasing the max distance or changing location.</p>
                 <a
-                  href={`https://www.google.com/maps/search/${encodeURIComponent(`${shoe?.brand} store ${loc.city}`)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-3 inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
+                  href={`https://www.google.com/maps/search/${encodeURIComponent(`${shoe?.brand} shoes ${loc.city}`)}`}
+                  target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
                 >
-                  <MapPin className="w-3 h-3" />
-                  Search on Google Maps
+                  <MapPin className="w-3 h-3" /> Search on Google Maps
                 </a>
               </div>
             )}
@@ -251,117 +264,96 @@ export default function NearbyStores({
       )}
 
       {!loading && (
-        <button onClick={() => loadAll(loc)} className="mt-4 flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mx-auto">
+        <button onClick={() => loadAll(loc)} className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mx-auto">
           <RefreshCw className="w-3.5 h-3.5" />
-          Re-run agents
+          Re-run search
         </button>
       )}
     </div>
   );
 }
 
-function StoreRow({ store, index, city }) {
-  const isBest     = store.is_best_option;
+function StoreCard({ store, index, shoe, selectedSize, sizeStandard, city }) {
+  const isBest = store.is_best_option;
   const hasLocalDeal = store.has_local_deal;
   const stockStyle = stockColors[store.stock_status] || stockColors["Check in store"];
-  const deal       = store.local_deal_info;
+  const deal = store.local_deal_info;
+
+  const displaySize = selectedSize && sizeStandard !== "US"
+    ? fromUSSize(selectedSize, sizeStandard, shoe?.gender)
+    : selectedSize;
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.05 }}
-      className={`bg-card rounded-2xl border flex gap-3 p-3 transition-all hover:shadow-md ${
+      className={`bg-card rounded-2xl border p-4 transition-all hover:shadow-md ${
         hasLocalDeal
-          ? "border-green-400/60 ring-1 ring-green-400/20 shadow-sm shadow-green-400/10"
+          ? "border-green-400/60 ring-1 ring-green-400/20"
           : isBest
-          ? "border-amber-400/60 ring-1 ring-amber-400/20 shadow-sm shadow-amber-400/10"
+          ? "border-amber-400/60 ring-1 ring-amber-400/20"
           : "border-border/50"
       }`}
     >
-      <img
-        src="https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=200&h=200&fit=crop"
-        alt={store.name}
-        className="w-16 h-16 rounded-xl object-cover flex-shrink-0 bg-secondary"
-      />
-      <div className="flex-1 min-w-0">
-        {/* Local deal banner */}
-        {hasLocalDeal && (
-          <div className="flex items-center gap-1 mb-1 text-[10px] font-bold text-green-700 dark:text-green-400">
-            <TrendingDown className="w-3 h-3" />
-            Local Deal Found Here
-          </div>
-        )}
+      {hasLocalDeal && (
+        <div className="flex items-center gap-1 mb-2 text-[10px] font-bold text-green-700 dark:text-green-400">
+          <TrendingDown className="w-3 h-3" /> Local Deal Found Here
+        </div>
+      )}
 
-        <div className="flex items-start justify-between gap-1 flex-wrap">
+      <div className="flex items-start justify-between gap-2 flex-wrap">
+        <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap">
             <p className="font-heading font-semibold text-sm">{store.name}</p>
-            {hasLocalDeal && (
-              <span className="text-[10px] font-bold bg-green-500 text-white px-2 py-0.5 rounded-full">Local Deal</span>
-            )}
-            {!hasLocalDeal && isBest && (
-              <span className="text-[10px] font-bold bg-amber-500 text-white px-2 py-0.5 rounded-full">Best Option</span>
-            )}
+            {hasLocalDeal && <span className="text-[10px] font-bold bg-green-500 text-white px-2 py-0.5 rounded-full">Deal</span>}
+            {!hasLocalDeal && isBest && <span className="text-[10px] font-bold bg-amber-500 text-white px-2 py-0.5 rounded-full">Closest</span>}
           </div>
-          <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap flex-shrink-0 ${stockStyle}`}>
-            {store.stock_status}
-          </span>
+          <p className="text-xs text-muted-foreground truncate mt-0.5">{store.address}</p>
+          <div className="flex items-center gap-2 mt-1 flex-wrap">
+            {store.distance_km && <span className="text-[10px] text-muted-foreground">{store.distance_km} km away</span>}
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${stockStyle}`}>{store.stock_status}</span>
+            {displaySize && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-secondary text-muted-foreground font-medium">Size {displaySize} {sizeStandard}</span>
+            )}
+            <span className="text-[10px] text-blue-600 bg-blue-50 dark:bg-blue-950/30 px-1.5 py-0.5 rounded-full">Call to confirm</span>
+          </div>
         </div>
 
-        {/* Price display — deal price takes priority, then store price, then catalog */}
+        {/* Price */}
         {(() => {
           const displayPrice = deal?.deal_price || store.price;
-          const originalPrice = deal?.original_price || (deal?.deal_price && store.price && store.price > deal.deal_price ? store.price : null);
+          const originalPrice = deal?.original_price;
           if (!displayPrice) return null;
           return (
-            <div className="flex items-center gap-2 mt-1">
-              <span className={`text-sm font-bold ${hasLocalDeal ? "text-green-600 dark:text-green-400" : "text-foreground"}`}>
-                ${displayPrice}
-              </span>
+            <div className="text-right flex-shrink-0">
+              <span className={`text-lg font-bold font-heading ${hasLocalDeal ? "text-green-600 dark:text-green-400" : ""}`}>${displayPrice}</span>
               {originalPrice && originalPrice > displayPrice && (
-                <span className="text-xs text-muted-foreground line-through">${originalPrice}</span>
-              )}
-              {deal?.discount_pct > 0 && (
-                <span className="text-[10px] font-bold bg-red-500 text-white px-1.5 py-0.5 rounded-full">-{deal.discount_pct}%</span>
+                <div className="text-xs text-muted-foreground line-through">${originalPrice}</div>
               )}
             </div>
           );
         })()}
+      </div>
 
-        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-          {store.distance_km && (
-            <span className="text-[10px] text-muted-foreground">{store.distance_km} km away</span>
-          )}
-          <span className="text-[10px] text-blue-600 bg-blue-50 dark:bg-blue-950/30 px-1.5 py-0.5 rounded-full">Call to confirm</span>
-        </div>
-
-        <p className="text-xs text-muted-foreground truncate mt-0.5">{store.address}</p>
-
-        <div className="flex gap-2 mt-2 flex-wrap">
-          {store.maps_url ? (
-            <a
-              href={store.maps_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg hover:opacity-90 transition-opacity ${
-                hasLocalDeal ? "bg-green-500 text-white" : isBest ? "bg-amber-500 text-white" : "bg-primary text-primary-foreground"
-              }`}
-            >
-              <Navigation className="w-3 h-3" />
-              {hasLocalDeal ? "Get Deal" : isBest ? "Go Now" : "Maps"}
-            </a>
-          ) : (
-            <span className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-secondary text-muted-foreground">
-              Check in store
-            </span>
-          )}
-          {store.phone && (
-            <a href={`tel:${store.phone}`} className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors">
-              <Phone className="w-3 h-3" />
-              Call
-            </a>
-          )}
-        </div>
+      <div className="flex gap-2 mt-3 flex-wrap">
+        <a
+          href={store.maps_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity active:scale-[0.98] ${
+            hasLocalDeal ? "bg-green-500 text-white" : isBest ? "bg-amber-500 text-white" : "bg-primary text-primary-foreground"
+          }`}
+        >
+          <Navigation className="w-3.5 h-3.5" />
+          {hasLocalDeal ? "Get Deal & Directions" : "Get Directions"}
+        </a>
+        {store.phone && (
+          <a href={`tel:${store.phone}`} className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-secondary hover:bg-secondary/70 text-sm font-medium transition-colors">
+            <Phone className="w-3.5 h-3.5" />
+            Call
+          </a>
+        )}
       </div>
     </motion.div>
   );

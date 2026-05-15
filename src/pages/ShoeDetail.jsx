@@ -29,6 +29,8 @@ import MatchScoreBadge from "../components/MatchScoreBadge";
 import CollectionsManager from "../components/CollectionsManager";
 import { AnimatePresence as AP } from "framer-motion";
 import { clearAllAgentCache } from "../lib/agentCache";
+import SizeStandardToggle, { DisplaySize } from "../components/SizeStandardToggle";
+import { toUSSize, fromUSSize, convertSizeList } from "../lib/sizeConverter";
 
 // One-time bust of old cached agent results (runs once per session)
 if (!sessionStorage.getItem("ushoe_cache_v5")) {
@@ -74,8 +76,9 @@ export default function ShoeDetail() {
   const [similar, setSimilar]         = useState([]);
   const [loading, setLoading]         = useState(true);
   const [wishlisted, setWishlisted]   = useState(false);
-  const [selectedSize, setSelectedSize]   = useState(null);
+  const [selectedSize, setSelectedSize]   = useState(null); // always stored as US
   const [selectedColor, setSelectedColor] = useState(null);
+  const [sizeStandard, setSizeStandard]   = useState("US");
   const [activeTab, setActiveTab]     = useState(tabParam || null); // null | "nearby" | "online"
   const [showShare, setShowShare]         = useState(false);
   const [showCollections, setShowCollections] = useState(false);
@@ -255,26 +258,36 @@ export default function ShoeDetail() {
             {/* ── Sizes ── */}
             {shoe.sizes_available?.length > 0 && (
               <div>
-                <div className="flex items-center gap-3 mb-2">
+                <div className="flex items-center gap-3 mb-2 flex-wrap">
                   <p className="text-sm font-semibold">
-                    Size{selectedSize ? <span className="text-muted-foreground font-normal"> — US {selectedSize}</span> : ""}
+                    Size{selectedSize ? (
+                      <span className="text-muted-foreground font-normal">
+                        {" "}— <DisplaySize usSize={selectedSize} standard={sizeStandard} gender={shoe.gender} /> {sizeStandard}
+                      </span>
+                    ) : ""}
                   </p>
+                  <SizeStandardToggle standard={sizeStandard} onChange={setSizeStandard} />
                   <SizeConfidenceNote shoe={shoe} />
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {shoe.sizes_available.map(size => (
-                    <button
-                      key={size}
-                      onClick={() => setSelectedSize(selectedSize === size ? null : size)}
-                      className={`w-12 h-12 rounded-xl text-sm font-semibold transition-all ${
-                        selectedSize === size
-                          ? "bg-primary text-primary-foreground shadow-md shadow-primary/25"
-                          : "bg-secondary hover:bg-secondary/80 text-foreground"
-                      }`}
-                    >
-                      {size}
-                    </button>
-                  ))}
+                  {shoe.sizes_available.map(usSize => {
+                    const displaySize = sizeStandard === "US"
+                      ? usSize
+                      : fromUSSize(usSize, sizeStandard, shoe.gender) || usSize;
+                    return (
+                      <button
+                        key={usSize}
+                        onClick={() => setSelectedSize(selectedSize === usSize ? null : usSize)}
+                        className={`min-w-[3rem] h-12 px-2 rounded-xl text-sm font-semibold transition-all ${
+                          selectedSize === usSize
+                            ? "bg-primary text-primary-foreground shadow-md shadow-primary/25"
+                            : "bg-secondary hover:bg-secondary/80 text-foreground"
+                        }`}
+                      >
+                        {displaySize}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}

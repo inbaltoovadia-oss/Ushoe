@@ -2,6 +2,7 @@
  * DEAL SEARCH AGENT
  * Calls the fastWebSearch backend function which uses gemini_3_flash
  * with add_context_from_internet to find real live prices.
+ * Passes exact model, color, and size for accurate matching.
  */
 
 import { base44 } from "@/api/base44Client";
@@ -13,7 +14,11 @@ export async function runDealAgent({ shoe, city, size = null, color = null, coun
 
   const country = shoe._country || "United States";
   const code = countryCode || shoe._countryCode || "US";
-  const query = `${shoe.brand} ${shoe.name}${size ? ` size ${size}` : ""}${color ? ` ${color}` : ""}`;
+
+  // Build the most specific query possible for exact matching
+  const sizeStr = size ? ` US size ${size}` : "";
+  const colorStr = (color || shoe.colorway) ? ` ${color || shoe.colorway}` : "";
+  const query = `${shoe.brand} ${shoe.name}${colorStr}${sizeStr} buy`;
 
   const res = await base44.functions.fastWebSearch({
     query,
@@ -31,21 +36,22 @@ export async function runDealAgent({ shoe, city, size = null, color = null, coun
     const discount = origNum && priceNum && origNum > priceNum
       ? Math.round(((origNum - priceNum) / origNum) * 100)
       : (p.discount_percent || 0);
-    const catalogPrice = shoe.price || 0;
     return {
-      retailer_name:   p.retailer || p.name,
-      deal_price:      priceNum,
-      original_price:  origNum || null,
-      discount_pct:    discount,
-      discount_value:  origNum && priceNum ? Math.max(0, origNum - priceNum) : 0,
-      shipping_free:   (p.estimated_shipping || "").toLowerCase().includes("free"),
-      coupon_code:     null,
-      deal_type:       discount > 0 ? "sale" : "regular",
-      confidence:      p.price_confidence || "medium",
-      deal_confirmed:  priceNum !== null && priceNum < catalogPrice,
-      is_best_deal:    !!p.is_best_deal,
+      retailer_name:     p.retailer || p.name,
+      deal_price:        priceNum,
+      original_price:    origNum || null,
+      discount_pct:      discount,
+      discount_value:    origNum && priceNum ? Math.max(0, origNum - priceNum) : 0,
+      shipping_free:     (p.estimated_shipping || "").toLowerCase().includes("free"),
+      shipping_cost:     (p.estimated_shipping || "").toLowerCase().includes("free") ? null : p.estimated_shipping,
+      estimated_delivery: p.estimated_delivery || null,
+      coupon_code:       p.coupon_code || null,
+      deal_type:         discount > 0 ? "sale" : "regular",
+      confidence:        p.price_confidence || "medium",
+      deal_confirmed:    priceNum !== null,
+      is_best_deal:      !!p.is_best_deal,
       ships_to_location: p.ships_to_user !== false,
-      buy_link:        null,
+      buy_link:          p.buy_link || null,
     };
   });
 
@@ -54,22 +60,16 @@ export async function runDealAgent({ shoe, city, size = null, color = null, coun
     return min;
   }, null);
 
-  const hasDeal = retailers.some(r => r.deal_confirmed);
+  const hasDeal = retailers.some(r => r.discount_pct > 0);
   const bestRetailer = retailers.find(r => r.is_best_deal);
 
   const summary = bestRetailer
-    ? `Best price found: $${bestRetailer.deal_price} at ${bestRetailer.retailer_name}${bestRetailer.discount_pct > 0 ? ` (${bestRetailer.discount_pct}% off)` : ""}`
+    ? `Best price: $${bestRetailer.deal_price} at ${bestRetailer.retailer_name}${bestRetailer.discount_pct > 0 ? ` (${bestRetailer.discount_pct}% off)` : ""}`
     : retailers.length > 0
     ? `Found ${retailers.length} retailer${retailers.length > 1 ? "s" : ""} carrying this shoe`
     : "";
 
-  const result = {
-    summary,
-    best_price_found: bestPrice,
-    has_active_deals: hasDeal,
-    retailers,
-  };
-
+  const result = { summary, best_price_found: bestPrice, has_active_deals: hasDeal, retailers };
   setCachedDeals(shoe.id, city, result, size, color);
   return result;
 }
