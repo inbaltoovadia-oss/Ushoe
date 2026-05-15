@@ -28,11 +28,12 @@ RETAILERS TO CHECK (all ship to ${country}):
 ${retailerList}
 
 INSTRUCTIONS:
-1. Search for "${shoe.brand} ${shoe.name}" using live web data.
-2. Include retailers that are likely to carry this brand/model based on your knowledge. Use common sense — a Nike store won't sell Adidas, but multi-brand retailers like Foot Locker, Zappos, Amazon carry most brands.
-3. If you're not sure about exact pricing, use your best estimate based on the catalog price of $${shoe.price}.
+1. Search each retailer's website for "${shoe.brand} ${shoe.name}" using live web search.
+2. Only include a retailer if you find an actual matching product listing for this exact shoe on their site. Do NOT include a retailer if the search returns no results or wrong products.
+3. Set found_on_site: true ONLY when a real product page or listing for this shoe appears. Set found_on_site: false otherwise — and omit those retailers entirely.
+4. Price must come from the actual listing, not estimated.
 
-For EACH retailer that likely carries this shoe:
+For EACH retailer where you find a real listing for this shoe:
 - retailer_name: exact name from the list above
 - found_on_site: true (ONLY include retailers where this is true)
 - deal_price: current selling price in USD (convert if needed)
@@ -64,6 +65,7 @@ Also return:
             type: "object",
             properties: {
               retailer_name:      { type: "string" },
+              found_on_site:      { type: "boolean" },
               deal_price:         { type: "number" },
               original_price:     { type: "number" },
               discount_pct:       { type: "number" },
@@ -86,7 +88,7 @@ Also return:
   const retailerMap = {};
   retailers.forEach(r => { retailerMap[r.name.toLowerCase()] = r; });
 
-  const merged = (res.retailers || []).map(r => {
+  const merged = (res.retailers || []).filter(r => r.found_on_site !== false).map(r => {
     const key = (r.retailer_name || "").toLowerCase();
     const dirEntry = retailerMap[key]
       || Object.values(retailerMap).find(d => key.includes(d.name.toLowerCase().split(" ")[0]))

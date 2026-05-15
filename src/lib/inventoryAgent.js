@@ -27,15 +27,17 @@ ONLINE RETAILERS TO CHECK:
 ${retailerList}
 
 INSTRUCTIONS:
-1. Search for "${shoe.brand} ${shoe.name}" across the retailers listed above.
-2. Include a retailer in online_stores if it likely carries this brand/shoe (use your knowledge of what retailers stock which brands).
-3. For stock_status, use your best knowledge — default to "Check in store" if unsure.
-4. For nearby physical stores: list real shoe stores near ${city} that are known to carry ${shoe.brand}. Use real store names and real street addresses. Prefer brand flagship stores and large multi-brand retailers (Foot Locker, JD Sports, etc). Include up to 6 stores.
+1. Search each retailer's website for "${shoe.brand} ${shoe.name}" using live web search.
+2. Only include a retailer in online_stores if you actually find a matching product listing for this exact shoe on their site. Do NOT include a retailer if the search returns no matching results or the brand doesn't match.
+3. Set found_on_site: true ONLY when a real product listing for this shoe appears in search results. Set found_on_site: false otherwise.
+4. For stock_status, use what the listing shows — default to "Check in store" if the listing doesn't specify.
+5. For nearby physical stores: search for real ${shoe.brand} stores or major multi-brand retailers (Foot Locker, JD Sports, etc.) near ${city} that actually carry this brand. Use real store names and real street addresses. Do NOT invent stores.
 
 Return:
-- online_stores: [{ name, stock_status, sizes_available }]
+- online_stores: [{ name, found_on_site (boolean), stock_status, sizes_available }]
   - stock_status: "In stock" | "Limited stock" | "Out of stock" | "Check in store"
-- nearby_stores: up to 6 physical stores near ${city} that carry ${shoe.brand}.
+  - ONLY include entries where found_on_site is true
+- nearby_stores: up to 6 verified physical stores near ${city} that carry ${shoe.brand}.
   [{ name, address (real street address), distance_km, stock_status, phone }]
 - overall_status: "in_stock" | "limited_stock" | "out_of_stock" | "unknown"
 - available_sizes: confirmed US sizes in stock
@@ -55,6 +57,7 @@ Return:
             type: "object",
             properties: {
               name:            { type: "string" },
+              found_on_site:   { type: "boolean" },
               stock_status:    { type: "string" },
               sizes_available: { type: "array", items: { type: "number" } },
             },
@@ -81,7 +84,7 @@ Return:
   const retailerMap = {};
   retailers.forEach(r => { retailerMap[r.name.toLowerCase()] = r; });
 
-  const onlineStores = (res.online_stores || []).map(s => {
+  const onlineStores = (res.online_stores || []).filter(s => s.found_on_site !== false).map(s => {
     const key = (s.name || "").toLowerCase();
     const dirEntry = retailerMap[key]
       || Object.values(retailerMap).find(d => key.includes(d.name.toLowerCase().split(" ")[0]))
