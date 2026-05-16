@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Sparkles, MapPin, Search, ArrowRight, TrendingUp } from "lucide-react";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { base44 } from "@/api/base44Client";
+import { getShoesCatalog } from "../../lib/shoeCache";
 
 const FALLBACK_SHOES = [
   {
@@ -35,7 +35,7 @@ export default function HeroSection() {
 
   // Load featured shoes from catalog — prefer trending + shoes with images
   useEffect(() => {
-    base44.entities.Shoe.list("-trending_score", 40).then(shoes => {
+    getShoesCatalog(80).then(shoes => {
       // First pass: shoes with valid image_url
       const withImages = shoes.filter(s => s.image_url?.startsWith("http"));
       // Second pass: fall back to all trending shoes (image will use onError fallback per shoe)

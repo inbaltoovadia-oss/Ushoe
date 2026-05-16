@@ -6,7 +6,7 @@
 import { useState, useEffect } from "react";
 import { Users, MapPin, TrendingUp, ChevronRight } from "lucide-react";
 import { Link } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { getShoesCatalog } from "../../lib/shoeCache";
 import { getLocation } from "../../lib/locationStore";
 import ShoeImage from "../ShoeImage";
 import { motion } from "framer-motion";
@@ -34,12 +34,10 @@ export default function CommunityPicksSection() {
   const location = getLocation();
 
   useEffect(() => {
-    // Always load from catalog — instant, no credits
-    base44.entities.Shoe.list("-trending_score", 20).then(shoes => {
-      // Top trending by score = community picks proxy
+    getShoesCatalog(80).then(shoes => {
       setLocalPicks(shoes.slice(0, 6));
       setLoading(false);
-    });
+    }).catch(() => setLoading(false));
   }, []);
 
   if (loading || !localPicks.length) return null;

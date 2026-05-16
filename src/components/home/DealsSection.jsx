@@ -5,7 +5,7 @@
 import { useState, useEffect } from "react";
 import { Tag, ExternalLink } from "lucide-react";
 import { Link } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { getShoesCatalog } from "../../lib/shoeCache";
 import ShoeCard from "../ShoeCard";
 import SkeletonCard from "../SkeletonCard";
 
@@ -14,12 +14,11 @@ export default function DealsSection() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    base44.entities.Shoe.list("-trending_score", 40).then(all => {
-      // Only show shoes actually on sale
+    getShoesCatalog(80).then(all => {
       const onSale = all.filter(s => s.original_price && s.original_price > s.price);
       setShoes(onSale.slice(0, 4));
       setLoading(false);
-    });
+    }).catch(() => setLoading(false));
   }, []);
 
   return (

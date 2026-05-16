@@ -6,7 +6,7 @@
 import { useState, useEffect } from "react";
 import { TrendingUp, Flame, Zap, Star, ArrowUpRight, BarChart2 } from "lucide-react";
 import { motion } from "framer-motion";
-import { base44 } from "@/api/base44Client";
+import { getShoesCatalog } from "../../lib/shoeCache";
 import { Link } from "react-router-dom";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 
@@ -40,10 +40,10 @@ export default function TrendingTrendsSection() {
   const currentSeason = getSeason();
 
   useEffect(() => {
-    base44.entities.Shoe.list("-trending_score", 60).then(data => {
+    getShoesCatalog(80).then(data => {
       setShoes(data);
       setLoading(false);
-    });
+    }).catch(() => setLoading(false));
   }, []);
 
   // Rising Stars: high trending_score, recently added or high score relative to price

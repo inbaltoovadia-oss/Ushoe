@@ -6,7 +6,7 @@
 import { useState, useEffect } from "react";
 import { Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
-import { base44 } from "@/api/base44Client";
+import { getShoesCatalog } from "../../lib/shoeCache";
 import ShoeCard from "../ShoeCard";
 import SkeletonCard from "../SkeletonCard";
 import { getUserProfile } from "../../lib/userProfileStore";
@@ -24,7 +24,7 @@ export default function PersonalizedSection() {
   const load = async () => {
     setLoading(true);
     const [allShoes, profile] = await Promise.all([
-      base44.entities.Shoe.list("-trending_score", 80),
+      getShoesCatalog(80),
       getUserProfile(),
     ]);
 

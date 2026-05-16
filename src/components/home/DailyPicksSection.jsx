@@ -5,7 +5,7 @@
 import { useState, useEffect } from "react";
 import { Tag, TrendingUp, Star, DollarSign } from "lucide-react";
 import { Link } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { getShoesCatalog } from "../../lib/shoeCache";
 import ShoeImage from "../ShoeImage";
 import { motion } from "framer-motion";
 import SkeletonCard from "../SkeletonCard";
@@ -41,10 +41,10 @@ export default function DailyPicksSection() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    base44.entities.Shoe.list("-trending_score", 80).then(all => {
+    getShoesCatalog(80).then(all => {
       setShoes(all);
       setLoading(false);
-    });
+    }).catch(() => setLoading(false));
   }, []);
 
   const seed = dateSeed();
