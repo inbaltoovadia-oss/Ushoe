@@ -13,7 +13,6 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { getLocation, subscribeLocation } from "../lib/locationStore";
 import { runDealAgent } from "../lib/dealAgent";
-import { runInventoryAgent } from "../lib/inventoryAgent";
 import { getRetailersForCountry } from "../lib/retailerDirectory";
 import SizeStandardToggle, { DisplaySize } from "./SizeStandardToggle";
 import LocationInput from "./LocationInput";
@@ -86,9 +85,6 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
     setStockDone(false);
     setDealSummary("");
 
-    let dealResult = null;
-    let stockResult = null;
-
     const agentArgs = {
       shoe: { ...shoe, _country: loc.country, _countryCode: loc.countryCode },
       city: loc.city,
@@ -97,21 +93,13 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
       countryCode: loc.countryCode,
     };
 
-    const dealPromise = runDealAgent(agentArgs).then(r => {
-      dealResult = r;
-      setDealSummary(r.summary);
-      setBestPrice(r.best_price_found);
-      setDealsDone(true);
-      setRetailers(mergeRetailers(dealResult, stockResult));
-    });
-
-    const stockPromise = runInventoryAgent(agentArgs).then(r => {
-      stockResult = r;
-      setStockDone(true);
-      setRetailers(mergeRetailers(dealResult, stockResult));
-    });
-
-    await Promise.allSettled([dealPromise, stockPromise]);
+    // Run only ONE search — deal agent gets all retailer data including stock
+    const dealResult = await runDealAgent(agentArgs);
+    setDealSummary(dealResult.summary);
+    setBestPrice(dealResult.best_price_found);
+    setDealsDone(true);
+    setStockDone(true);
+    setRetailers(mergeRetailers(dealResult, null));
     setLoading(false);
   };
 
@@ -198,26 +186,12 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
         <LocationInput onLocated={() => { setStarted(false); }} compact />
       </div>
 
-      {/* Agent status */}
-      <div className="flex flex-wrap gap-2">
-        {[
-          { done: dealsDone, label: "Deal Agent",      icon: Tag },
-          { done: stockDone, label: "Stock Agent",     icon: CheckCircle },
-        ].map(({ done, label, icon: Icon }) => (
-          <div key={label} className={`flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-full font-medium ${
-            done ? "bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400" : "bg-secondary text-muted-foreground"
-          }`}>
-            <Icon className="w-3 h-3" />
-            {label} {done ? "✓" : <Loader2 className="w-2.5 h-2.5 animate-spin inline ml-0.5" />}
-          </div>
-        ))}
-        {bestPrice && (
-          <div className="flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-full bg-green-500/10 text-green-700 dark:text-green-400 font-semibold">
-            <TrendingDown className="w-3 h-3" />
-            Best found: ${bestPrice}
-          </div>
-        )}
-      </div>
+      {bestPrice && (
+        <div className="flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-full bg-green-500/10 text-green-700 dark:text-green-400 font-semibold w-fit">
+          <TrendingDown className="w-3 h-3" />
+          Best found: {bestPrice}
+        </div>
+      )}
 
       {dealSummary && (
         <div className="flex items-start gap-2 bg-primary/5 border border-primary/10 rounded-xl px-3 py-2.5">
