@@ -19,6 +19,7 @@ import PlanGate from "../components/PlanGate";
 import ShoeProblemSolver from "../components/ShoeProblemSolver";
 import { Link } from "react-router-dom";
 import RecentlyViewed from "../components/RecentlyViewed";
+import WebShoeSearch from "../components/WebShoeSearch";
 
 const CATEGORY_ICONS = {
   Running: "🏃", Basketball: "🏀", Soccer: "⚽", Tennis: "🎾",
@@ -591,41 +592,48 @@ ${rankedShoes.map((s, i) => `${i}: ${s.brand} ${s.name} $${s.price} ${s.category
 
             {/* No results */}
             {results.length === 0 && (
-              <div className="flex items-center gap-3 py-4 px-5 bg-amber-50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-800/40 rounded-2xl">
-                <span className="text-xl">👟</span>
-                <p className="text-sm text-amber-800 dark:text-amber-300 font-medium">No matching shoes found in our catalog. Try a different search.</p>
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center gap-3 py-4 px-5 bg-amber-50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-800/40 rounded-2xl">
+                  <span className="text-xl">👟</span>
+                  <p className="text-sm text-amber-800 dark:text-amber-300 font-medium">No matching shoes found in our catalog. Try a different search.</p>
+                </div>
+                <WebShoeSearch query={query} />
               </div>
             )}
             {results.length > 0 && (
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="font-heading font-bold text-xl">Best Matches In Our Catalog</h2>
-                  <span className="text-xs text-muted-foreground bg-secondary px-3 py-1.5 rounded-full">
-                    {results.length} {results.length === 1 ? "match" : "matches"} found
-                  </span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {results.map((result, i) => (
-                    <motion.div key={result.shoe.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }} className="relative group">
-                      <div className="absolute top-3 right-3 z-20">
-                        <MatchScoreRing score={result.match_score} />
-                      </div>
-                      <ShoeCard shoe={result.shoe} index={i} />
-                      {result.explanation && (
-                        <div className="mt-2 mx-1 flex items-start gap-2 bg-primary/5 border border-primary/10 rounded-xl px-3 py-2">
-                          <Sparkles className="w-3.5 h-3.5 text-primary flex-shrink-0 mt-0.5" />
-                          <p className="text-xs text-muted-foreground leading-relaxed">{result.explanation}</p>
+              <div className="space-y-10">
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="font-heading font-bold text-xl">Best Matches In Our Catalog</h2>
+                    <span className="text-xs text-muted-foreground bg-secondary px-3 py-1.5 rounded-full">
+                      {results.length} {results.length === 1 ? "match" : "matches"} found
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {results.map((result, i) => (
+                      <motion.div key={result.shoe.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }} className="relative group">
+                        <div className="absolute top-3 right-3 z-20">
+                          <MatchScoreRing score={result.match_score} />
                         </div>
-                      )}
-                      <Link
-                        to={`/shoe/${result.shoe.id}`}
-                        className="mt-2 mx-1 flex items-center justify-center gap-2 w-[calc(100%-8px)] py-2 rounded-xl border border-border text-sm font-medium text-muted-foreground hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-all"
-                      >
-                        Quick View
-                      </Link>
-                    </motion.div>
-                  ))}
+                        <ShoeCard shoe={result.shoe} index={i} />
+                        {result.explanation && (
+                          <div className="mt-2 mx-1 flex items-start gap-2 bg-primary/5 border border-primary/10 rounded-xl px-3 py-2">
+                            <Sparkles className="w-3.5 h-3.5 text-primary flex-shrink-0 mt-0.5" />
+                            <p className="text-xs text-muted-foreground leading-relaxed">{result.explanation}</p>
+                          </div>
+                        )}
+                        <Link
+                          to={`/shoe/${result.shoe.id}`}
+                          className="mt-2 mx-1 flex items-center justify-center gap-2 w-[calc(100%-8px)] py-2 rounded-xl border border-border text-sm font-medium text-muted-foreground hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-all"
+                        >
+                          Quick View
+                        </Link>
+                      </motion.div>
+                    ))}
+                  </div>
                 </div>
+                {/* Also search the web for this shoe */}
+                <WebShoeSearch query={query} />
               </div>
             )}
           </motion.section>

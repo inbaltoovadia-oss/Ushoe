@@ -9,6 +9,7 @@ import {
 import { Link } from "react-router-dom";
 import UserManagement from "../components/admin/UserManagement";
 import ImageManager from "../components/admin/ImageManager";
+import AddShoePanel from "../components/admin/AddShoePanel";
 
 export default function AdminDashboard() {
   const { user } = useAuth();
@@ -54,6 +55,11 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
+        {/* Add Shoe */}
+        <div className="mb-8">
+          <AddShoePanel onAdded={load} />
+        </div>
+
         {/* User Management */}
         <div className="mb-8">
           <UserManagement />
