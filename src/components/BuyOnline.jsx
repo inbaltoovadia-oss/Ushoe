@@ -145,8 +145,8 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
           <p className="text-xs text-muted-foreground mb-2">Or search directly:</p>
           <div className="flex flex-wrap gap-2">
             {[
-              { name: "Foot Locker IL", url: `https://www.footlocker.co.il/catalogsearch/result/?q=${encodeURIComponent((shoe?.brand || "") + " " + (shoe?.name || ""))}` },
-              { name: "Farfetch IL", url: `https://www.farfetch.com/il/shopping/search/items.aspx?q=${encodeURIComponent((shoe?.brand || "") + " " + (shoe?.name || ""))}` },
+              { name: "Foot Locker IL", url: "https://www.footlocker.co.il" },
+              { name: "Farfetch IL", url: "https://www.farfetch.com/il" },
             ].map(r => (
               <a
                 key={r.name}
@@ -204,8 +204,8 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
           <p className="text-xs text-muted-foreground mt-1 mb-3">Try adjusting your location or search again.</p>
           <div className="flex flex-wrap gap-2 justify-center">
             {[
-              { name: "Foot Locker IL", url: `https://www.footlocker.co.il/catalogsearch/result/?q=${encodeURIComponent((shoe?.brand || "") + " " + (shoe?.name || ""))}` },
-              { name: "Farfetch IL", url: `https://www.farfetch.com/il/shopping/search/items.aspx?q=${encodeURIComponent((shoe?.brand || "") + " " + (shoe?.name || ""))}` },
+              { name: "Foot Locker IL", url: "https://www.footlocker.co.il" },
+              { name: "Farfetch IL", url: "https://www.farfetch.com/il" },
             ].map(r => (
               <a key={r.name} href={r.url} target="_blank" rel="noopener noreferrer"
                 className="text-xs px-3 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors flex items-center gap-1">
