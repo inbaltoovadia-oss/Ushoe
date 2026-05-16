@@ -6,10 +6,10 @@
  * - Deal-first ranking
  */
 import { useState, useEffect } from "react";
-import { MapPin, Loader2, Navigation, Sparkles, Tag, RefreshCw, Store, TrendingDown, ShieldCheck, Phone } from "lucide-react";
+import { MapPin, Loader2, Navigation, Sparkles, Tag, RefreshCw, TrendingDown, ShieldCheck, Phone } from "lucide-react";
+import SearchingState from "./SearchingState";
 import { motion, AnimatePresence } from "framer-motion";
 import { getLocation, subscribeLocation } from "../lib/locationStore";
-import { runInventoryAgent } from "../lib/inventoryAgent";
 import { runDealAgent } from "../lib/dealAgent";
 import SizeStandardToggle, { DisplaySize } from "./SizeStandardToggle";
 import LocationInput from "./LocationInput";
@@ -81,9 +81,6 @@ export default function NearbyStores({ title = "Nearby Stores", maxCount = 6, sh
     setInventoryDone(false);
     setDealsDone(false);
 
-    let inventoryResult = null;
-    let dealResult = null;
-
     const agentArgs = {
       shoe: { ...shoe, _country: location.country, _countryCode: location.countryCode },
       city: location.city,
@@ -92,34 +89,29 @@ export default function NearbyStores({ title = "Nearby Stores", maxCount = 6, sh
       countryCode: location.countryCode,
     };
 
-    const inventoryPromise = runInventoryAgent(agentArgs).then(r => {
-      inventoryResult = r;
-      setSummary(r.summary || "");
-      setInventoryDone(true);
-      const nearby = (r.nearby_stores || []).slice(0, maxCount).map((s, idx) => ({
-        id: `inv_${s.name}_${idx}`,
-        name: s.name,
-        address: s.address || "",
-        distance_km: s.distance_km || null,
-        phone: s.phone || "",
-        stock_status: s.stock_status || "Check in store",
-        price: s.price || null,
-        maps_url: s.maps_url || `https://www.google.com/maps/search/${encodeURIComponent(`${s.name} ${s.address || location.city}`)}`,
-        is_best_option: false,
-        has_local_deal: false,
-        local_deal_info: null,
-      }));
-      setStores(dealResult ? rankStores(nearby, dealResult.retailers) : nearby);
-    }).catch(() => { setInventoryDone(true); setSummary(""); });
+    // Single call returns both deals AND nearby_stores
+    const result = await runDealAgent(agentArgs);
 
-    const dealPromise = runDealAgent(agentArgs).then(r => {
-      dealResult = r;
-      setDealSummary(r.has_active_deals ? r.summary : "");
-      setDealsDone(true);
-      setStores(prev => prev.length > 0 ? rankStores(prev, r.retailers) : prev);
-    }).catch(() => { setDealsDone(true); });
+    setInventoryDone(true);
+    setDealsDone(true);
+    setDealSummary(result.has_active_deals ? result.summary : "");
 
-    await Promise.allSettled([inventoryPromise, dealPromise]);
+    const nearby = (result.nearby_stores || []).slice(0, maxCount).map((s, idx) => ({
+      id: `ns_${s.name}_${idx}`,
+      name: s.name,
+      address: s.address || "",
+      distance_km: s.distance_km || null,
+      phone: s.phone || "",
+      stock_status: s.stock_status || "Check in store",
+      price: null,
+      maps_url: s.maps_url,
+      is_best_option: false,
+      has_local_deal: false,
+      local_deal_info: null,
+    }));
+
+    setStores(rankStores(nearby, result.retailers));
+    setSummary(result.summary || "");
     setLoading(false);
   };
 
@@ -189,20 +181,18 @@ export default function NearbyStores({ title = "Nearby Stores", maxCount = 6, sh
         ))}
       </div>
 
-      {/* Agent status */}
-      <div className="flex flex-wrap gap-2">
-        {[
-          { done: inventoryDone, icon: Store, label: "Inventory" },
-          { done: dealsDone,     icon: Tag,   label: "Local Deals" },
-        ].map(({ done, icon: Icon, label }) => (
-          <div key={label} className={`flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-full font-medium ${
-            done ? "bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400" : "bg-secondary text-muted-foreground"
-          }`}>
-            <Icon className="w-3 h-3" />
-            {label} {done ? "✓" : <Loader2 className="w-2.5 h-2.5 animate-spin inline ml-0.5" />}
-          </div>
-        ))}
-      </div>
+      {!dealsDone && (
+        <div className="flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-full bg-secondary text-muted-foreground font-medium w-fit">
+          <Loader2 className="w-3 h-3 animate-spin" />
+          Finding stores &amp; deals…
+        </div>
+      )}
+      {dealsDone && (
+        <div className="flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-full bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400 font-medium w-fit">
+          <Tag className="w-3 h-3" />
+          Results ready ✓
+        </div>
+      )}
 
       {summary && !loading && (
         <div className="flex items-start gap-2 bg-primary/5 border border-primary/10 rounded-xl p-3">
@@ -224,13 +214,7 @@ export default function NearbyStores({ title = "Nearby Stores", maxCount = 6, sh
       </p>
 
       {loading && !inventoryDone ? (
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 text-muted-foreground py-2">
-            <Loader2 className="w-4 h-4 animate-spin" />
-            <span className="text-sm">Scanning stores near {loc.city}…</span>
-          </div>
-          {[1, 2, 3].map(i => <div key={i} className="h-24 bg-secondary/50 animate-pulse rounded-2xl" />)}
-        </div>
+        <SearchingState city={loc.city} shoe={shoe} />
       ) : (
         <AnimatePresence>
           <div className="space-y-3">

@@ -1,8 +1,7 @@
 /**
- * DEAL SEARCH AGENT
- * Calls the fastWebSearch backend function which uses gemini_3_flash
- * with add_context_from_internet to find real live prices.
- * Passes exact model, color, and size for accurate matching.
+ * DEAL + NEARBY AGENT
+ * Single fastWebSearch call returns both online deals AND nearby stores.
+ * Results are cached per shoe+city+size+color for 10 min.
  */
 
 import { base44 } from "@/api/base44Client";
@@ -15,7 +14,6 @@ export async function runDealAgent({ shoe, city, size = null, color = null, coun
   const country = shoe._country || "United States";
   const code = countryCode || shoe._countryCode || "US";
 
-  // Build the most specific query possible for exact matching
   const sizeStr = size ? ` US size ${size}` : "";
   const colorStr = (color || shoe.colorway) ? ` ${color || shoe.colorway}` : "";
   const query = `${shoe.brand} ${shoe.name}${colorStr}${sizeStr} buy`;
@@ -28,9 +26,11 @@ export async function runDealAgent({ shoe, city, size = null, color = null, coun
     countryCode: code,
   });
 
-  const picks = (res?.web_picks || res?.data?.web_picks || []);
+  const data = res?.data || res || {};
+  const picks = data.web_picks || [];
+  const nearbyRaw = data.nearby_stores || [];
 
-  const retailers = picks.map((p, i) => {
+  const retailers = picks.map(p => {
     const priceNum = parseFloat((p.price || "0").replace(/[^0-9.]/g, "")) || null;
     const origNum = parseFloat((p.original_price || "0").replace(/[^0-9.]/g, "")) || null;
     const discount = origNum && priceNum && origNum > priceNum
@@ -44,7 +44,6 @@ export async function runDealAgent({ shoe, city, size = null, color = null, coun
       discount_value:    origNum && priceNum ? Math.max(0, origNum - priceNum) : 0,
       shipping_free:     (p.estimated_shipping || "").toLowerCase().includes("free"),
       shipping_cost:     (p.estimated_shipping || "").toLowerCase().includes("free") ? null : p.estimated_shipping,
-      estimated_delivery: p.estimated_delivery || null,
       coupon_code:       p.coupon_code || null,
       deal_type:         discount > 0 ? "sale" : "regular",
       confidence:        p.price_confidence || "medium",
@@ -55,6 +54,14 @@ export async function runDealAgent({ shoe, city, size = null, color = null, coun
     };
   });
 
+  const nearby_stores = nearbyRaw
+    .filter(s => s.name && s.address)
+    .map(s => ({
+      ...s,
+      stock_status: "Check in store",
+      maps_url: s.maps_url || `https://www.google.com/maps/search/${encodeURIComponent(`${s.name} ${s.address}`)}`,
+    }));
+
   const bestPrice = retailers.reduce((min, r) => {
     if (r.deal_price && (min === null || r.deal_price < min)) return r.deal_price;
     return min;
@@ -64,12 +71,12 @@ export async function runDealAgent({ shoe, city, size = null, color = null, coun
   const bestRetailer = retailers.find(r => r.is_best_deal);
 
   const summary = bestRetailer
-    ? `Best price: $${bestRetailer.deal_price} at ${bestRetailer.retailer_name}${bestRetailer.discount_pct > 0 ? ` (${bestRetailer.discount_pct}% off)` : ""}`
+    ? `Best price: ${bestRetailer.deal_price} at ${bestRetailer.retailer_name}${bestRetailer.discount_pct > 0 ? ` (${bestRetailer.discount_pct}% off)` : ""}`
     : retailers.length > 0
     ? `Found ${retailers.length} retailer${retailers.length > 1 ? "s" : ""} carrying this shoe`
     : "";
 
-  const result = { summary, best_price_found: bestPrice, has_active_deals: hasDeal, retailers };
+  const result = { summary, best_price_found: bestPrice, has_active_deals: hasDeal, retailers, nearby_stores };
   setCachedDeals(shoe.id, city, result, size, color);
   return result;
 }

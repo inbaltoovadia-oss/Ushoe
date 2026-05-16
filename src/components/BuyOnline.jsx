@@ -13,6 +13,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { getLocation, subscribeLocation } from "../lib/locationStore";
 import { runDealAgent } from "../lib/dealAgent";
+import SearchingState from "./SearchingState";
 import { getRetailersForCountry } from "../lib/retailerDirectory";
 import SizeStandardToggle, { DisplaySize } from "./SizeStandardToggle";
 import LocationInput from "./LocationInput";
@@ -163,19 +164,7 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
   const agentsReady = dealsDone || stockDone;
 
   if (!agentsReady && loading) {
-    return (
-      <div className="space-y-3 py-4">
-        <div className="flex items-center gap-3">
-          <div className="flex gap-1">
-            {[0, 120, 240].map(d => (
-              <div key={d} className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: `${d}ms` }} />
-            ))}
-          </div>
-          <span className="text-sm text-muted-foreground">Searching live prices near {loc.city}…</span>
-        </div>
-        {[1, 2, 3].map(i => <div key={i} className="h-28 bg-secondary/50 animate-pulse rounded-2xl" />)}
-      </div>
-    );
+    return <SearchingState city={loc.city} shoe={shoe} />;
   }
 
   return (
