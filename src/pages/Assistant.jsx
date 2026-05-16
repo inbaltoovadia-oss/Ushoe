@@ -2,15 +2,12 @@ import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Send, Loader2, Sparkles, Brain, Zap, ArrowRight, RotateCcw, SlidersHorizontal } from "lucide-react";
 import { base44 } from "@/api/base44Client";
-import { getUserProfile, subscribeUserProfile, invalidateProfileCache } from "../lib/userProfileStore";
+import { getShoesCatalog } from "../lib/shoeCache";
+import { getUserProfile, subscribeUserProfile } from "../lib/userProfileStore";
 import { rankShoes } from "../lib/personalizationEngine";
 import ShoeCard from "../components/ShoeCard";
 import ReactMarkdown from "react-markdown";
 import PreferencesPanel from "../components/assistant/PreferencesPanel";
-import { AnimatePresence as AP } from "framer-motion";
-
-// Module-level cache — catalog stays alive across re-renders, cleared on page reload
-let _catalogCache = null;
 
 const STARTER_PROMPTS = [
   "What's the best running shoe for me right now?",
@@ -123,8 +120,7 @@ export default function Assistant() {
     init();
     // On profile updates, silently refresh profile only (catalog is already cached)
     const unsub = subscribeUserProfile(async () => {
-      if (!_catalogCache) _catalogCache = base44.entities.Shoe.list("-trending_score", 80);
-      const [shoes, profile] = await Promise.all([_catalogCache, getUserProfile()]);
+      const [shoes, profile] = await Promise.all([getShoesCatalog(80), getUserProfile()]);
       const ranked = rankShoes(shoes, profile, { limit: 50 });
       setCatalogShoes(ranked);
       setUserProfile(profile);
@@ -137,11 +133,7 @@ export default function Assistant() {
   }, [messages, loading]);
 
   const init = async () => {
-    // Use module-level singleton so we only fetch catalog once per session
-    if (!_catalogCache) {
-      _catalogCache = base44.entities.Shoe.list("-trending_score", 80);
-    }
-    const [shoes, profile] = await Promise.all([_catalogCache, getUserProfile()]);
+    const [shoes, profile] = await Promise.all([getShoesCatalog(80), getUserProfile()]);
     const ranked = rankShoes(shoes, profile, { limit: 50 });
     setCatalogShoes(ranked);
     setUserProfile(profile);
@@ -250,9 +242,11 @@ export default function Assistant() {
     <div
       className="flex flex-col"
       style={{
-        height: "calc(100vh - 64px)",
+        height: "calc(100dvh - 64px)",
         background: "#0D0D0F",
         width: "100%",
+        marginTop: "-1rem",
+        marginBottom: "-5rem",
       }}
     >
       {/* Header */}
@@ -329,7 +323,7 @@ export default function Assistant() {
       )}
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto py-2 space-y-4 scrollbar-hide">
+      <div className="flex-1 overflow-y-auto py-2 space-y-4 scrollbar-hide overscroll-contain">
       <div className="max-w-3xl mx-auto px-4 sm:px-8 space-y-4">
         <AnimatePresence initial={false}>
           {messages.map((msg, i) => (
@@ -389,14 +383,14 @@ export default function Assistant() {
       </p>
 
       {/* Preferences Panel */}
-      <AP>
+      <AnimatePresence>
         {showPrefs && (
           <PreferencesPanel
             onClose={() => setShowPrefs(false)}
             onSaved={() => { init(); }}
           />
         )}
-      </AP>
+      </AnimatePresence>
 
       {/* Input bar */}
       <div className="flex-shrink-0 px-4 sm:px-8 pb-5 pt-1 max-w-3xl w-full mx-auto">

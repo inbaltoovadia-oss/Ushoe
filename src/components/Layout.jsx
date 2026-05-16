@@ -1,5 +1,4 @@
-import { useLocation, useNavigationType, Link } from "react-router-dom";
-import { Outlet } from "react-router-dom";
+import { useLocation, useNavigationType, Link, Outlet } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { useRef } from "react";
 import Navbar from "./Navbar";
@@ -10,10 +9,13 @@ import MobileBottomTabs from "./MobileBottomTabs";
 const ROOT_PATHS = ["/", "/discover", "/trending", "/wishlist", "/settings"];
 const ROOT_ORDER = ["/", "/discover", "/trending", "/wishlist", "/settings"];
 
+const FULLSCREEN_PATHS = ["/assistant"];
+
 export default function Layout() {
   const location = useLocation();
   const navType = useNavigationType();
   const prevPath = useRef(location.pathname);
+  const isFullscreen = FULLSCREEN_PATHS.includes(location.pathname);
 
   const isRoot = ROOT_PATHS.includes(location.pathname);
   const wasRoot = ROOT_PATHS.includes(prevPath.current);
@@ -50,7 +52,7 @@ export default function Layout() {
         <div className="absolute top-[40%] left-[55%] w-[30vw] h-[30vw] rounded-full bg-teal-400/6 dark:bg-teal-400/10 blur-[80px]" />
       </div>
       <Navbar />
-      <main className="pt-16 pb-20 md:pb-20 relative z-10">
+      <main className={`pt-16 relative z-10 ${isFullscreen ? "overflow-hidden" : "pb-20 md:pb-20"}`}>
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={key}
@@ -66,14 +68,16 @@ export default function Layout() {
       </main>
       <CompareBar />
       <MobileBottomTabs />
-      {/* Footer */}
-      <footer className="relative z-10 border-t border-border/40 py-6 px-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-muted-foreground">
-        <span>© {new Date().getFullYear()} uShoe. All rights reserved.</span>
-        <div className="flex items-center gap-4">
-          <Link to="/about" className="hover:text-foreground transition-colors">About</Link>
-          <Link to="/contact" className="hover:text-foreground transition-colors">Contact</Link>
-        </div>
-      </footer>
+      {/* Footer — hidden on fullscreen pages */}
+      {!isFullscreen && (
+        <footer className="relative z-10 border-t border-border/40 py-6 px-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-muted-foreground">
+          <span>© {new Date().getFullYear()} uShoe. All rights reserved.</span>
+          <div className="flex items-center gap-4">
+            <Link to="/about" className="hover:text-foreground transition-colors">About</Link>
+            <Link to="/contact" className="hover:text-foreground transition-colors">Contact</Link>
+          </div>
+        </footer>
+      )}
     </div>
   );
 }
