@@ -4,7 +4,7 @@
  * Only calls the LLM once per 2 weeks per city.
  */
 import { useState, useEffect } from "react";
-import { TrendingUp, Flame, Zap, ArrowUpRight, RefreshCw, Loader2, Globe } from "lucide-react";
+import { TrendingUp, Flame, Zap, ArrowUpRight, RefreshCw, Loader2, Globe, ExternalLink } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { runTrendAgent } from "../lib/trendAgent";
 import { getLocation } from "../lib/locationStore";
@@ -137,13 +137,23 @@ export default function LiveTrendsSection() {
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{shoe.reason_trending}</p>
                   </div>
-                  <div className="text-right flex-shrink-0">
+                  <div className="text-right flex-shrink-0 flex flex-col items-end gap-1">
                     <div className="flex items-center gap-1 text-accent font-bold text-sm">
                       <ArrowUpRight className="w-3 h-3" />
                       {shoe.hype_score}
                     </div>
                     {shoe.avg_resale_price && (
                       <p className="text-[10px] text-muted-foreground">Resale ~${shoe.avg_resale_price}</p>
+                    )}
+                    {shoe.buy_url && (
+                      <a
+                        href={shoe.buy_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[10px] flex items-center gap-0.5 text-primary hover:underline font-medium"
+                      >
+                        Buy <ExternalLink className="w-2.5 h-2.5" />
+                      </a>
                     )}
                   </div>
                 </motion.div>

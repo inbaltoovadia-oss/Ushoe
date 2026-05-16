@@ -4,7 +4,7 @@
  * Zero backend functions required. Community section is cached 90 days.
  */
 import { useState, useEffect } from "react";
-import { Zap, Dumbbell, Sun, Footprints, Trophy, Sparkles, Users, RefreshCw, Loader2, ChevronRight, Tag } from "lucide-react";
+import { Zap, Dumbbell, Sun, Footprints, Trophy, Sparkles, Users, RefreshCw, Loader2, ChevronRight, Tag, ExternalLink } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { base44 } from "@/api/base44Client";
 import ShoeCard from "../components/ShoeCard";
@@ -158,7 +158,8 @@ For each shoe return:
 - category: one of Running, Gym, Daily Wear, Walking, Basketball, Lifestyle
 - why_popular: one sentence on why it's popular in the community
 - price_range: e.g. "$120-$140"
-Focus on what real sneaker communities are actually wearing and talking about right now.`,
+- buy_url: a real direct product page URL on the official brand site or major retailer (nike.com, adidas.com, footlocker.com, etc.)
+Focus on what real sneaker communities are actually wearing and talking about right now. Only include real URLs you are confident exist.`,
         add_context_from_internet: true,
         response_json_schema: {
           type: "object",
@@ -173,6 +174,7 @@ Focus on what real sneaker communities are actually wearing and talking about ri
                   category: { type: "string" },
                   why_popular: { type: "string" },
                   price_range: { type: "string" },
+                  buy_url: { type: "string" },
                 },
               },
             },
@@ -397,12 +399,25 @@ Focus on what real sneaker communities are actually wearing and talking about ri
                       </div>
                     </div>
                     <p className="text-xs text-muted-foreground leading-relaxed">{pick.why_popular}</p>
-                    <Link
-                      to={`/search?q=${encodeURIComponent(pick.brand + " " + pick.name)}`}
-                      className="mt-3 inline-flex items-center gap-1 text-xs text-primary font-medium hover:underline"
-                    >
-                      Find in catalog <ChevronRight className="w-3 h-3" />
-                    </Link>
+                    {pick.buy_url ? (
+                      <a
+                        href={pick.buy_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-3 inline-flex items-center gap-1.5 text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-lg font-semibold hover:opacity-90 transition-opacity"
+                      >
+                        Buy Now <ExternalLink className="w-3 h-3" />
+                      </a>
+                    ) : (
+                      <a
+                        href={`https://www.google.com/search?q=${encodeURIComponent(pick.brand + " " + pick.name + " buy")}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-3 inline-flex items-center gap-1 text-xs text-primary font-medium hover:underline"
+                      >
+                        Search online <ExternalLink className="w-3 h-3" />
+                      </a>
+                    )}
                   </motion.div>
                 ))}
               </motion.div>

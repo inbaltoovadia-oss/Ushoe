@@ -26,7 +26,7 @@ RULES:
 
 Return:
 - top_shoes: array of up to 8 trending shoes, each with:
-  { name, brand, reason_trending, hype_score (1-100), category, avg_resale_price, release_recency: "recent" | "classic_revival" | "upcoming" }
+  { name, brand, reason_trending, hype_score (1-100), category, avg_resale_price, release_recency: "recent" | "classic_revival" | "upcoming", buy_url: a real direct product URL on an official retailer site (nike.com, adidas.com, footlocker.com, etc.) }
 - top_brands: array of up to 5 brands gaining momentum, each with:
   { brand, momentum: "rising" | "stable" | "declining", key_reason }
 - trend_themes: array of up to 4 macro trend themes (e.g. "Chunky soles comeback", "Y2K revival")
@@ -50,6 +50,7 @@ Return:
               category:          { type: "string" },
               avg_resale_price:  { type: "number" },
               release_recency:   { type: "string" },
+              buy_url:           { type: "string" },
             },
           },
         },
@@ -75,7 +76,7 @@ Return:
   const result = {
     summary:       res.summary || "",
     refreshed_at:  res.refreshed_at || new Date().toISOString(),
-    top_shoes:     res.top_shoes || [],
+    top_shoes:     (res.top_shoes || []).map(s => ({ ...s, buy_url: s.buy_url || null })),
     top_brands:    res.top_brands || [],
     trend_themes:  res.trend_themes || [],
   };
