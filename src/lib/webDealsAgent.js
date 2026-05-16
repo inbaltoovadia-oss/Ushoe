@@ -29,7 +29,7 @@ Return up to 8 deals. For each:
 - original_price: regular retail price (USD)
 - discount_pct: percentage discount
 - store_name: retailer name
-- store_url: direct link to the deal
+- store_url: REQUIRED — the exact direct product page URL where this specific deal can be found (e.g. https://www.nike.com/t/air-max-90-..., https://www.footlocker.com/product/...). Must be a real, specific URL to the product page — NOT a homepage or search URL.
 - category: shoe category (Running, Casual, Basketball, etc.)
 - ships_to_city: true (only include if it does)
 - image_hint: brief visual description for display

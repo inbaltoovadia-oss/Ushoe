@@ -17,6 +17,12 @@ export default function WebDealsSection() {
 
   const load = async () => {
     setLoading(true);
+    // Clear cache so we always get fresh direct URLs
+    try {
+      Object.keys(localStorage)
+        .filter(k => k.startsWith("ushoe_agent_webdeals_"))
+        .forEach(k => localStorage.removeItem(k));
+    } catch (_) {}
     const result = await runWebDealsAgent({ city: loc.city });
     setSummary(result.summary);
     setDeals(result.deals || []);
@@ -110,19 +116,19 @@ export default function WebDealsSection() {
                   )}
                 </div>
 
-                {/* Always provide a valid link — use store URL if available and valid, else Google Shopping */}
+                {/* Link to exact product page on retailer site */}
                 <a
                   href={
                     deal.store_url && deal.store_url.startsWith("http")
                       ? deal.store_url
-                      : `https://www.google.com/search?tbm=shop&q=${encodeURIComponent((deal.brand || "") + " " + (deal.shoe_name || ""))}`
+                      : `https://www.${(deal.store_name || "").toLowerCase().replace(/\s+/g, "")}.com`
                   }
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 bg-primary text-primary-foreground rounded-xl font-semibold hover:opacity-90 transition-opacity"
                 >
                   <ExternalLink className="w-3 h-3" />
-                  Get Deal
+                  View Deal on {deal.store_name}
                 </a>
               </motion.div>
             ))}
