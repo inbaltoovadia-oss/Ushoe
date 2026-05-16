@@ -33,20 +33,29 @@ export default function HeroSection() {
   const [searchQuery, setSearchQuery] = useState("");
   const navigate = useNavigate();
 
-  // Load featured shoes from catalog
+  // Load featured shoes from catalog — prefer trending + shoes with images
   useEffect(() => {
-    base44.entities.Shoe.list("-trending_score", 10).then(shoes => {
-      const featured = shoes
-        .filter(s => s.image_url?.startsWith("http"))
-        .slice(0, 5)
-        .map(s => ({
-          id: s.id,
-          image: s.image_url,
-          name: s.name,
-          brand: s.brand,
-          price: s.price,
-          tag: s.is_trending ? "🔥 Trending" : s.original_price > s.price ? `💸 ${Math.round(((s.original_price - s.price) / s.original_price) * 100)}% Off` : "⭐ Top Pick",
-        }));
+    base44.entities.Shoe.list("-trending_score", 40).then(shoes => {
+      // First pass: shoes with valid image_url
+      const withImages = shoes.filter(s => s.image_url?.startsWith("http"));
+      // Second pass: fall back to all trending shoes (image will use onError fallback per shoe)
+      const pool = withImages.length >= 3 ? withImages : shoes;
+
+      const featured = pool.slice(0, 5).map(s => ({
+        id: s.id,
+        image: s.image_url?.startsWith("http")
+          ? s.image_url
+          : `https://source.unsplash.com/featured/1200x900/?${encodeURIComponent(s.brand + " " + s.name + " sneaker")}`,
+        name: s.name,
+        brand: s.brand,
+        price: s.price,
+        tag: s.is_trending
+          ? "🔥 Trending Now"
+          : s.original_price > s.price
+          ? `💸 ${Math.round(((s.original_price - s.price) / s.original_price) * 100)}% Off`
+          : "⭐ Top Pick",
+      }));
+
       if (featured.length >= 2) setSlides(featured);
     });
   }, []);
@@ -87,6 +96,19 @@ export default function HeroSection() {
           {/* Dark overlay — bottom heavy like the reference */}
           <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-black/30" />
           <div className="absolute inset-0 bg-gradient-to-r from-black/40 via-transparent to-black/20" />
+          {/* Shoe label — top right */}
+          {slide.brand && (
+            <div className="absolute top-5 right-5 flex flex-col items-end gap-1 z-10">
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold text-white"
+                style={{ background: "rgba(249,115,22,0.85)", backdropFilter: "blur(8px)" }}>
+                {slide.tag}
+              </div>
+              <div className="text-right">
+                <p className="text-white font-heading font-bold text-sm drop-shadow-lg">{slide.brand} {slide.name}</p>
+                {slide.price && <p className="text-orange-400 font-bold text-sm">${slide.price}</p>}
+              </div>
+            </div>
+          )}
         </motion.div>
       </AnimatePresence>
 
