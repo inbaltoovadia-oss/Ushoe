@@ -19,7 +19,7 @@ export async function runInventoryAgent({ shoe, city, size = null, color = null,
   const query = `${shoe.brand} ${shoe.name}${colorStr}${sizeStr} in stock`;
 
   // 1. Online stock via fastWebSearch
-  const webRes = await base44.functions.fastWebSearch({
+  const webRes = await base44.functions.invoke('fastWebSearch', {
     query,
     category: shoe.category,
     city,
@@ -27,7 +27,7 @@ export async function runInventoryAgent({ shoe, city, size = null, color = null,
     countryCode: code,
   });
 
-  const onlineStores = (webRes?.web_picks || []).map(p => {
+  const onlineStores = (webRes?.data?.web_picks || []).map(p => {
     const priceNum = parseFloat((p.price || "0").replace(/[^0-9.]/g, "")) || null;
     return {
       name:            p.retailer || p.name,

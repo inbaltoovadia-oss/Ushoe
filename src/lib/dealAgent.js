@@ -20,7 +20,7 @@ export async function runDealAgent({ shoe, city, size = null, color = null, coun
   const colorStr = (color || shoe.colorway) ? ` ${color || shoe.colorway}` : "";
   const query = `${shoe.brand} ${shoe.name}${colorStr}${sizeStr} buy`;
 
-  const res = await base44.functions.fastWebSearch({
+  const res = await base44.functions.invoke('fastWebSearch', {
     query,
     category: shoe.category,
     city,
@@ -28,7 +28,7 @@ export async function runDealAgent({ shoe, city, size = null, color = null, coun
     countryCode: code,
   });
 
-  const picks = res?.web_picks || [];
+  const picks = res?.data?.web_picks || [];
 
   const retailers = picks.map((p, i) => {
     const priceNum = parseFloat((p.price || "0").replace(/[^0-9.]/g, "")) || null;
