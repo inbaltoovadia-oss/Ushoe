@@ -144,7 +144,10 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
         <div>
           <p className="text-xs text-muted-foreground mb-2">Or search directly:</p>
           <div className="flex flex-wrap gap-2">
-            {directRetailers.slice(0, 5).map(r => (
+            {[
+              { name: "Foot Locker IL", url: `https://www.footlocker.co.il/catalogsearch/result/?q=${encodeURIComponent((shoe?.brand || "") + " " + (shoe?.name || ""))}` },
+              { name: "Farfetch IL", url: `https://www.farfetch.com/il/shopping/search/items.aspx?q=${encodeURIComponent((shoe?.brand || "") + " " + (shoe?.name || ""))}` },
+            ].map(r => (
               <a
                 key={r.name}
                 href={r.url}
@@ -200,7 +203,10 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
           <p className="text-sm font-medium">No retailers found near {loc.city}</p>
           <p className="text-xs text-muted-foreground mt-1 mb-3">Try adjusting your location or search again.</p>
           <div className="flex flex-wrap gap-2 justify-center">
-            {directRetailers.slice(0, 4).map(r => (
+            {[
+              { name: "Foot Locker IL", url: `https://www.footlocker.co.il/catalogsearch/result/?q=${encodeURIComponent((shoe?.brand || "") + " " + (shoe?.name || ""))}` },
+              { name: "Farfetch IL", url: `https://www.farfetch.com/il/shopping/search/items.aspx?q=${encodeURIComponent((shoe?.brand || "") + " " + (shoe?.name || ""))}` },
+            ].map(r => (
               <a key={r.name} href={r.url} target="_blank" rel="noopener noreferrer"
                 className="text-xs px-3 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors flex items-center gap-1">
                 {r.name} <ExternalLink className="w-2.5 h-2.5" />
