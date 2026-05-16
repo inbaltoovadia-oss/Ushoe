@@ -27,7 +27,7 @@ export async function runInventoryAgent({ shoe, city, size = null, color = null,
     countryCode: code,
   });
 
-  const onlineStores = (webRes?.data?.web_picks || []).map(p => {
+  const onlineStores = (webRes?.web_picks || webRes?.data?.web_picks || []).map(p => {
     const priceNum = parseFloat((p.price || "0").replace(/[^0-9.]/g, "")) || null;
     return {
       name:            p.retailer || p.name,

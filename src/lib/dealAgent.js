@@ -28,7 +28,7 @@ export async function runDealAgent({ shoe, city, size = null, color = null, coun
     countryCode: code,
   });
 
-  const picks = res?.data?.web_picks || [];
+  const picks = (res?.web_picks || res?.data?.web_picks || []);
 
   const retailers = picks.map((p, i) => {
     const priceNum = parseFloat((p.price || "0").replace(/[^0-9.]/g, "")) || null;
