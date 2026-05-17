@@ -194,7 +194,7 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
 
       <p className="text-[10px] text-muted-foreground flex items-center gap-1">
         <ShieldCheck className="w-3 h-3 flex-shrink-0" />
-        Always confirm final price and availability on the retailer's site.
+        Prices sourced live from retailer sites. Always confirm final price before purchase.
       </p>
 
       {retailers.length === 0 && !loading && (

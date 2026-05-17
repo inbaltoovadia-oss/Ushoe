@@ -2,7 +2,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
 // In-memory cache: key → { data, ts }
 const CACHE = new Map();
-const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+const CACHE_TTL = 3 * 60 * 60 * 1000; // 3 hours — match client TTL
 
 function cacheGet(key) {
   const entry = CACHE.get(key);
@@ -12,10 +12,26 @@ function cacheGet(key) {
 }
 function cacheSet(key, data) {
   CACHE.set(key, { data, ts: Date.now() });
-  // Evict oldest if cache grows too large
   if (CACHE.size > 200) {
     const oldest = CACHE.keys().next().value;
     CACHE.delete(oldest);
+  }
+}
+
+/**
+ * Try to fetch a URL and confirm it resolves (HEAD request, 5s timeout).
+ * Returns true if the URL is reachable, false otherwise.
+ */
+async function verifyUrl(url) {
+  if (!url || !url.startsWith("https://")) return false;
+  try {
+    const ctrl = new AbortController();
+    const timeout = setTimeout(() => ctrl.abort(), 5000);
+    const resp = await fetch(url, { method: "HEAD", signal: ctrl.signal, redirect: "follow" });
+    clearTimeout(timeout);
+    return resp.ok || resp.status === 405; // 405 = HEAD not allowed but URL exists
+  } catch {
+    return false;
   }
 }
 
@@ -32,25 +48,44 @@ Deno.serve(async (req) => {
     const cc = (countryCode || 'US').toUpperCase();
     const countryName = country || 'United States';
     const cityName = city || countryName;
+    const isIsrael = cc === 'IL';
 
-    // Cache key based on query + location
     const cacheKey = `${q}::${cc}::${cityName}`.toLowerCase().replace(/\s+/g, '_');
     const cached = cacheGet(cacheKey);
     if (cached) {
       return Response.json({ ...cached, cached: true });
     }
 
-    // Single focused Gemini call — real product URLs and accurate prices
+    // Step 1: Ask the LLM with web search to find real product pages
     const result = await base44.asServiceRole.integrations.Core.InvokeLLM({
-      prompt: `Search the web for: "${q}" available to buy in ${countryName} (near ${cityName}).
+      prompt: `You are a real-time price search agent. Search the web NOW for: "${q}" available in ${countryName} (${cityName}).
 
-Return top 5 online retailers selling this exact shoe. CRITICAL:
-- buy_link must be a REAL URL from your search results pointing to the actual product page or search results for this shoe on that retailer's site (NOT a homepage, NOT invented)
-- price must be the real current price you found, in the local currency of ${countryName}
-- If country is Israel: prefer footlocker.co.il, adidas.co.il, nike.com/il, and ILS prices
-- ships_to_user must only be true if the retailer confirmed ships to ${countryName}
+YOUR JOB: Find the actual product listing pages for this exact shoe and return the REAL current prices.
 
-Also list 3 real physical shoe stores near ${cityName} with their real addresses.`,
+STRICT RULES — violations will break the app:
+1. buy_link MUST be an actual URL you found in your web search results for this exact product. Copy it verbatim. Do NOT construct or guess URLs. If you didn't find a real product URL for a retailer, skip that retailer.
+2. price MUST be the exact price shown on that product page right now. Do NOT estimate or use old data.
+3. ${isIsrael ? 'User is in ISRAEL. Prefer Israeli retailers: nike.com/il, footlocker.co.il, adidas.co.il, terminalx.com, renuar.co.il, dynamica.co.il, ac.co.il. Return prices in ILS (₪).' : `User is in ${countryName}. Only include retailers that ship to ${countryName}.`}
+4. ships_to_user = true only if the retailer's site actually serves ${countryName}
+5. Do not include Amazon, eBay, or marketplaces unless specifically relevant
+6. Return up to 5 results only
+
+For each result provide:
+- name: exact product name as shown on the page
+- brand: brand
+- price: current sale/regular price as string with currency symbol (e.g. "₪549", "$89.99")
+- original_price: original/was price as string (null if not on sale)
+- retailer: store name
+- buy_link: the EXACT URL from your search results (copy-paste verbatim)
+- ships_to_user: boolean
+- estimated_shipping: shipping info string
+- in_stock: boolean
+- is_best_deal: true for the cheapest option
+- price_confidence: "high" (you saw the price on the page), "medium" (from search snippet), "low" (estimated)
+- discount_percent: number (0 if not on sale)
+- price_fetched_at: current ISO timestamp
+
+Also find 3 real shoe stores near ${cityName} with real addresses.`,
       add_context_from_internet: true,
       model: "gemini_3_flash",
       response_json_schema: {
@@ -73,6 +108,7 @@ Also list 3 real physical shoe stores near ${cityName} with their real addresses
                 is_best_deal:       { type: "boolean" },
                 price_confidence:   { type: "string" },
                 discount_percent:   { type: "number" },
+                price_fetched_at:   { type: "string" },
               },
             },
           },
@@ -93,16 +129,27 @@ Also list 3 real physical shoe stores near ${cityName} with their real addresses
       },
     });
 
-    // Process online picks
+    // Step 2: Verify each URL actually resolves — run checks in parallel
     const rawPicks = result?.web_picks || [];
+
+    const verificationResults = await Promise.all(
+      rawPicks.map(async (p) => {
+        if (!p.buy_link || !p.buy_link.startsWith("https://")) return false;
+        return verifyUrl(p.buy_link);
+      })
+    );
+
     const seen = new Set();
-    const filteredPicks = rawPicks.filter(p => {
-      if (!p.retailer) return false;
-      const key = (p.retailer + (p.name || '')).toLowerCase();
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
+    const filteredPicks = rawPicks
+      .filter((p, idx) => {
+        if (!p.retailer) return false;
+        if (!verificationResults[idx]) return false; // drop unverified URLs
+        const key = (p.retailer + (p.name || '')).toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .map(p => ({ ...p, price_fetched_at: p.price_fetched_at || new Date().toISOString() }));
 
     // Mark cheapest as best deal if none flagged
     if (filteredPicks.length > 0 && !filteredPicks.some(p => p.is_best_deal)) {
@@ -123,6 +170,7 @@ Also list 3 real physical shoe stores near ${cityName} with their real addresses
       web_picks: filteredPicks,
       nearby_stores: filteredStores,
       location_used: `${cityName}, ${countryName}`,
+      fetched_at: new Date().toISOString(),
     };
 
     cacheSet(cacheKey, response);

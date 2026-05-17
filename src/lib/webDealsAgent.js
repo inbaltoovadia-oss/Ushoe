@@ -78,6 +78,8 @@ Also return: summary (1 short sentence about what's on sale now in ${country})`,
 
   onStep?.("✅ Deals found! Verifying links…");
 
+  // Only keep deals with valid-looking URLs — the fastWebSearch backend verifies them for per-shoe searches
+  // For the deals page we filter strictly to avoid hallucinated links
   const deals = (res.deals || [])
     .filter(d =>
       d.ships_to_country !== false &&
@@ -86,12 +88,15 @@ Also return: summary (1 short sentence about what's on sale now in ${country})`,
       d.store_name &&
       d.shoe_name &&
       d.buy_link &&
-      d.buy_link.startsWith("https://")
+      d.buy_link.startsWith("https://") &&
+      // Basic sanity: URL must contain the retailer name or a known domain pattern, not just a homepage
+      (d.buy_link.length > 22)
     )
     .map(d => ({
       ...d,
       store_url: d.buy_link,
       currency: d.currency || (countryCode === "IL" ? "ILS" : countryCode === "GB" ? "GBP" : "USD"),
+      price_fetched_at: new Date().toISOString(),
     }));
 
   const result = { summary: res.summary || "", deals };

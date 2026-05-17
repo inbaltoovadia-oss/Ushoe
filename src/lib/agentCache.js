@@ -23,12 +23,12 @@ export function setLowCreditMode(on) {
 const PREFIX = "ushoe_agent_";
 
 const TTL = {
-  deals:     7  * 24 * 60 * 60 * 1000,
-  webdeals:  7  * 24 * 60 * 60 * 1000,
-  stock:     24 * 60 * 60 * 1000,
-  shipping:  7  * 24 * 60 * 60 * 1000,
+  deals:     3  * 60 * 60 * 1000,   // 3 hours — prices update frequently
+  webdeals:  3  * 60 * 60 * 1000,   // 3 hours
+  stock:     2  * 60 * 60 * 1000,   // 2 hours
+  shipping:  24 * 60 * 60 * 1000,   // 24 hours
   trends:    14 * 24 * 60 * 60 * 1000,
-  indicator: 24 * 60 * 60 * 1000,
+  indicator: 2  * 60 * 60 * 1000,   // 2 hours
 };
 
 function cacheKey(type, id, extra = "") {
