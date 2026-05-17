@@ -40,9 +40,17 @@ Deno.serve(async (req) => {
       return Response.json({ ...cached, cached: true });
     }
 
-    // Single focused Gemini call — concise prompt for fastest response
+    // Single focused Gemini call — real product URLs and accurate prices
     const result = await base44.asServiceRole.integrations.Core.InvokeLLM({
-      prompt: `Search: "${q}" buy ${countryName}. Return top 5 online retailers with real prices and buy URLs. Also list 3 real physical shoe stores near ${cityName}. Only include results you found via search.`,
+      prompt: `Search the web for: "${q}" available to buy in ${countryName} (near ${cityName}).
+
+Return top 5 online retailers selling this exact shoe. CRITICAL:
+- buy_link must be a REAL URL from your search results pointing to the actual product page or search results for this shoe on that retailer's site (NOT a homepage, NOT invented)
+- price must be the real current price you found, in the local currency of ${countryName}
+- If country is Israel: prefer footlocker.co.il, adidas.co.il, nike.com/il, and ILS prices
+- ships_to_user must only be true if the retailer confirmed ships to ${countryName}
+
+Also list 3 real physical shoe stores near ${cityName} with their real addresses.`,
       add_context_from_internet: true,
       model: "gemini_3_flash",
       response_json_schema: {

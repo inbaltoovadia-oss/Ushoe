@@ -170,8 +170,12 @@ export default function WebDealsSection() {
                     <p className="text-[10px] text-muted-foreground mt-0.5">{deal.store_name}</p>
                   </div>
                   <div className="text-right flex-shrink-0">
-                    <p className="font-heading font-bold text-lg text-green-600 dark:text-green-400">${deal.deal_price}</p>
-                    <p className="text-xs text-muted-foreground line-through">${deal.original_price}</p>
+                    <p className="font-heading font-bold text-lg text-green-600 dark:text-green-400">
+                      {deal.currency && deal.currency !== "USD" ? deal.currency + " " : "$"}{deal.deal_price}
+                    </p>
+                    <p className="text-xs text-muted-foreground line-through">
+                      {deal.currency && deal.currency !== "USD" ? deal.currency + " " : "$"}{deal.original_price}
+                    </p>
                   </div>
                 </div>
 
