@@ -7,7 +7,7 @@ Deno.serve(async (req) => {
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
     const body = await req.json();
-    const { message, conversationHistory = [], userProfile = {}, catalogSnapshot = [] } = body;
+    const { message, conversationHistory = [], userProfile = {}, catalogSnapshot = [], userLocation = {} } = body;
 
     // Build persona string
     const personaLines = [];
@@ -23,45 +23,53 @@ Deno.serve(async (req) => {
     if (userProfile.recent_queries?.length) personaLines.push(`Recent searches: ${userProfile.recent_queries.slice(0, 5).join(', ')}`);
     const personaSummary = personaLines.length ? personaLines.join('\n') : 'No profile signals yet.';
 
+    const locationInfo = userLocation.country
+      ? `User is in: ${userLocation.city || ''}, ${userLocation.country} (${userLocation.countryCode || ''})`
+      : 'Location: unknown';
+
     const catalogText = catalogSnapshot.slice(0, 20)
       .map((s, i) => `${i}: ${s.brand} ${s.name} $${s.price} [${s.category}]${s.is_trending ? ' 🔥' : ''}`)
       .join('\n');
 
-    // Detect if this needs live web data (prices, stock, releases, trends)
-    const needsWeb = /price|buy|where|stock|available|deal|sale|discount|trend|popular|2024|2025|2026|new release|release date|resale|stockx|goat|מחיר|קנה|במלאי|מבצע|precio|comprar|disponible|descuento|prix|acheter|Preis|kaufen|preço|سعر|شراء/i.test(message);
+    // Detect if this needs live web data
+    const needsWeb = /price|buy|where|stock|available|deal|sale|discount|trend|popular|2024|2025|2026|new release|release date|resale|stockx|goat|recommend|suggest|best|top|find|מחיר|קנה|במלאי|מבצע|המלצה|precio|comprar|disponible|descuento|prix|acheter|Preis|kaufen|preço|سعر|شراء/i.test(message);
 
-    const systemPrompt = `You are uShoe AI — the world's smartest sneaker assistant, powered by Gemini.
+    const systemPrompt = `You are uShoe AI — the world's smartest sneaker assistant.
 
 LANGUAGE: Detect user's language and reply in EXACTLY that language.
 
 PERSONALITY:
-- You are a confident, knowledgeable sneaker expert. Think: personal stylist + sneaker historian + deal hunter.
-- Be conversational, direct, and enthusiastic about sneakers. Not robotic.
+- Confident, knowledgeable sneaker expert. Think: personal stylist + sneaker historian + deal hunter.
+- Conversational, direct, enthusiastic. Not robotic.
 - Max 3-4 sentences unless user asks for detail.
 - Always lead with ONE best recommendation when relevant.
-- You have deep knowledge of: hype culture, resale markets, brand history, performance specs, sizing, colorways, collaborations, release calendars.
 
 USER PROFILE:
 ${personaSummary}
 
+USER LOCATION:
+${locationInfo}
+
 CATALOG (pre-ranked for this user):
 ${catalogText || 'Use general knowledge.'}
 
-${needsWeb ? `LIVE DATA: You have access to Google Search right now. Use it to find:
-- Current real prices from Nike.com, Adidas.com, Foot Locker, Zappos, GOAT, StockX, etc.
-- Latest release dates and upcoming drops
-- Current stock availability
-- Real resale values from StockX/GOAT
-- Latest deals and promo codes
-Search Google for the most up-to-date information before answering.` : ''}
+${needsWeb ? `LIVE DATA: Search the web NOW to find:
+- Real current prices from local retailers that SHIP TO or have stores in the user's country
+- Latest deals and discounts
+- Stock availability
+- Best recommendations matching the user's request
+- For Israeli users: search nike.com/il, adidas.co.il, footlocker.co.il, terminalx.com, renuar.co.il
+- For US users: nike.com, adidas.com, footlocker.com, zappos.com, finish line
+- Only include products that actually ship to the user's location` : ''}
 
 RULES:
-1. ONE best pick first when recommending.
-2. Reference catalog shoes by name when relevant.
-3. If user asks about price/availability, search the web and give real current data.
-4. Mention resale value, rarity, and cultural context when relevant.
+1. ONE best pick first when recommending (from catalog if possible, otherwise from web).
+2. Reference catalog shoes by index when relevant.
+3. If asking about price/availability, search web and give real current data.
+4. For web recommendations: include real product name, brand, price, and the retailer name.
 5. Stay focused on sneakers and footwear.
-6. Use conversation history to improve personalization.`;
+6. Use conversation history for better personalization.
+7. When recommending web shoes, make sure they ship to the user's location (${userLocation.country || 'their country'}).`;
 
     const historyText = conversationHistory.slice(-6)
       .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
@@ -72,7 +80,7 @@ RULES:
 ${historyText ? `CONVERSATION:\n${historyText}\n` : ''}
 User: ${message}
 
-Respond as uShoe AI:`;
+Respond as uShoe AI. If you found web shoes to recommend, populate the web_recommendations array with up to 3 results that ship to the user's location:`;
 
     const aiResponse = await base44.asServiceRole.integrations.Core.InvokeLLM({
       prompt: fullPrompt,
@@ -81,22 +89,40 @@ Respond as uShoe AI:`;
       response_json_schema: {
         type: 'object',
         properties: {
-          reply:                { type: 'string' },
-          best_pick_index:      { type: 'number' },
-          follow_up_questions:  { type: 'array', items: { type: 'string' } },
-          confidence:           { type: 'number' },
-          web_sources:          { type: 'array', items: { type: 'string' } },
+          reply:               { type: 'string' },
+          best_pick_index:     { type: 'number' },
+          follow_up_questions: { type: 'array', items: { type: 'string' } },
+          confidence:          { type: 'number' },
+          web_recommendations: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                name:          { type: 'string' },
+                brand:         { type: 'string' },
+                price:         { type: 'string' },
+                retailer:      { type: 'string' },
+                ships_to_user: { type: 'boolean' },
+                why:           { type: 'string' },
+              }
+            }
+          },
         }
       }
     });
 
+    // Filter web recommendations to only those that ship to user
+    const webRecs = (aiResponse.web_recommendations || [])
+      .filter(r => r.ships_to_user !== false && r.name && r.brand)
+      .slice(0, 3);
+
     return Response.json({
-      reply:                aiResponse.reply || 'Let me help you find the perfect shoe.',
-      best_pick_index:      aiResponse.best_pick_index ?? -1,
-      follow_up_questions:  aiResponse.follow_up_questions || [],
-      confidence:           aiResponse.confidence || 0.8,
-      used_web:             needsWeb,
-      web_sources:          aiResponse.web_sources || [],
+      reply:               aiResponse.reply || 'Let me help you find the perfect shoe.',
+      best_pick_index:     aiResponse.best_pick_index ?? -1,
+      follow_up_questions: aiResponse.follow_up_questions || [],
+      confidence:          aiResponse.confidence || 0.8,
+      used_web:            needsWeb,
+      web_recommendations: webRecs,
     });
 
   } catch (error) {

@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Sparkles, ArrowRight } from "lucide-react";
+import { Sparkles, ArrowRight, Globe, Brain } from "lucide-react";
 import { Link } from "react-router-dom";
 
 export default function AIFinderCTA() {
@@ -17,28 +17,34 @@ export default function AIFinderCTA() {
         <div className="relative z-10 flex flex-col sm:flex-row items-center gap-8">
           <div className="flex-1">
             <div className="inline-flex items-center gap-2 bg-white/20 text-white px-3 py-1.5 rounded-full text-xs font-medium mb-4">
-              <Sparkles className="w-3 h-3" />
-              AI-Powered
+              <Globe className="w-3 h-3" />
+              Live Web Search
             </div>
             <h2 className="font-heading font-bold text-2xl sm:text-3xl text-white">
               Not sure what you need?
             </h2>
             <p className="text-white/80 mt-3 max-w-md">
-              Tell our AI what you're looking for — your budget, style, and use case — and get
-              personalized shoe recommendations in seconds.
+              Tell our AI what you're looking for — budget, style, and use case — and get personalized recommendations from our catalog <strong className="text-white">and the live web</strong>, shipping to you.
             </p>
-            <Link
-              to="/discover"
-              className="inline-flex items-center gap-2 bg-white text-primary px-6 py-3 rounded-xl font-semibold mt-6 hover:bg-white/90 transition-colors"
-            >
-              Try AI Finder
-              <ArrowRight className="w-4 h-4" />
-            </Link>
+            <div className="flex flex-wrap gap-3 mt-6">
+              <Link
+                to="/assistant"
+                className="inline-flex items-center gap-2 bg-white text-primary px-6 py-3 rounded-xl font-semibold hover:bg-white/90 transition-all active:scale-95"
+              >
+                <Brain className="w-4 h-4" />
+                Ask AI
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
           </div>
 
           <div className="flex-shrink-0">
-            <div className="w-48 h-48 sm:w-56 sm:h-56 rounded-2xl bg-white/10 backdrop-blur-sm flex items-center justify-center">
-              <Sparkles className="w-20 h-20 text-white/40" />
+            <div className="w-48 h-48 sm:w-56 sm:h-56 rounded-2xl bg-white/10 backdrop-blur-sm flex flex-col items-center justify-center gap-3">
+              <Brain className="w-14 h-14 text-white/60" />
+              <div className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-300 animate-pulse" />
+                <span className="text-white/70 text-xs font-medium">Live web search</span>
+              </div>
             </div>
           </div>
         </div>
