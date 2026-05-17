@@ -3,7 +3,7 @@
  * Only shows deals confirmed to ship to the user's location.
  */
 import { useState, useEffect } from "react";
-import { Globe, Loader2, Tag, RefreshCw, TrendingDown, Clock, Zap, ShieldCheck, ExternalLink } from "lucide-react";
+import { Globe, Loader2, Tag, RefreshCw, TrendingDown, Clock, Zap, ShieldCheck, ExternalLink, Copy, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getLocation } from "../lib/locationStore";
 import { runWebDealsAgent } from "../lib/webDealsAgent";
@@ -73,6 +73,29 @@ function LoadingCaption({ city }) {
         </div>
       ))}
     </div>
+  );
+}
+
+function CopyNameButton({ name }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    await navigator.clipboard.writeText(name).catch(() => {});
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+  return (
+    <button
+      onClick={copy}
+      className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg transition-all"
+      style={copied
+        ? { background: "rgba(16,185,129,0.12)", color: "#34D399", border: "1px solid rgba(16,185,129,0.25)" }
+        : { background: "transparent", color: "var(--muted-foreground)", border: "1px solid var(--border)" }
+      }
+      title="Copy shoe name"
+    >
+      {copied ? <Check className="w-2.5 h-2.5" /> : <Copy className="w-2.5 h-2.5" />}
+      {copied ? "Copied!" : "Copy name"}
+    </button>
   );
 }
 
@@ -151,7 +174,10 @@ export default function WebDealsSection() {
                   <div>
                     <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-widest">{deal.brand}</p>
                     <p className="font-heading font-semibold text-sm leading-snug mt-0.5">{deal.shoe_name}</p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">{deal.store_name}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <p className="text-[10px] text-muted-foreground">{deal.store_name}</p>
+                      <CopyNameButton name={`${deal.brand} ${deal.shoe_name}`} />
+                    </div>
                   </div>
                   <div className="text-right flex-shrink-0">
                     <p className="font-heading font-bold text-lg text-green-600 dark:text-green-400">

@@ -4,7 +4,7 @@
  * 2. Catalog shoes with dynamic DealIndicator badges (only shown when deal confirmed)
  */
 import { useState } from "react";
-import { Tag, ShieldCheck, AlertCircle, Bot } from "lucide-react";
+import { Tag, ShieldCheck, AlertCircle, Bot, Copy, ExternalLink, Search } from "lucide-react";
 import { motion } from "framer-motion";
 import WebDealsSection from "../components/WebDealsSection";
 import DealScannerChat from "../components/DealScannerChat";
@@ -60,6 +60,34 @@ export default function Deals() {
             Ask the agent to scan the web for deals on any shoe, brand, or category.
           </p>
           <DealScannerChat />
+        </section>
+
+        {/* How-to Guide */}
+        <section className="mb-10">
+          <div className="bg-card border border-border/50 rounded-2xl p-5">
+            <h2 className="font-heading font-bold text-base mb-4 flex items-center gap-2">
+              <Search className="w-4 h-4 text-primary" />
+              How to Get a Deal in 3 Steps
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {[
+                { step: "1", icon: Copy, title: "Copy the shoe name", desc: "Each deal card has a copy button — tap it to copy the full shoe name to your clipboard." },
+                { step: "2", icon: ExternalLink, title: "Open the retailer's site", desc: "Click 'Buy at [store]' to go directly to the retailer, then paste the name into their search bar." },
+                { step: "3", icon: Tag, title: "Find & claim the deal", desc: "Search for your shoe, confirm the price matches, and complete your purchase." },
+              ].map(({ step, icon: Icon, title, desc }) => (
+                <div key={step} className="flex gap-3">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm flex-shrink-0">{step}</div>
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <Icon className="w-3.5 h-3.5 text-primary" />
+                      <p className="text-sm font-semibold">{title}</p>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </section>
 
         {/* Web Deals — live, validated, direct retailer links */}

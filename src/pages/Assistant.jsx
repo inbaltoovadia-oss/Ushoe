@@ -235,7 +235,8 @@ export default function Assistant() {
       userProfile,
       userLocation: { city: loc.city, country: loc.country, countryCode: loc.countryCode },
       useWebSearch,
-      catalogSnapshot: catalogShoes.slice(0, 8).map(s => ({
+      // When web search is ON, skip catalog so AI focuses purely on live web results
+      catalogSnapshot: useWebSearch ? [] : catalogShoes.slice(0, 8).map(s => ({
         brand: s.brand, name: s.name, price: s.price,
         category: s.category, is_trending: s.is_trending, id: s.id,
       })),
@@ -266,7 +267,7 @@ export default function Assistant() {
   return (
     <div
       className="flex flex-col"
-      style={{ height: "calc(100dvh - 64px)", background: "#0D0D0F", width: "100%", marginTop: "-1rem", marginBottom: "-5rem" }}
+      style={{ height: "100dvh", background: "#0D0D0F", width: "100%", position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 40 }}
     >
       {/* Header */}
       <div className="flex items-center justify-between px-4 sm:px-8 pt-5 pb-3 flex-shrink-0 max-w-3xl w-full mx-auto">
@@ -292,19 +293,6 @@ export default function Assistant() {
           </div>
         </div>
         <div className="flex items-center gap-1">
-          {/* Web search toggle */}
-          <button
-            onClick={() => setUseWebSearch(v => !v)}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium transition-all"
-            style={useWebSearch
-              ? { background: "rgba(16,185,129,0.15)", color: "#34D399", border: "1px solid rgba(16,185,129,0.3)" }
-              : { background: "#1A1A1F", color: "#6B7280", border: "1px solid #2A2A35" }
-            }
-            title={useWebSearch ? "Web search ON — click to use catalog only" : "Catalog only — click to enable web search"}
-          >
-            {useWebSearch ? <Globe className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
-            {useWebSearch ? "Web" : "Catalog"}
-          </button>
           <button onClick={() => setShowPrefs(true)} className="p-2.5 rounded-xl transition-colors" style={{ color: "#6B7280" }} title="Edit preferences">
             <SlidersHorizontal className="w-4 h-4" />
           </button>
@@ -406,14 +394,28 @@ export default function Assistant() {
       <div className="flex-shrink-0 px-4 sm:px-8 pb-5 pt-1 max-w-3xl w-full mx-auto">
         <form
           onSubmit={(e) => { e.preventDefault(); sendMessage(); }}
-          className="flex items-center gap-2 rounded-2xl px-4 py-3"
+          className="flex items-center gap-2 rounded-2xl px-3 py-2.5"
           style={{ background: "#1A1A1F", border: "1px solid #2A2A35" }}
         >
+          {/* Web search toggle inside input */}
+          <button
+            type="button"
+            onClick={() => setUseWebSearch(v => !v)}
+            className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold flex-shrink-0 transition-all"
+            style={useWebSearch
+              ? { background: "rgba(16,185,129,0.18)", color: "#34D399", border: "1px solid rgba(16,185,129,0.35)" }
+              : { background: "#111115", color: "#6B7280", border: "1px solid #2A2A35" }
+            }
+            title={useWebSearch ? "Web search ON — click to use catalog only" : "Catalog only — click to enable web search"}
+          >
+            {useWebSearch ? <Globe className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
+            {useWebSearch ? "Web" : "Catalog"}
+          </button>
           <input
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask me anything about shoes..."
+            placeholder={useWebSearch ? "Search the web for shoes…" : "Search catalog only…"}
             className="flex-1 bg-transparent outline-none text-sm"
             style={{ color: "#E8EAF6" }}
             disabled={loading || !profileLoaded}
@@ -422,7 +424,7 @@ export default function Assistant() {
           <button
             type="submit"
             disabled={loading || !input.trim() || !profileLoaded}
-            className="p-2.5 rounded-xl transition-all disabled:opacity-30 active:scale-90"
+            className="p-2 rounded-xl transition-all disabled:opacity-30 active:scale-90"
             style={{ background: input.trim() && !loading ? "rgba(59,91,219,0.3)" : "transparent", color: "#5B8BF5" }}
           >
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
