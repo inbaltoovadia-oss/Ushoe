@@ -199,7 +199,15 @@ export default function WebDealsSection() {
                       Buy at {deal.store_name}
                     </a>
                   ) : (
-                    <p className="text-[10px] text-muted-foreground text-center py-2">Search "{deal.shoe_name}" at {deal.store_name}</p>
+                    <a
+                      href={`https://www.google.com/search?q=${encodeURIComponent(deal.shoe_name + " " + deal.store_name + " buy")}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full inline-flex items-center justify-center gap-1.5 text-xs px-3 py-2.5 bg-primary text-primary-foreground rounded-xl font-semibold hover:opacity-90 transition-all active:scale-95"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      Find at {deal.store_name}
+                    </a>
                   )}
                 </div>
               </motion.div>
