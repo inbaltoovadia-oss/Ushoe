@@ -3,35 +3,15 @@
  * 1. Web Deals: non-catalog, live, shipping-validated via Deal Agent
  * 2. Catalog shoes with dynamic DealIndicator badges (only shown when deal confirmed)
  */
-import { useState, useEffect } from "react";
-import { Tag, Sparkles, ShieldCheck, AlertCircle, Bot } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
-import { base44 } from "@/api/base44Client";
-import ShoeCard from "../components/ShoeCard";
-import SkeletonCard from "../components/SkeletonCard";
+import { useState } from "react";
+import { Tag, ShieldCheck, AlertCircle, Bot } from "lucide-react";
+import { motion } from "framer-motion";
 import WebDealsSection from "../components/WebDealsSection";
 import DealScannerChat from "../components/DealScannerChat";
-import { getLocation, subscribeLocation } from "../lib/locationStore";
+import { getLocation } from "../lib/locationStore";
 
 export default function Deals() {
-  const [shoes, setShoes]     = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [loc, setLoc]         = useState(getLocation());
-
-  useEffect(() => {
-    loadCatalog();
-    const unsub = subscribeLocation(newLoc => { setLoc(newLoc); });
-    return unsub;
-  }, []);
-
-  const loadCatalog = async () => {
-    setLoading(true);
-    const all = await base44.entities.Shoe.list("-trending_score", 80);
-    // Only show shoes that are genuinely on sale (have original_price > price)
-    const onSale = all.filter(s => s.original_price && s.original_price > s.price);
-    setShoes(onSale.slice(0, 24));
-    setLoading(false);
-  };
+  const loc = getLocation();
 
   return (
     <div className="min-h-screen py-8 px-4 sm:px-6">
@@ -46,7 +26,7 @@ export default function Deals() {
             <div>
               <h1 className="font-heading font-bold text-3xl">Deals & Discounts</h1>
               <p className="text-muted-foreground text-sm mt-0.5">
-                Shipping-validated deals near {loc.city} · Powered by Deal + Shipping Agents
+                Live deals shipping to {loc.city} · Direct retailer links
               </p>
             </div>
           </div>
@@ -55,7 +35,7 @@ export default function Deals() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {[
               { icon: ShieldCheck, color: "text-green-600", label: "Shipping Validated", desc: "Only shows deals that ship to you" },
-              { icon: Tag,         color: "text-accent",    label: "Live Prices",         desc: "Deal Agent confirms current pricing" },
+              { icon: Tag,         color: "text-accent",    label: "Live Prices",         desc: "Direct links to retailer product pages" },
               { icon: AlertCircle, color: "text-primary",   label: "No Expired Deals",    desc: "Only active, purchasable offers" },
             ].map(({ icon: Icon, color, label, desc }) => (
               <div key={label} className="flex items-start gap-2.5 bg-card border border-border/50 rounded-2xl px-4 py-3">
@@ -77,43 +57,16 @@ export default function Deals() {
             <span className="text-xs bg-accent/10 text-accent px-2 py-0.5 rounded-full font-medium">Ask anything</span>
           </div>
           <p className="text-xs text-muted-foreground mb-4">
-            Ask the agent to scan our catalog and the web for deals on any shoe, brand, or category.
+            Ask the agent to scan the web for deals on any shoe, brand, or category.
           </p>
           <DealScannerChat />
         </section>
 
-        {/* Web Deals — non-catalog, validated by Deal Agent */}
+        {/* Web Deals — live, validated, direct retailer links */}
         <section className="mb-12">
           <WebDealsSection />
         </section>
 
-        {/* Catalog section — deal badges load dynamically per card */}
-        <section>
-          <div className="flex items-center gap-2 mb-4">
-            <Sparkles className="w-5 h-5 text-primary" />
-            <h2 className="font-heading font-bold text-xl">Browse Catalog</h2>
-            <span className="text-xs bg-green-100 dark:bg-green-950/30 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-full font-medium">
-              {shoes.length} on sale now
-            </span>
-          </div>
-          <p className="text-xs text-muted-foreground mb-4">
-            Showing only discounted catalog shoes with confirmed price reductions — click any card to view full details and buy.
-          </p>
-
-          {loading ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-              {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)}
-            </div>
-          ) : (
-            <AnimatePresence>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
-                {shoes.map((shoe, i) => (
-                  <ShoeCard key={shoe.id} shoe={shoe} index={i} showDealIndicator />
-                ))}
-              </div>
-            </AnimatePresence>
-          )}
-        </section>
       </div>
     </div>
   );

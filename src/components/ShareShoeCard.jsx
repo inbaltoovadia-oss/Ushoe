@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { X, Instagram, MessageCircle, Share2, Copy, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -6,6 +6,15 @@ import { toast } from "sonner";
 
 export default function ShareShoeCard({ shoe, onClose }) {
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "";
+      document.documentElement.style.overflow = "";
+    };
+  }, []);
 
   const pageUrl = `${window.location.origin}/shoe/${shoe.id}`;
   const shareText = `Check out the ${shoe.brand} ${shoe.name} — only $${shoe.price}! 👟`;

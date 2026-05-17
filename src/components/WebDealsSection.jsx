@@ -1,12 +1,10 @@
 /**
  * WebDealsSection — on-demand web deals via Deal Agent.
  * Only shows deals confirmed to ship to the user's location.
- * Includes a step-by-step guide on each card.
  */
 import { useState, useEffect } from "react";
-import { Globe, Loader2, Tag, RefreshCw, TrendingDown, Clock, Zap, ShieldCheck, Search, ListOrdered } from "lucide-react";
+import { Globe, Loader2, Tag, RefreshCw, TrendingDown, Clock, Zap, ShieldCheck, ExternalLink } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Link } from "react-router-dom";
 import { getLocation } from "../lib/locationStore";
 import { runWebDealsAgent } from "../lib/webDealsAgent";
 
@@ -18,12 +16,7 @@ const SEARCH_STEPS = [
   "✨ Finalizing results…",
 ];
 
-const HOW_TO_STEPS = [
-  { label: 'Tap "Search on uShoe"', desc: "Opens the search bar pre-filled with the shoe name." },
-  { label: "Browse search results", desc: "Review prices, sizes, and availability from our catalog." },
-  { label: "Click \"Buy Online\"", desc: "On the shoe detail page, find live retailer prices that ship to you." },
-  { label: "Complete your purchase", desc: "You'll be taken directly to the retailer's product page to check out." },
-];
+
 
 function LoadingCaption({ city }) {
   const [stepIdx, setStepIdx] = useState(0);
@@ -79,30 +72,6 @@ function LoadingCaption({ city }) {
           <div className="h-9 w-full bg-secondary/40 rounded-xl animate-pulse mt-1" />
         </div>
       ))}
-    </div>
-  );
-}
-
-function HowToGuide() {
-  return (
-    <div className="bg-card border border-border/60 rounded-2xl p-4 mb-5">
-      <div className="flex items-center gap-2 mb-3">
-        <ListOrdered className="w-4 h-4 text-primary flex-shrink-0" />
-        <p className="text-sm font-semibold text-foreground">How to get this deal</p>
-      </div>
-      <ol className="space-y-2">
-        {HOW_TO_STEPS.map((step, i) => (
-          <li key={i} className="flex items-start gap-3">
-            <span className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/15 text-primary text-[10px] font-bold flex items-center justify-center mt-0.5">
-              {i + 1}
-            </span>
-            <div>
-              <p className="text-xs font-semibold text-foreground">{step.label}</p>
-              <p className="text-[11px] text-muted-foreground">{step.desc}</p>
-            </div>
-          </li>
-        ))}
-      </ol>
     </div>
   );
 }
@@ -165,9 +134,6 @@ export default function WebDealsSection() {
         Only showing deals confirmed to ship to {loc.country || loc.city}. Confirm final price on retailer's site.
       </p>
 
-      {/* Step-by-step guide */}
-      <HowToGuide />
-
       {deals.length === 0 ? (
         <p className="text-sm text-muted-foreground py-4 text-center">No verified web deals found for {loc.city}.</p>
       ) : (
@@ -222,13 +188,19 @@ export default function WebDealsSection() {
                 </div>
 
                 <div className="mt-auto">
-                  <Link
-                    to={`/search?q=${encodeURIComponent(`${deal.brand} ${deal.shoe_name}`)}`}
-                    className="w-full inline-flex items-center justify-center gap-1.5 text-xs px-3 py-2.5 bg-primary text-primary-foreground rounded-xl font-semibold hover:opacity-90 transition-all active:scale-95"
-                  >
-                    <Search className="w-3 h-3" />
-                    Search on uShoe → Step 1
-                  </Link>
+                  {deal.buy_link || deal.store_url ? (
+                    <a
+                      href={deal.buy_link || deal.store_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full inline-flex items-center justify-center gap-1.5 text-xs px-3 py-2.5 bg-primary text-primary-foreground rounded-xl font-semibold hover:opacity-90 transition-all active:scale-95"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      Buy at {deal.store_name}
+                    </a>
+                  ) : (
+                    <p className="text-[10px] text-muted-foreground text-center py-2">Search "{deal.shoe_name}" at {deal.store_name}</p>
+                  )}
                 </div>
               </motion.div>
             ))}

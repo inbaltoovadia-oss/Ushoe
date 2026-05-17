@@ -22,6 +22,15 @@ export default function PreferencesPanel({ onClose, onSaved }) {
   });
 
   useEffect(() => {
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "";
+      document.documentElement.style.overflow = "";
+    };
+  }, []);
+
+  useEffect(() => {
     base44.entities.UserProfile.list("-created_date", 1).then((profiles) => {
       if (profiles[0]) {
         const p = profiles[0];
@@ -64,11 +73,11 @@ export default function PreferencesPanel({ onClose, onSaved }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={onClose}>
       <motion.div
-        initial={{ opacity: 0, y: 40 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 40 }}
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
         className="w-full max-w-md rounded-3xl overflow-hidden flex flex-col max-h-[85vh]"
         style={{ background: "#13131A", border: "1px solid #2A2A35" }}
         onClick={e => e.stopPropagation()}
