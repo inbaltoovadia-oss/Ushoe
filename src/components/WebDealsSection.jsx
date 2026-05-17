@@ -1,9 +1,10 @@
 /**
  * WebDealsSection — on-demand web deals via Deal Agent.
- * Shows animated status captions while the AI searches.
+ * Only shows deals confirmed to ship to the user's location.
+ * Includes a step-by-step guide on each card.
  */
-import { useState, useEffect, useRef } from "react";
-import { Globe, Loader2, Tag, RefreshCw, TrendingDown, Clock, Zap, ShieldCheck, Search, MousePointerClick } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Globe, Loader2, Tag, RefreshCw, TrendingDown, Clock, Zap, ShieldCheck, Search, ListOrdered } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "react-router-dom";
 import { getLocation } from "../lib/locationStore";
@@ -14,7 +15,14 @@ const SEARCH_STEPS = [
   "🔍 Scanning for active deals in your region…",
   "💰 Comparing prices across retailers…",
   "📦 Verifying shipping to your location…",
-  "✨ Almost there, finalizing results…",
+  "✨ Finalizing results…",
+];
+
+const HOW_TO_STEPS = [
+  { label: 'Tap "Search on uShoe"', desc: "Opens the search bar pre-filled with the shoe name." },
+  { label: "Browse search results", desc: "Review prices, sizes, and availability from our catalog." },
+  { label: "Click \"Buy Online\"", desc: "On the shoe detail page, find live retailer prices that ship to you." },
+  { label: "Complete your purchase", desc: "You'll be taken directly to the retailer's product page to check out." },
 ];
 
 function LoadingCaption({ city }) {
@@ -56,20 +64,11 @@ function LoadingCaption({ city }) {
         </div>
         <Zap className="w-4 h-4 text-amber-500 flex-shrink-0 animate-pulse" />
       </div>
-
-      {/* Progress dots */}
       <div className="flex items-center justify-center gap-1.5">
         {SEARCH_STEPS.map((_, i) => (
-          <div
-            key={i}
-            className={`rounded-full transition-all duration-500 ${
-              i <= stepIdx ? "w-2 h-2 bg-primary" : "w-1.5 h-1.5 bg-secondary"
-            }`}
-          />
+          <div key={i} className={`rounded-full transition-all duration-500 ${i <= stepIdx ? "w-2 h-2 bg-primary" : "w-1.5 h-1.5 bg-secondary"}`} />
         ))}
       </div>
-
-      {/* Skeleton cards */}
       {[1, 2, 3].map(i => (
         <div key={i} className="rounded-2xl border border-border/40 p-4 space-y-3 overflow-hidden relative">
           <div className="flex items-center justify-between">
@@ -77,18 +76,33 @@ function LoadingCaption({ city }) {
             <div className="h-6 w-16 bg-secondary rounded-full animate-pulse" />
           </div>
           <div className="h-3 w-48 bg-secondary/70 rounded-full animate-pulse" />
-          <div className="h-3 w-36 bg-secondary/50 rounded-full animate-pulse" />
           <div className="h-9 w-full bg-secondary/40 rounded-xl animate-pulse mt-1" />
-          <div
-            className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/10 to-transparent"
-            style={{ animationDelay: `${i * 300}ms` }}
-          />
         </div>
       ))}
+    </div>
+  );
+}
 
-      <p className="text-[10px] text-muted-foreground text-center">
-        Live web search — results cached instantly after first load
-      </p>
+function HowToGuide() {
+  return (
+    <div className="bg-card border border-border/60 rounded-2xl p-4 mb-5">
+      <div className="flex items-center gap-2 mb-3">
+        <ListOrdered className="w-4 h-4 text-primary flex-shrink-0" />
+        <p className="text-sm font-semibold text-foreground">How to get this deal</p>
+      </div>
+      <ol className="space-y-2">
+        {HOW_TO_STEPS.map((step, i) => (
+          <li key={i} className="flex items-start gap-3">
+            <span className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/15 text-primary text-[10px] font-bold flex items-center justify-center mt-0.5">
+              {i + 1}
+            </span>
+            <div>
+              <p className="text-xs font-semibold text-foreground">{step.label}</p>
+              <p className="text-[11px] text-muted-foreground">{step.desc}</p>
+            </div>
+          </li>
+        ))}
+      </ol>
     </div>
   );
 }
@@ -106,7 +120,9 @@ export default function WebDealsSection() {
     setSummary("");
     const result = await runWebDealsAgent({ city: loc.city });
     setSummary(result.summary);
-    setDeals(result.deals || []);
+    // Strict: only keep deals explicitly confirmed to ship to user's country
+    const filtered = (result.deals || []).filter(d => d.ships_to_country !== false);
+    setDeals(filtered);
     setLoading(false);
   };
 
@@ -128,15 +144,13 @@ export default function WebDealsSection() {
     );
   }
 
-  if (loading) {
-    return <LoadingCaption city={loc.city} />;
-  }
+  if (loading) return <LoadingCaption city={loc.city} />;
 
   return (
     <div>
       <div className="flex items-center gap-2 mb-3">
         <Globe className="w-4 h-4 text-primary" />
-        <h3 className="font-heading font-semibold text-lg">Web Deals Near {loc.city}</h3>
+        <h3 className="font-heading font-semibold text-lg">Web Deals — Ships to {loc.city}</h3>
       </div>
 
       {summary && (
@@ -146,21 +160,13 @@ export default function WebDealsSection() {
         </div>
       )}
 
-      <p className="text-[10px] text-muted-foreground flex items-center gap-1 mb-3">
+      <p className="text-[10px] text-muted-foreground flex items-center gap-1 mb-4">
         <ShieldCheck className="w-3 h-3 flex-shrink-0" />
-        All deals verified to ship to {loc.country || loc.city}. Confirm final price on retailer's site.
+        Only showing deals confirmed to ship to {loc.country || loc.city}. Confirm final price on retailer's site.
       </p>
 
-      {/* How-to guide */}
-      <div className="flex items-start gap-3 bg-primary/5 border border-primary/15 rounded-2xl px-4 py-3 mb-4">
-        <MousePointerClick className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
-        <div>
-          <p className="text-xs font-semibold text-foreground">How to find this deal</p>
-          <p className="text-[11px] text-muted-foreground mt-0.5">
-            Tap <strong>Search on uShoe</strong> below — it takes you to the search bar with the shoe name already filled in, so you can explore prices, availability, and buy options instantly.
-          </p>
-        </div>
-      </div>
+      {/* Step-by-step guide */}
+      <HowToGuide />
 
       {deals.length === 0 ? (
         <p className="text-sm text-muted-foreground py-4 text-center">No verified web deals found for {loc.city}.</p>
@@ -173,7 +179,7 @@ export default function WebDealsSection() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.05 }}
-                className="bg-card border border-border/50 rounded-2xl p-4 hover:shadow-md transition-all"
+                className="bg-card border border-border/50 rounded-2xl p-4 hover:shadow-md transition-all flex flex-col"
               >
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <div>
@@ -185,9 +191,11 @@ export default function WebDealsSection() {
                     <p className="font-heading font-bold text-lg text-green-600 dark:text-green-400">
                       {deal.currency && deal.currency !== "USD" ? deal.currency + " " : "$"}{deal.deal_price}
                     </p>
-                    <p className="text-xs text-muted-foreground line-through">
-                      {deal.currency && deal.currency !== "USD" ? deal.currency + " " : "$"}{deal.original_price}
-                    </p>
+                    {deal.original_price && (
+                      <p className="text-xs text-muted-foreground line-through">
+                        {deal.currency && deal.currency !== "USD" ? deal.currency + " " : "$"}{deal.original_price}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -207,16 +215,21 @@ export default function WebDealsSection() {
                       {deal.deal_expires}
                     </span>
                   )}
+                  <span className="text-[10px] bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <ShieldCheck className="w-2.5 h-2.5" />
+                    Ships to you
+                  </span>
                 </div>
 
-                {/* Search on uShoe — links to search results with shoe name pre-filled */}
-                <Link
-                  to={`/search?q=${encodeURIComponent(`${deal.brand} ${deal.shoe_name}`)}`}
-                  className="w-full inline-flex items-center justify-center gap-1.5 text-xs px-3 py-2.5 bg-primary text-primary-foreground rounded-xl font-semibold hover:opacity-90 transition-all active:scale-95"
-                >
-                  <Search className="w-3 h-3" />
-                  Search on uShoe
-                </Link>
+                <div className="mt-auto">
+                  <Link
+                    to={`/search?q=${encodeURIComponent(`${deal.brand} ${deal.shoe_name}`)}`}
+                    className="w-full inline-flex items-center justify-center gap-1.5 text-xs px-3 py-2.5 bg-primary text-primary-foreground rounded-xl font-semibold hover:opacity-90 transition-all active:scale-95"
+                  >
+                    <Search className="w-3 h-3" />
+                    Search on uShoe → Step 1
+                  </Link>
+                </div>
               </motion.div>
             ))}
           </div>

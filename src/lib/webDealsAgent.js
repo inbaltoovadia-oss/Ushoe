@@ -44,7 +44,7 @@ For each deal return:
 - buy_link: the REAL URL from your search — actual product page or search results page you found (must start with https://)
 - category: Running / Casual / Basketball / Lifestyle / Training
 - deal_expires: expiry date or "Limited time" or null
-- ships_to_country: true only if confirmed ships to ${country}
+- ships_to_country: BOOLEAN — set true ONLY if you are 100% certain the retailer ships to ${country} or has a local storefront there. If unsure, set false. This is CRITICAL — do not guess.
 
 Also return: summary (1 short sentence about what's on sale now in ${country})`,
     add_context_from_internet: true,
@@ -82,19 +82,14 @@ Also return: summary (1 short sentence about what's on sale now in ${country})`,
   // For the deals page we filter strictly to avoid hallucinated links
   const deals = (res.deals || [])
     .filter(d =>
-      d.ships_to_country !== false &&
+      d.ships_to_country === true &&  // STRICT: must be explicitly true
       d.deal_price &&
-      d.original_price &&
       d.store_name &&
-      d.shoe_name &&
-      d.buy_link &&
-      d.buy_link.startsWith("https://") &&
-      // Basic sanity: URL must contain the retailer name or a known domain pattern, not just a homepage
-      (d.buy_link.length > 22)
+      d.shoe_name
     )
     .map(d => ({
       ...d,
-      store_url: d.buy_link,
+      store_url: d.buy_link || null,
       currency: d.currency || (countryCode === "IL" ? "ILS" : countryCode === "GB" ? "GBP" : "USD"),
       price_fetched_at: new Date().toISOString(),
     }));

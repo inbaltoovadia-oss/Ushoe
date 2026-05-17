@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Loader2, Sparkles, Brain, Zap, ArrowRight, RotateCcw, SlidersHorizontal, Globe, ExternalLink, Search } from "lucide-react";
+import { Send, Loader2, Sparkles, Brain, Zap, ArrowRight, RotateCcw, SlidersHorizontal, Globe, ExternalLink, Search, WifiOff } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { getShoesCatalog } from "../lib/shoeCache";
 import { getUserProfile, subscribeUserProfile } from "../lib/userProfileStore";
@@ -155,6 +155,7 @@ export default function Assistant() {
   const [userProfile, setUserProfile] = useState(null);
   const [profileLoaded, setProfileLoaded] = useState(false);
   const [showPrefs, setShowPrefs] = useState(false);
+  const [useWebSearch, setUseWebSearch] = useState(true);
   const [loc, setLoc] = useState(getLocation());
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
@@ -233,6 +234,7 @@ export default function Assistant() {
       conversationHistory,
       userProfile,
       userLocation: { city: loc.city, country: loc.country, countryCode: loc.countryCode },
+      useWebSearch,
       catalogSnapshot: catalogShoes.slice(0, 8).map(s => ({
         brand: s.brand, name: s.name, price: s.price,
         category: s.category, is_trending: s.is_trending, id: s.id,
@@ -280,7 +282,7 @@ export default function Assistant() {
                 <>
                   <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />
                   <span style={{ color: "#9CA3AF" }}>
-                    {hasSignals ? "Personalized · web search enabled" : "Shoe expert · live web search enabled"}
+                    {useWebSearch ? (hasSignals ? "Personalized · live web search" : "Live web search on") : "Catalog mode · no web search"}
                   </span>
                 </>
               ) : (
@@ -290,6 +292,19 @@ export default function Assistant() {
           </div>
         </div>
         <div className="flex items-center gap-1">
+          {/* Web search toggle */}
+          <button
+            onClick={() => setUseWebSearch(v => !v)}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium transition-all"
+            style={useWebSearch
+              ? { background: "rgba(16,185,129,0.15)", color: "#34D399", border: "1px solid rgba(16,185,129,0.3)" }
+              : { background: "#1A1A1F", color: "#6B7280", border: "1px solid #2A2A35" }
+            }
+            title={useWebSearch ? "Web search ON — click to use catalog only" : "Catalog only — click to enable web search"}
+          >
+            {useWebSearch ? <Globe className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
+            {useWebSearch ? "Web" : "Catalog"}
+          </button>
           <button onClick={() => setShowPrefs(true)} className="p-2.5 rounded-xl transition-colors" style={{ color: "#6B7280" }} title="Edit preferences">
             <SlidersHorizontal className="w-4 h-4" />
           </button>
@@ -350,7 +365,7 @@ export default function Assistant() {
                       style={{ background: "#5B8BF5", animationDelay: `${i * 0.15}s` }} />
                   ))}
                 </div>
-                <span className="text-xs" style={{ color: "#6B7280" }}>searching web…</span>
+                <span className="text-xs" style={{ color: "#6B7280" }}>{useWebSearch ? "searching web…" : "searching catalog…"}</span>
               </div>
             </motion.div>
           )}
