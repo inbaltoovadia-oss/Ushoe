@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { MoreHorizontal, Rocket, GitCompare, Heart, Share2, X, Check, Link as LinkIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toggleCompare } from "../lib/compareStore";
@@ -90,7 +91,7 @@ export default function ShoeOptionsMenu({ shoe, onSponsorClick }) {
       </button>
 
       <AnimatePresence>
-        {open && (
+        {open && createPortal(
           <>
             {/* Backdrop */}
             <motion.div
@@ -99,7 +100,7 @@ export default function ShoeOptionsMenu({ shoe, onSponsorClick }) {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.18 }}
-              className="fixed inset-0 z-[999] bg-black/50 backdrop-blur-sm"
+              className="fixed inset-0 z-[9999] bg-black/50 backdrop-blur-sm"
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(false); }}
             />
 
@@ -110,7 +111,7 @@ export default function ShoeOptionsMenu({ shoe, onSponsorClick }) {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.92, y: 16 }}
               transition={{ type: "spring", stiffness: 400, damping: 28 }}
-              className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[1000] w-[92vw] max-w-sm"
+              className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[10000] w-[92vw] max-w-sm"
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
             >
               <div className="bg-card border border-border rounded-3xl shadow-2xl overflow-hidden">
@@ -191,7 +192,8 @@ export default function ShoeOptionsMenu({ shoe, onSponsorClick }) {
                 <div className="h-2" />
               </div>
             </motion.div>
-          </>
+          </>,
+          document.body
         )}
       </AnimatePresence>
     </>

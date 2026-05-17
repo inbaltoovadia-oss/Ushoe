@@ -26,10 +26,19 @@ async function verifyUrl(url) {
   if (!url || !url.startsWith("https://")) return false;
   try {
     const ctrl = new AbortController();
-    const timeout = setTimeout(() => ctrl.abort(), 5000);
-    const resp = await fetch(url, { method: "HEAD", signal: ctrl.signal, redirect: "follow" });
+    const timeout = setTimeout(() => ctrl.abort(), 6000);
+    const resp = await fetch(url, {
+      method: "GET",
+      signal: ctrl.signal,
+      redirect: "follow",
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; PriceBot/1.0)",
+        "Accept": "text/html,*/*",
+      },
+    });
     clearTimeout(timeout);
-    return resp.ok || resp.status === 405; // 405 = HEAD not allowed but URL exists
+    // Accept any non-server-error response — 200, 301, 302, 403, 405 all mean the URL exists
+    return resp.status < 500;
   } catch {
     return false;
   }

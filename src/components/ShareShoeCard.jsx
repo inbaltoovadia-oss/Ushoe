@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { createPortal } from "react-dom";
 import { X, Instagram, MessageCircle, Share2, Copy, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -72,10 +73,9 @@ export default function ShareShoeCard({ shoe, onClose }) {
     { label: copied ? "Copied!" : "Copy Link", sub: "Paste anywhere", icon: copied ? Check : Copy, bg: "bg-secondary", color: copied ? "text-green-600" : "text-muted-foreground", onClick: copyLink },
   ];
 
-  return (
-    // Sits below the navbar (z-40 navbar, z-[45] overlay) — clicks outside close it
+  const modal = (
     <div
-      className="fixed inset-0 z-[45] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4"
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4"
       onClick={onClose}
     >
       <motion.div
@@ -134,4 +134,6 @@ export default function ShareShoeCard({ shoe, onClose }) {
       </motion.div>
     </div>
   );
+
+  return createPortal(modal, document.body);
 }
