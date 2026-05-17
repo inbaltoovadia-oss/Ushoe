@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { X, Check, Sparkles } from "lucide-react";
 import { ALL_CATEGORIES, getInterests, setInterests } from "../lib/interestStore";
 
@@ -24,15 +25,24 @@ export default function InterestPicker({ onClose, onSave }) {
     );
   };
 
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "";
+      document.documentElement.style.overflow = "";
+    };
+  }, []);
+
   const save = () => {
     setInterests(selected);
     onSave?.(selected);
     onClose?.();
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/40 backdrop-blur-sm">
-      <div className="bg-card border border-border rounded-t-3xl sm:rounded-3xl shadow-2xl w-full sm:max-w-md flex flex-col max-h-[90dvh]">
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/40 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-card border border-border rounded-t-3xl sm:rounded-3xl shadow-2xl w-full sm:max-w-md flex flex-col max-h-[90dvh]" onClick={e => e.stopPropagation()}>
         {/* Header — fixed */}
         <div className="flex items-center justify-between px-6 pt-6 pb-2 flex-shrink-0">
           <div className="flex items-center gap-2">
@@ -81,6 +91,7 @@ export default function InterestPicker({ onClose, onSave }) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
