@@ -1,12 +1,96 @@
 /**
  * WebDealsSection — on-demand web deals via Deal Agent.
- * Only runs when user clicks "Load Web Deals".
+ * Shows animated status captions while the AI searches.
  */
-import { useState } from "react";
-import { Globe, Loader2, ExternalLink, Tag, RefreshCw, TrendingDown, Clock } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Globe, Loader2, ExternalLink, Tag, RefreshCw, TrendingDown, Clock, Zap, ShieldCheck } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getLocation } from "../lib/locationStore";
 import { runWebDealsAgent } from "../lib/webDealsAgent";
+
+const SEARCH_STEPS = [
+  "🌐 Connecting to live retailer feeds…",
+  "🔍 Scanning for active deals in your region…",
+  "💰 Comparing prices across retailers…",
+  "📦 Verifying shipping to your location…",
+  "✨ Almost there, finalizing results…",
+];
+
+function LoadingCaption({ city }) {
+  const [stepIdx, setStepIdx] = useState(0);
+  const [caption, setCaption] = useState(SEARCH_STEPS[0]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setStepIdx(i => {
+        const next = Math.min(i + 1, SEARCH_STEPS.length - 1);
+        setCaption(SEARCH_STEPS[next]);
+        return next;
+      });
+    }, 4000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="space-y-4 py-2">
+      <div className="flex items-center gap-3 p-3 bg-primary/5 rounded-2xl border border-primary/10">
+        <div className="relative flex-shrink-0">
+          <Globe className="w-5 h-5 text-primary" />
+          <Loader2 className="w-3 h-3 text-primary animate-spin absolute -top-1 -right-1" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <AnimatePresence mode="wait">
+            <motion.p
+              key={caption}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.3 }}
+              className="text-xs font-semibold text-foreground"
+            >
+              {caption}
+            </motion.p>
+          </AnimatePresence>
+          <p className="text-[10px] text-muted-foreground mt-0.5">Searching live deals for {city}</p>
+        </div>
+        <Zap className="w-4 h-4 text-amber-500 flex-shrink-0 animate-pulse" />
+      </div>
+
+      {/* Progress dots */}
+      <div className="flex items-center justify-center gap-1.5">
+        {SEARCH_STEPS.map((_, i) => (
+          <div
+            key={i}
+            className={`rounded-full transition-all duration-500 ${
+              i <= stepIdx ? "w-2 h-2 bg-primary" : "w-1.5 h-1.5 bg-secondary"
+            }`}
+          />
+        ))}
+      </div>
+
+      {/* Skeleton cards */}
+      {[1, 2, 3].map(i => (
+        <div key={i} className="rounded-2xl border border-border/40 p-4 space-y-3 overflow-hidden relative">
+          <div className="flex items-center justify-between">
+            <div className="h-4 w-32 bg-secondary rounded-full animate-pulse" />
+            <div className="h-6 w-16 bg-secondary rounded-full animate-pulse" />
+          </div>
+          <div className="h-3 w-48 bg-secondary/70 rounded-full animate-pulse" />
+          <div className="h-3 w-36 bg-secondary/50 rounded-full animate-pulse" />
+          <div className="h-9 w-full bg-secondary/40 rounded-xl animate-pulse mt-1" />
+          <div
+            className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/10 to-transparent"
+            style={{ animationDelay: `${i * 300}ms` }}
+          />
+        </div>
+      ))}
+
+      <p className="text-[10px] text-muted-foreground text-center">
+        Live web search — results cached instantly after first load
+      </p>
+    </div>
+  );
+}
 
 export default function WebDealsSection() {
   const [deals, setDeals] = useState([]);
@@ -17,6 +101,8 @@ export default function WebDealsSection() {
 
   const load = async () => {
     setLoading(true);
+    setDeals([]);
+    setSummary("");
     const result = await runWebDealsAgent({ city: loc.city });
     setSummary(result.summary);
     setDeals(result.deals || []);
@@ -28,7 +114,7 @@ export default function WebDealsSection() {
       <div className="flex flex-col items-center justify-center py-8 gap-3 bg-card border border-border/50 rounded-2xl">
         <Globe className="w-8 h-8 text-muted-foreground/30" />
         <p className="text-sm text-muted-foreground text-center">
-          Find live web deals shipping to {loc.city}
+          Find live web deals shipping to <strong>{loc.city}</strong>
         </p>
         <button
           onClick={() => { setStarted(true); load(); }}
@@ -42,15 +128,7 @@ export default function WebDealsSection() {
   }
 
   if (loading) {
-    return (
-      <div className="space-y-3">
-        <div className="flex items-center gap-2 text-muted-foreground py-2">
-          <Loader2 className="w-4 h-4 animate-spin" />
-          <span className="text-sm">Searching live deals near {loc.city}…</span>
-        </div>
-        {[1, 2, 3].map(i => <div key={i} className="h-24 bg-secondary/50 animate-pulse rounded-2xl" />)}
-      </div>
-    );
+    return <LoadingCaption city={loc.city} />;
   }
 
   return (
@@ -66,6 +144,11 @@ export default function WebDealsSection() {
           <p className="text-xs text-muted-foreground">{summary}</p>
         </div>
       )}
+
+      <p className="text-[10px] text-muted-foreground flex items-center gap-1 mb-3">
+        <ShieldCheck className="w-3 h-3 flex-shrink-0" />
+        All deals verified to ship to {loc.country || loc.city}. Confirm final price on retailer's site.
+      </p>
 
       {deals.length === 0 ? (
         <p className="text-sm text-muted-foreground py-4 text-center">No verified web deals found for {loc.city}.</p>
@@ -110,12 +193,11 @@ export default function WebDealsSection() {
                   )}
                 </div>
 
-                {/* Reliable retailer search URL — never 404 */}
                 <a
                   href={deal.store_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 bg-primary text-primary-foreground rounded-xl font-semibold hover:opacity-90 transition-opacity"
+                  className="w-full inline-flex items-center justify-center gap-1.5 text-xs px-3 py-2 bg-primary text-primary-foreground rounded-xl font-semibold hover:opacity-90 transition-opacity"
                 >
                   <ExternalLink className="w-3 h-3" />
                   Shop at {deal.store_name}

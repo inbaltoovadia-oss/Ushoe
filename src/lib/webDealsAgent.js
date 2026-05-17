@@ -1,79 +1,69 @@
 /**
  * WEB DEALS AGENT
- * Discovers non-catalog shoe deals from live web sources, filtered by user location.
- * Uses retailer search URLs (never hallucinated product URLs) to avoid 404s.
+ * Fast sneaker deals filtered by user location, using gemini_3_flash for speed.
  */
 
 import { base44 } from "@/api/base44Client";
 import { getCachedWebDeals, setCachedWebDeals } from "./agentCache";
 import { getLocation } from "./locationStore";
 
-// Verified retailer search URL templates — always work, never 404
+// Verified retailer search URL builders — always work, never 404
 const RETAILER_SEARCH_URLS = {
-  "nike":          (q) => `https://www.nike.com/w?q=${encodeURIComponent(q)}&vst=${encodeURIComponent(q)}`,
-  "adidas":        (q) => `https://www.adidas.com/us/search?q=${encodeURIComponent(q)}`,
-  "foot locker":   (q) => `https://www.footlocker.com/search?query=${encodeURIComponent(q)}`,
-  "finish line":   (q) => `https://www.finishline.com/store/search?query=${encodeURIComponent(q)}`,
-  "zappos":        (q) => `https://www.zappos.com/search?term=${encodeURIComponent(q)}`,
-  "dsw":           (q) => `https://www.dsw.com/en/us/search?searchtext=${encodeURIComponent(q)}`,
-  "jd sports":     (q) => `https://www.jdsports.com/search/?q=${encodeURIComponent(q)}`,
-  "new balance":   (q) => `https://www.newbalance.com/catalogsearch/result/?q=${encodeURIComponent(q)}`,
-  "puma":          (q) => `https://us.puma.com/en/us/search?q=${encodeURIComponent(q)}`,
-  "asics":         (q) => `https://www.asics.com/us/en-us/search?q=${encodeURIComponent(q)}`,
-  "reebok":        (q) => `https://www.reebok.com/us/search?q=${encodeURIComponent(q)}`,
-  "under armour":  (q) => `https://www.underarmour.com/en-us/t/shoes/?q=${encodeURIComponent(q)}`,
-  "converse":      (q) => `https://www.converse.com/us/en/search?q=${encodeURIComponent(q)}`,
-  "vans":          (q) => `https://www.vans.com/en-us/search?q=${encodeURIComponent(q)}`,
-  "goat":          (q) => `https://www.goat.com/search?query=${encodeURIComponent(q)}`,
-  "stockx":        (q) => `https://stockx.com/search?s=${encodeURIComponent(q)}`,
+  "nike":          (q, cc) => `https://www.nike.com/${cc.toLowerCase()}/w?q=${encodeURIComponent(q)}`,
+  "adidas":        (q, cc) => `https://www.adidas.com/${cc.toLowerCase()}/search?q=${encodeURIComponent(q)}`,
+  "foot locker":   (q)     => `https://www.footlocker.com/search?query=${encodeURIComponent(q)}`,
+  "finish line":   (q)     => `https://www.finishline.com/store/search?query=${encodeURIComponent(q)}`,
+  "zappos":        (q)     => `https://www.zappos.com/search?term=${encodeURIComponent(q)}`,
+  "dsw":           (q)     => `https://www.dsw.com/en/us/search?searchtext=${encodeURIComponent(q)}`,
+  "jd sports":     (q)     => `https://www.jdsports.com/search/?q=${encodeURIComponent(q)}`,
+  "new balance":   (q, cc) => `https://www.newbalance.com/${cc.toLowerCase()}/en-${cc.toLowerCase()}/search?q=${encodeURIComponent(q)}`,
+  "puma":          (q)     => `https://us.puma.com/en/us/search?q=${encodeURIComponent(q)}`,
+  "asics":         (q, cc) => `https://www.asics.com/${cc.toLowerCase()}/en-${cc.toLowerCase()}/search?q=${encodeURIComponent(q)}`,
+  "reebok":        (q)     => `https://www.reebok.com/us/search?q=${encodeURIComponent(q)}`,
+  "converse":      (q)     => `https://www.converse.com/us/en/search?q=${encodeURIComponent(q)}`,
+  "vans":          (q)     => `https://www.vans.com/en-us/search?q=${encodeURIComponent(q)}`,
+  "goat":          (q)     => `https://www.goat.com/search?query=${encodeURIComponent(q)}`,
+  "stockx":        (q)     => `https://stockx.com/search?s=${encodeURIComponent(q)}`,
+  "under armour":  (q)     => `https://www.underarmour.com/en-us/t/shoes/?q=${encodeURIComponent(q)}`,
 };
 
-function getRetailerSearchUrl(storeName, shoeName, brand) {
+function getRetailerSearchUrl(storeName, shoeName, brand, countryCode) {
   const key = (storeName || "").toLowerCase().trim();
   const query = `${brand || ""} ${shoeName || ""}`.trim();
+  const cc = (countryCode || "us").toUpperCase();
 
   for (const [retailer, buildUrl] of Object.entries(RETAILER_SEARCH_URLS)) {
     if (key.includes(retailer) || retailer.includes(key)) {
-      return buildUrl(query);
+      return buildUrl(query, cc);
     }
   }
-
-  // Fallback: retailer homepage search via Google
-  return `https://www.google.com/search?q=${encodeURIComponent(`${query} site:${key.replace(/\s+/g, "")}.com`)}`;
+  // Fallback: Google search scoped to retailer site
+  return `https://www.google.com/search?q=${encodeURIComponent(`buy ${query} site:${key.replace(/\s+/g, "")}.com`)}`;
 }
 
-export async function runWebDealsAgent({ city, query = "" }) {
+export async function runWebDealsAgent({ city, query = "", onStep }) {
   const loc = getLocation();
   const country = loc.country || "United States";
-  const cacheKey = (city + country + query).toLowerCase().replace(/\s+/g, "_");
+  const countryCode = loc.countryCode || "US";
+  const cacheKey = `${city}_${country}_${query}`.toLowerCase().replace(/\s+/g, "_");
 
   const cached = getCachedWebDeals(cacheKey);
   if (cached) return cached;
 
+  onStep?.("🌐 Connecting to live retailer feeds…");
+
   const res = await base44.integrations.Core.InvokeLLM({
-    prompt: `You are a WEB DEALS AGENT. Search the web right now for the best current sneaker/shoe deals from major retailers that ship to ${city}, ${country}.
+    prompt: `Find top 6 current sneaker/shoe deals shipping to ${country} (${city}). Use real web search.
 
-${query ? `Focus on: ${query}` : "Find the hottest deals across all brands and styles."}
+Rules:
+- Retailer MUST ship to ${country}
+- Min 10% discount, active sale only
+- Known retailers only: Nike, Adidas, New Balance, ASICS, Puma, Foot Locker, Zappos, JD Sports, Reebok, Converse, Vans, GOAT, StockX
+- Do NOT invent product URLs — only return retailer name and shoe name
+${query ? `- Focus on: ${query}` : ""}
 
-STRICT RULES:
-- Only include deals from retailers that DEFINITELY ship to ${country}
-- Must be an ACTIVE sale with real discount (min 10% off)
-- Only well-known retailers: Nike, Adidas, New Balance, ASICS, Puma, Foot Locker, Finish Line, DSW, Zappos, GOAT, StockX, JD Sports, Reebok, Converse, Vans, Under Armour
-- Do NOT invent or guess product page URLs — only return the retailer name and shoe name, the system will build the correct URL
-
-Return up to 8 deals. For each deal return:
-- shoe_name: full product name (e.g. "Nike Air Max 90")
-- brand: brand name (e.g. "Nike")
-- deal_price: current sale price in USD (number)
-- original_price: original retail price in USD (number)
-- discount_pct: percentage off (number)
-- store_name: retailer name exactly as known (e.g. "Foot Locker", "Nike", "Zappos")
-- category: one of: Running, Casual, Basketball, Lifestyle, Training, Hiking
-- deal_expires: "Limited time" or specific date or null
-- ships_to_country: ${country} (must be true)
-
-Also return:
-- summary: 1-sentence overview of best deals available right now for shoppers in ${country}`,
+For each deal return: shoe_name, brand, deal_price (USD number), original_price (USD number), discount_pct (number), store_name, category, deal_expires (string or null), ships_to_country (must be true for ${country}).
+Also return: summary (1 sentence about best deals for shoppers in ${country}).`,
     add_context_from_internet: true,
     model: "gemini_3_flash",
     response_json_schema: {
@@ -85,15 +75,15 @@ Also return:
           items: {
             type: "object",
             properties: {
-              shoe_name:          { type: "string" },
-              brand:              { type: "string" },
-              deal_price:         { type: "number" },
-              original_price:     { type: "number" },
-              discount_pct:       { type: "number" },
-              store_name:         { type: "string" },
-              category:           { type: "string" },
-              deal_expires:       { type: "string" },
-              ships_to_country:   { type: "boolean" },
+              shoe_name:        { type: "string" },
+              brand:            { type: "string" },
+              deal_price:       { type: "number" },
+              original_price:   { type: "number" },
+              discount_pct:     { type: "number" },
+              store_name:       { type: "string" },
+              category:         { type: "string" },
+              deal_expires:     { type: "string" },
+              ships_to_country: { type: "boolean" },
             },
           },
         },
@@ -101,19 +91,16 @@ Also return:
     },
   });
 
+  onStep?.("✅ Deals found! Building links…");
+
   const deals = (res.deals || [])
     .filter(d => d.ships_to_country !== false && d.deal_price && d.original_price && d.store_name && d.shoe_name)
     .map(d => ({
       ...d,
-      // Always build a reliable search URL — never trust hallucinated product URLs
-      store_url: getRetailerSearchUrl(d.store_name, d.shoe_name, d.brand),
+      store_url: getRetailerSearchUrl(d.store_name, d.shoe_name, d.brand, countryCode),
     }));
 
-  const result = {
-    summary: res.summary || "",
-    deals,
-  };
-
+  const result = { summary: res.summary || "", deals };
   setCachedWebDeals(cacheKey, result);
   return result;
 }
