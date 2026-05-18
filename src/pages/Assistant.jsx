@@ -267,7 +267,7 @@ export default function Assistant() {
   return (
     <div
       className="flex flex-col"
-      style={{ height: "100dvh", background: "#0D0D0F", width: "100%", position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 40 }}
+      style={{ height: "calc(100dvh - 4rem)", background: "#0D0D0F", width: "100%" }}
     >
       {/* Header */}
       <div className="flex items-center justify-between px-4 sm:px-8 pt-5 pb-3 flex-shrink-0 max-w-3xl w-full mx-auto">
