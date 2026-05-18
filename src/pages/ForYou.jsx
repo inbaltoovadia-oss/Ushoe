@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, Loader2, RefreshCw } from "lucide-react";
+import { Sparkles, Loader2, RefreshCw, SlidersHorizontal } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { getUserProfile } from "../lib/userProfileStore";
 import { rankShoes } from "../lib/personalizationEngine";
 import ShoeCard from "../components/ShoeCard";
 import StoryViewer from "../components/StoryViewer";
+import InterestPicker from "../components/InterestPicker";
 
 const STORY_CACHE_KEY = "ushoe_daily_stories";
 
@@ -40,6 +41,7 @@ export default function ForYou() {
   const [storyShoes, setStoryShoes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [storyIndex, setStoryIndex] = useState(null);
+  const [showInterests, setShowInterests] = useState(false);
 
   useEffect(() => { loadShoes(); }, []);
 
@@ -81,13 +83,22 @@ export default function ForYou() {
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">Personalized picks based on your style</p>
         </div>
-        <button
-          onClick={() => loadShoes(true)}
-          className="p-2 rounded-xl bg-secondary hover:bg-secondary/70 transition-colors"
-          disabled={loading}
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowInterests(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-secondary hover:bg-secondary/70 transition-colors text-sm font-medium"
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+            <span className="hidden sm:inline">Interests</span>
+          </button>
+          <button
+            onClick={() => loadShoes(true)}
+            className="p-2 rounded-xl bg-secondary hover:bg-secondary/70 transition-colors"
+            disabled={loading}
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -152,6 +163,13 @@ export default function ForYou() {
           />
         )}
       </AnimatePresence>
+
+      {showInterests && (
+        <InterestPicker
+          onClose={() => setShowInterests(false)}
+          onSave={() => loadShoes(true)}
+        />
+      )}
     </>
   );
 }

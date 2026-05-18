@@ -380,10 +380,6 @@ export default function Assistant() {
         </div>
       )}
 
-      <p className="text-center text-[11px] flex-shrink-0 pb-2" style={{ color: "#4B5563" }}>
-        Live web search · personalized to you · improves with every chat
-      </p>
-
       <AnimatePresence>
         {showPrefs && (
           <PreferencesPanel onClose={() => setShowPrefs(false)} onSaved={() => { init(); }} />
@@ -391,7 +387,7 @@ export default function Assistant() {
       </AnimatePresence>
 
       {/* Input bar */}
-      <div className="flex-shrink-0 px-4 sm:px-8 pb-5 pt-1 max-w-3xl w-full mx-auto">
+      <div className="flex-shrink-0 px-4 sm:px-8 pb-3 pt-1 max-w-3xl w-full mx-auto">
         <form
           onSubmit={(e) => { e.preventDefault(); sendMessage(); }}
           className="flex items-center gap-2 rounded-2xl px-3 py-2.5"
