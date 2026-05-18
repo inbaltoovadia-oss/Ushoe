@@ -166,10 +166,10 @@ function StoreCard({ store, index, shoe, selectedSize }) {
             href={store.website}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-secondary hover:bg-secondary/70 text-sm font-medium transition-colors"
-            title="Visit store website"
+            className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-secondary hover:bg-secondary/70 text-xs font-medium transition-colors"
           >
             <ExternalLink className="w-3.5 h-3.5" />
+            Website
           </a>
         )}
       </div>
@@ -199,31 +199,6 @@ export default function NearbyStores({ title = "Nearby Stores", maxCount = 6, sh
     setStores([]);
     setSummary("");
 
-    // Try to get GPS coords
-    let lat = location.latitude;
-    let lon = location.longitude;
-
-    // If no GPS coords, geocode the city using Google Maps
-    if (!lat || !lon) {
-      try {
-        const geocodeRes = await base44.functions.invoke('findNearbyStores', {
-          shoe,
-          latitude: 0,
-          longitude: 0,
-          cityFallback: location.city,
-          selectedSize,
-          selectedColor,
-        });
-        // Will fail gracefully if no coords — handled below
-      } catch (_) {}
-    }
-
-    if (!lat || !lon) {
-      setError("Could not determine your location. Please enable GPS or enter your city.");
-      setLoading(false);
-      return;
-    }
-
     const res = await base44.functions.invoke('findNearbyStores', {
       shoe: {
         id: shoe.id,
@@ -233,8 +208,8 @@ export default function NearbyStores({ title = "Nearby Stores", maxCount = 6, sh
         category: shoe.category,
         sizes_available: shoe.sizes_available || [],
       },
-      latitude: lat || null,
-      longitude: lon || null,
+      latitude: location.latitude || null,
+      longitude: location.longitude || null,
       cityFallback: location.city || null,
       selectedSize: selectedSize || null,
       selectedColor: selectedColor || null,
@@ -242,8 +217,12 @@ export default function NearbyStores({ title = "Nearby Stores", maxCount = 6, sh
     });
 
     const data = res?.data || {};
-    setStores((data.stores || []).slice(0, maxCount));
-    setSummary(data.summary || "");
+    if (!data.stores?.length && !data.summary) {
+      setError("No stores found near " + (location.city || "your location") + ". Try a different city.");
+    } else {
+      setStores((data.stores || []).slice(0, maxCount));
+      setSummary(data.summary || "");
+    }
     setLoading(false);
   };
 
