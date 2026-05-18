@@ -24,10 +24,13 @@ function isRTL(text) {
 }
 
 function WebRecCard({ rec }) {
-  const searchUrl = `/search?q=${encodeURIComponent(`${rec.brand} ${rec.name}`)}`;
+  const href = rec.buy_link || `https://www.google.com/search?q=${encodeURIComponent(`${rec.brand} ${rec.name} buy`)}`;
+  const isExternal = href.startsWith("http");
   return (
     <motion.a
-      href={searchUrl}
+      href={href}
+      target={isExternal ? "_blank" : undefined}
+      rel={isExternal ? "noopener noreferrer" : undefined}
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       className="flex items-center gap-3 rounded-xl px-3 py-2.5 no-underline transition-all active:scale-[0.97]"
@@ -45,9 +48,7 @@ function WebRecCard({ rec }) {
         </p>
         {rec.why && <p className="text-[10px] truncate mt-0.5" style={{ color: "#6B7280" }}>{rec.why}</p>}
       </div>
-      <div className="flex items-center gap-1 flex-shrink-0">
-        <Search className="w-3 h-3" style={{ color: "#5B8BF5" }} />
-      </div>
+      <ExternalLink className="w-3 h-3 flex-shrink-0" style={{ color: "#5B8BF5" }} />
     </motion.a>
   );
 }

@@ -35,9 +35,8 @@ Deno.serve(async (req) => {
       .map((s, i) => `${i}: ${s.brand} ${s.name} $${s.price} [${s.category}]${s.is_trending ? ' 🔥' : ''}`)
       .join('\n');
 
-    // Only auto-detect if client hasn't explicitly set useWebSearch=false
-    const intentNeedsWeb = useWebSearch && /price|buy|where|stock|available|deal|sale|discount|trend|popular|2025|2026|new release|recommend|suggest|best|top|find|מחיר|קנה|מבצע|המלצה|precio|comprar|prix|acheter|سعر|شراء/i.test(message);
-    const doWebSearch = useWebSearch && intentNeedsWeb;
+    // When client has web search ON, always use it — don't gate on intent keywords
+    const doWebSearch = useWebSearch === true;
 
     const isIsrael = (userLocation.countryCode || '').toUpperCase() === 'IL';
     const localRetailers = isIsrael
@@ -62,6 +61,7 @@ ${doWebSearch ? `WEB SEARCH TASK: Search the web NOW for the user's query.
 - Preferred local retailers: ${localRetailers}
 - Each result MUST have ships_to_user = true — if you are not 100% sure it ships there, set it to false and it will be excluded.
 - Return REAL prices in the local currency (${isIsrael ? 'ILS ₪' : 'USD $'}).
+- For each result include a real buy_link URL (direct product page or search page on that retailer).
 - Up to 3 web results only.` : `CATALOG MODE: Only recommend from the catalog above. Do NOT include web_recommendations.`}
 
 RULES:
@@ -98,6 +98,7 @@ ${historyText ? `CONVERSATION:\n${historyText}\n` : ''}User: ${message}`;
                 brand:         { type: 'string' },
                 price:         { type: 'string' },
                 retailer:      { type: 'string' },
+                buy_link:      { type: 'string' },
                 ships_to_user: { type: 'boolean' },
                 why:           { type: 'string' },
               }
@@ -116,7 +117,8 @@ ${historyText ? `CONVERSATION:\n${historyText}\n` : ''}User: ${message}`;
 
     return Response.json({
       reply:               aiResponse.reply || 'Let me help you find the perfect shoe.',
-      best_pick_index:     aiResponse.best_pick_index ?? -1,
+      // Never show a catalog card when web search is active — send web links instead
+      best_pick_index:     doWebSearch ? -1 : (aiResponse.best_pick_index ?? -1),
       follow_up_questions: (aiResponse.follow_up_questions || []).slice(0, 2),
       used_web:            doWebSearch,
       web_recommendations: webRecs,
