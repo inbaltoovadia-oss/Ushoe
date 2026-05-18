@@ -24,8 +24,8 @@ function isRTL(text) {
 }
 
 function WebRecCard({ rec }) {
-  const href = rec.buy_link || `https://www.google.com/search?q=${encodeURIComponent(`${rec.brand} ${rec.name} buy`)}`;
-  const isExternal = href.startsWith("http");
+  const href = `https://www.google.com/search?q=${encodeURIComponent(`${rec.brand} ${rec.name} buy ${rec.retailer || ""}`)}`;
+  const isExternal = true;
   return (
     <motion.a
       href={href}
