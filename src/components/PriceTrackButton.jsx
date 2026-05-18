@@ -40,7 +40,7 @@ export default function PriceTrackButton({ shoe, compact = false }) {
         category: shoe.category,
       });
       setTracked(shoe.id, created);
-      toast.success("We'll notify you when the price drops!");
+      toast.success("We'll email you on price drops & restocks!");
     }
     setLoading(false);
   };
@@ -52,7 +52,7 @@ export default function PriceTrackButton({ shoe, compact = false }) {
       <button
         onClick={toggle}
         disabled={busy}
-        title={tracked ? "Stop tracking price" : "Notify me of price drops"}
+        title={tracked ? "Stop price & stock alerts" : "Notify me of price drops & restocks"}
         className={`p-2 rounded-full backdrop-blur-md transition-all duration-200 ${
           tracked
             ? "bg-primary text-white"
@@ -87,7 +87,7 @@ export default function PriceTrackButton({ shoe, compact = false }) {
       ) : (
         <Bell className="w-4 h-4" />
       )}
-      {tracked ? "Tracking Price" : "Notify me of price drops"}
+      {tracked ? "Price & Stock Alerts On" : "Price & Stock Alerts"}
     </button>
   );
 }
