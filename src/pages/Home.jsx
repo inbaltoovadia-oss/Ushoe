@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import HeroSection from "../components/home/HeroSection";
+import FeaturePreviewSection from "../components/home/FeaturePreviewSection";
 import AIFinderCTA from "../components/home/AIFinderCTA";
 import DealsSection from "../components/home/DealsSection";
 import PersonalizedSection from "../components/home/PersonalizedSection";
@@ -18,7 +19,6 @@ export default function Home() {
   const [sponsoredRefreshKey, setSponsoredRefreshKey] = useState(0);
 
   useEffect(() => {
-    // Only silently re-detect if already granted before (avoids surprise prompt)
     if (getLocation().detected) detectLocation();
     preloadTrending();
   }, []);
@@ -30,12 +30,15 @@ export default function Home() {
 
   return (
     <PullToRefresh onRefresh={handleRefresh}>
+      {/* 1. Full-screen hero */}
       <HeroSection />
+      {/* 2. Feature preview — what uShoe does */}
+      <FeaturePreviewSection />
       {/* Location bar */}
       <div className="px-4 sm:px-6 max-w-7xl mx-auto py-2">
         <UseMyLocationButton />
       </div>
-      {/* Instant content first — no AI calls needed */}
+      {/* 3. Personalized & trending content */}
       <RecentlyViewed />
       <DailyPicksSection />
       <DealsSection />
