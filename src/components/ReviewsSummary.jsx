@@ -35,7 +35,22 @@ const ScoreBar = ({ score }) => {
   );
 };
 
-const CACHE_KEY = (id) => `buyer_insights_${id}`;
+const CACHE_KEY = (id) => `buyer_insights_v2_${id}`;
+const CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+function getCached(id) {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY(id));
+    if (!raw) return null;
+    const { data, ts } = JSON.parse(raw);
+    if (Date.now() - ts > CACHE_TTL) { localStorage.removeItem(CACHE_KEY(id)); return null; }
+    return data;
+  } catch { return null; }
+}
+
+function setCached(id, data) {
+  try { localStorage.setItem(CACHE_KEY(id), JSON.stringify({ data, ts: Date.now() })); } catch {}
+}
 
 export default function ReviewsSummary({ shoe }) {
   const [data, setData] = useState(null);
@@ -43,15 +58,8 @@ export default function ReviewsSummary({ shoe }) {
 
   useEffect(() => {
     if (!shoe) return;
-    // Check session cache first (only use if fetched via backend function)
-    try {
-      const cached = sessionStorage.getItem(CACHE_KEY(shoe.id));
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        // Invalidate old frontend-cached data (which had generic 4.5 scores)
-        if (parsed?._source === 'backend') { setData(parsed); return; }
-      }
-    } catch {}
+    const cached = getCached(shoe.id);
+    if (cached) { setData(cached); return; }
     fetchInsights();
   }, [shoe?.id]);
 
@@ -63,8 +71,8 @@ export default function ReviewsSummary({ shoe }) {
         name: shoe.name,
         model: shoe.model || null,
       });
-      const result = { ...(res?.data || res), _source: 'backend' };
-      try { sessionStorage.setItem(CACHE_KEY(shoe.id), JSON.stringify(result)); } catch {}
+      const result = res?.data || res;
+      setCached(shoe.id, result);
       setData(result);
     } catch {
       setData(null);
