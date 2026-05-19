@@ -29,8 +29,8 @@ export function setLowCreditMode(on) {
 const PREFIX = "ushoe_agent_";
 
 const TTL = {
-  deals:     3  * 60 * 60 * 1000,
-  webdeals:  3  * 60 * 60 * 1000,
+  deals:     10 * 60 * 1000,        // 10 min — prices change frequently
+  webdeals:  10 * 60 * 1000,
   stock:     2  * 60 * 60 * 1000,
   shipping:  24 * 60 * 60 * 1000,
   trends:    14 * 24 * 60 * 60 * 1000,

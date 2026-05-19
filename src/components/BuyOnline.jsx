@@ -127,22 +127,28 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
     setDealSummary("");
     setBestPrice(null);
 
-    const result = await runDealAgent({
-      shoe: { ...shoe, _country: loc.country, _countryCode: loc.countryCode },
-      city: loc.city,
-      size: selectedSize,
-      color: selectedColor,
-      countryCode: loc.countryCode,
-      latitude: loc.latitude || null,
-      longitude: loc.longitude || null,
-    });
+    try {
+      const result = await runDealAgent({
+        shoe: { ...shoe, _country: loc.country, _countryCode: loc.countryCode },
+        city: loc.city,
+        size: selectedSize,
+        color: selectedColor,
+        countryCode: loc.countryCode,
+        latitude: loc.latitude || null,
+        longitude: loc.longitude || null,
+        forceRefresh: true,
+      });
 
-    setDealSummary(result.summary || "");
-    setBestPrice(result.best_price_found);
-    setCurrencySymbol(result.currency_symbol || "$");
-    setRetailers(result.retailers || []);
-    setSimilar(result.similar_retailers || []);
-    setLoading(false);
+      setDealSummary(result.summary || "");
+      setBestPrice(result.best_price_found);
+      setCurrencySymbol(result.currency_symbol || "$");
+      setRetailers(result.retailers || []);
+      setSimilar(result.similar_retailers || []);
+    } catch (err) {
+      console.error("BuyOnline load error:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const displaySize = selectedSize && sizeStandard !== "US"

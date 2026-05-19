@@ -7,9 +7,11 @@
 import { base44 } from "@/api/base44Client";
 import { getCachedDeals, setCachedDeals, normalizeCity } from "./agentCache";
 
-export async function runDealAgent({ shoe, city, size = null, color = null, countryCode = "", latitude = null, longitude = null }) {
-  const cached = getCachedDeals(shoe.id, city, size, color, latitude, longitude);
-  if (cached) return cached;
+export async function runDealAgent({ shoe, city, size = null, color = null, countryCode = "", latitude = null, longitude = null, forceRefresh = false }) {
+  if (!forceRefresh) {
+    const cached = getCachedDeals(shoe.id, city, size, color, latitude, longitude);
+    if (cached) return cached;
+  }
 
   const country = shoe._country || "United States";
   const code = countryCode || shoe._countryCode || "US";
@@ -28,7 +30,7 @@ export async function runDealAgent({ shoe, city, size = null, color = null, coun
     longitude,
   });
 
-  const data = res?.data || res || {};
+  const data = res?.data || {};
   const picks = data.web_picks || [];
   const similarPicks = data.similar_options || [];
   const currencySymbol = data.currency_symbol || "$";
