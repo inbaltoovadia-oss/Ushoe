@@ -18,6 +18,7 @@ import { getRetailersForCountry } from "../lib/retailerDirectory";
 import SizeStandardToggle, { DisplaySize } from "./SizeStandardToggle";
 import LocationInput from "./LocationInput";
 import { fromUSSize } from "../lib/sizeConverter";
+import { getCurrencySymbol } from "../lib/currency";
 
 function mergeRetailers(dealResult, stockResult) {
   const map = {};
@@ -227,6 +228,7 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
               selectedSize={selectedSize}
               sizeStandard={sizeStandard}
               city={loc.city}
+              countryCode={loc.countryCode}
               directRetailers={directRetailers}
             />
           ))}
@@ -243,7 +245,8 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
   );
 }
 
-function RetailerCard({ retailer: r, index, shoe, selectedSize, sizeStandard, city, directRetailers }) {
+function RetailerCard({ retailer: r, index, shoe, selectedSize, sizeStandard, city, countryCode, directRetailers }) {
+  const currencySymbol = getCurrencySymbol(countryCode);
   const isBest = r.is_best_deal;
   const hasDeal = r.discount_pct > 0;
   const shipsOk = r.ships_to_location !== false;
@@ -335,13 +338,13 @@ function RetailerCard({ retailer: r, index, shoe, selectedSize, sizeStandard, ci
           {r.deal_price ? (
             <>
               <div className={`font-heading font-bold text-xl ${isBest ? "text-green-600 dark:text-green-400" : "text-foreground"}`}>
-                ${r.deal_price}
+                {currencySymbol}{r.deal_price}
               </div>
               {r.original_price > r.deal_price && (
-                <div className="text-xs text-muted-foreground line-through">${r.original_price}</div>
+                <div className="text-xs text-muted-foreground line-through">{currencySymbol}{r.original_price}</div>
               )}
               {r.discount_value > 0 && (
-                <div className="text-[10px] text-green-600 dark:text-green-400 font-semibold">Save ${r.discount_value.toFixed(0)}</div>
+                <div className="text-[10px] text-green-600 dark:text-green-400 font-semibold">Save {currencySymbol}{r.discount_value.toFixed(0)}</div>
               )}
             </>
           ) : (
