@@ -32,11 +32,10 @@ import { clearAllAgentCache } from "../lib/agentCache";
 import SizeStandardToggle, { DisplaySize } from "../components/SizeStandardToggle";
 import { toUSSize, fromUSSize, convertSizeList } from "../lib/sizeConverter";
 
-
 // One-time bust of old cached agent results (runs once per session)
-if (!sessionStorage.getItem("ushoe_cache_v7")) {
+if (!sessionStorage.getItem("ushoe_cache_v6")) {
   clearAllAgentCache();
-  sessionStorage.setItem("ushoe_cache_v7", "1");
+  sessionStorage.setItem("ushoe_cache_v6", "1");
 }
 
 const TRUST_BADGES = [
@@ -83,7 +82,6 @@ export default function ShoeDetail() {
   const [activeTab, setActiveTab]     = useState(tabParam || null); // null | "nearby" | "online"
   const [showShare, setShowShare]         = useState(false);
   const [showCollections, setShowCollections] = useState(false);
-
 
   useEffect(() => { loadShoe(); }, [id]);
   useEffect(() => subscribeWishlist(() => setWishlisted(isInWishlist(id))), [id]);

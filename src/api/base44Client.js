@@ -10,6 +10,5 @@ export const base44 = createClient({
   functionsVersion,
   serverUrl: '',
   requiresAuth: false,
-  appBaseUrl,
-  timeout: 120000, // 2 minutes — web search functions can take 30-80s
+  appBaseUrl
 });

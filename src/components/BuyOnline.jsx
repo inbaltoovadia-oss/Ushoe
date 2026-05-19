@@ -1,158 +1,112 @@
 /**
- * BuyOnline — Shows exact-match and similar retailers with local currency pricing.
- * Catalog/homepage prices remain in USD. This component uses local currency only.
+ * BuyOnline — Rebuilt with:
+ * - Size standard toggle (US / EU / UK)
+ * - LocationInput with GPS + manual entry
+ * - Real retailer data via fastWebSearch backend
+ * - Accurate deal badges, shipping info, direct buy links
  */
 import { useState, useEffect } from "react";
 import {
-  Globe, Loader2, ExternalLink, CheckCircle, RefreshCw,
-  TrendingDown, Truck, Tag, Zap, ShieldCheck, XCircle, Info
+  Globe, Loader2, ExternalLink, CheckCircle, AlertCircle,
+  RefreshCw, TrendingDown, Truck, Tag, Zap, Clock, ShieldCheck, XCircle
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getLocation, subscribeLocation } from "../lib/locationStore";
 import { runDealAgent } from "../lib/dealAgent";
+import SearchingState from "./SearchingState";
+import { getRetailersForCountry } from "../lib/retailerDirectory";
 import SizeStandardToggle, { DisplaySize } from "./SizeStandardToggle";
 import LocationInput from "./LocationInput";
 import { fromUSSize } from "../lib/sizeConverter";
 
-const SEARCH_STEPS = [
-  { label: "Opening live retailer feeds…",      detail: "Connecting to store databases",         pct: 8  },
-  { label: "Searching brand official stores…",  detail: "Checking Nike, Adidas direct sites",    pct: 20 },
-  { label: "Scanning Foot Locker & JD Sports…", detail: "Checking major sneaker chains",         pct: 35 },
-  { label: "Checking Terminal X & boutiques…",  detail: "Independent and local retailers",       pct: 50 },
-  { label: "Reading live price pages…",         detail: "Extracting real-time prices & stock",   pct: 65 },
-  { label: "Verifying stock availability…",     detail: "Confirming items actually in stock",    pct: 78 },
-  { label: "Comparing deals & shipping…",       detail: "Calculating best value for your city",  pct: 88 },
-  { label: "Almost done — ranking results…",    detail: "Sorting by price and availability",     pct: 95 },
-];
+function mergeRetailers(dealResult, stockResult) {
+  const map = {};
 
-function SearchProgress() {
-  const [stepIdx, setStepIdx] = useState(0);
-  const [elapsed, setElapsed] = useState(0);
+  for (const r of (dealResult?.retailers || [])) {
+    const key = (r.retailer_name || "").toLowerCase();
+    if (!key) continue;
+    map[key] = { ...r, stock_status: null, url: r.buy_link || null };
+  }
 
-  useEffect(() => {
-    // Advance steps roughly every 10s over ~80s total
-    const stepTimer = setInterval(() => {
-      setStepIdx(i => Math.min(i + 1, SEARCH_STEPS.length - 1));
-    }, 10000);
-    const secTimer = setInterval(() => setElapsed(e => e + 1), 1000);
-    return () => { clearInterval(stepTimer); clearInterval(secTimer); };
-  }, []);
+  for (const s of (stockResult?.online_stores || [])) {
+    const key = (s.name || "").toLowerCase();
+    if (!key) continue;
+    if (map[key]) {
+      map[key].stock_status = s.stock_status;
+      if (!map[key].url && s.url) map[key].url = s.url;
+    } else {
+      map[key] = {
+        retailer_name:    s.name,
+        deal_price:       s.price,
+        original_price:   null,
+        discount_pct:     0,
+        shipping_free:    null,
+        confidence:       "medium",
+        deal_confirmed:   false,
+        is_best_deal:     false,
+        ships_to_location: s.ships_to_location,
+        stock_status:     s.stock_status,
+        url:              s.url,
+      };
+    }
+  }
 
-  const step = SEARCH_STEPS[stepIdx];
-
-  return (
-    <div className="py-4 space-y-4">
-      {/* Live badge */}
-      <div className="flex items-center gap-2">
-        <span className="flex items-center gap-1.5 text-[10px] font-bold text-red-500 bg-red-500/10 px-2 py-1 rounded-full">
-          <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse inline-block" />
-          LIVE SEARCH
-        </span>
-        <span className="text-[10px] text-muted-foreground">{elapsed}s elapsed · real prices from retailer websites</span>
-      </div>
-
-      {/* Step label */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-shrink-0">
-          <Globe className="w-5 h-5 text-primary" />
-          <Loader2 className="w-3 h-3 text-primary animate-spin absolute -top-1 -right-1" />
-        </div>
-        <div className="flex-1">
-          <AnimatePresence mode="wait">
-            <motion.p
-              key={stepIdx}
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.3 }}
-              className="text-sm font-semibold text-foreground"
-            >
-              {step.label}
-            </motion.p>
-          </AnimatePresence>
-          <p className="text-xs text-muted-foreground mt-0.5">{step.detail}</p>
-        </div>
-        <span className="text-xs font-bold text-primary">{step.pct}%</span>
-      </div>
-
-      {/* Progress bar */}
-      <div className="h-2 bg-secondary rounded-full overflow-hidden">
-        <motion.div
-          className="h-full bg-primary rounded-full"
-          animate={{ width: `${step.pct}%` }}
-          transition={{ duration: 1.2, ease: "easeOut" }}
-        />
-      </div>
-
-      <p className="text-[10px] text-muted-foreground text-center">
-        Live web search takes 30–90 seconds · Results are real prices from actual retailer sites
-      </p>
-
-      {/* Skeleton cards */}
-      {[1, 2, 3].map(i => (
-        <div key={i} className="rounded-2xl border border-border/40 p-4 space-y-3 overflow-hidden">
-          <div className="flex items-center justify-between">
-            <div className="h-4 w-32 bg-secondary rounded-full animate-pulse" />
-            <div className="h-6 w-20 bg-secondary rounded-full animate-pulse" />
-          </div>
-          <div className="h-3 w-44 bg-secondary/70 rounded-full animate-pulse" />
-          <div className="h-10 w-full bg-secondary/40 rounded-xl animate-pulse" />
-        </div>
-      ))}
-    </div>
-  );
+  return Object.values(map).sort((a, b) => {
+    if (a.is_best_deal && !b.is_best_deal) return -1;
+    if (!a.is_best_deal && b.is_best_deal) return 1;
+    return (a.deal_price || 9999) - (b.deal_price || 9999);
+  });
 }
 
 export default function BuyOnline({ shoe, selectedSize = null, selectedColor = null }) {
-  const [retailers, setRetailers]         = useState([]);
-  const [dealSummary, setDealSummary]     = useState("");
-  const [bestPrice, setBestPrice]         = useState(null);
-  const [currencySymbol, setCurrencySymbol] = useState("$");
-  const [loading, setLoading]             = useState(false);
-  const [loadError, setLoadError]         = useState(null);
-  const [started, setStarted]             = useState(false);
-  const [sizeStandard, setSizeStandard]   = useState("US");
-  const [loc, setLoc]                     = useState(getLocation());
+  const [retailers, setRetailers]     = useState([]);
+  const [dealSummary, setDealSummary] = useState("");
+  const [bestPrice, setBestPrice]     = useState(null);
+  const [loading, setLoading]         = useState(false);
+  const [started, setStarted]         = useState(false);
+  const [dealsDone, setDealsDone]     = useState(false);
+  const [stockDone, setStockDone]     = useState(false);
+  const [sizeStandard, setSizeStandard] = useState("US");
+  const [loc, setLoc]                 = useState(getLocation());
 
   useEffect(() => subscribeLocation(setLoc), []);
 
   useEffect(() => {
     setStarted(false);
     setRetailers([]);
+    setDealsDone(false);
+    setStockDone(false);
     setDealSummary("");
   }, [shoe?.id]);
 
   const load = async () => {
     setLoading(true);
-    setLoadError(null);
     setRetailers([]);
+    setDealsDone(false);
+    setStockDone(false);
     setDealSummary("");
-    setBestPrice(null);
 
-    try {
-      const result = await runDealAgent({
-        shoe: { ...shoe, _country: loc.country, _countryCode: loc.countryCode },
-        city: loc.city,
-        size: selectedSize,
-        color: selectedColor,
-        countryCode: loc.countryCode,
-        latitude: loc.latitude || null,
-        longitude: loc.longitude || null,
-        forceRefresh: true,
-      });
+    const agentArgs = {
+      shoe: { ...shoe, _country: loc.country, _countryCode: loc.countryCode },
+      city: loc.city,
+      size: selectedSize,
+      color: selectedColor,
+      countryCode: loc.countryCode,
+    };
 
-      setDealSummary(result.summary || "");
-      setBestPrice(result.best_price_found);
-      setCurrencySymbol(result.currency_symbol || "$");
-      setRetailers(result.retailers || []);
-    } catch (err) {
-      console.error("BuyOnline load error:", err);
-      setLoadError("Search timed out. Please try again.");
-    } finally {
-      setLoading(false);
-    }
+    // Run only ONE search — deal agent gets all retailer data including stock
+    const dealResult = await runDealAgent(agentArgs);
+    setDealSummary(dealResult.summary);
+    setBestPrice(dealResult.best_price_found);
+    setDealsDone(true);
+    setStockDone(true);
+    setRetailers(mergeRetailers(dealResult, null));
+    setLoading(false);
   };
 
+  const directRetailers = getRetailersForCountry(loc.countryCode, shoe?.name, shoe?.brand);
+
+  // Convert selected size for display
   const displaySize = selectedSize && sizeStandard !== "US"
     ? fromUSSize(selectedSize, sizeStandard, shoe?.gender)
     : selectedSize;
@@ -163,11 +117,7 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
         <div className="flex flex-col items-center gap-3">
           <Globe className="w-8 h-8 text-muted-foreground/30" />
           <p className="text-sm text-muted-foreground text-center">
-            Find the best prices for <strong>{shoe?.name}</strong>
-            {selectedSize ? ` (size ${displaySize} ${sizeStandard})` : ""} near {loc.city}
-          </p>
-          <p className="text-xs text-muted-foreground/70 text-center bg-secondary/60 rounded-xl px-3 py-2">
-            💡 Prices shown in your local currency · Only exact-match in-stock results
+            Find the best online prices for <strong>{shoe?.name}</strong>{selectedSize ? ` (size ${displaySize} ${sizeStandard})` : ""} near {loc.city}
           </p>
         </div>
 
@@ -177,7 +127,7 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
           <SizeStandardToggle standard={sizeStandard} onChange={setSizeStandard} />
           {selectedSize && (
             <span className="text-xs text-muted-foreground bg-secondary px-2 py-1 rounded-lg">
-              Size: {displaySize} {sizeStandard}
+              Selected: {displaySize} {sizeStandard}
             </span>
           )}
         </div>
@@ -190,16 +140,21 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
           Search Online Prices
         </button>
 
+        {/* Direct search links */}
         <div>
           <p className="text-xs text-muted-foreground mb-2">Or search directly:</p>
           <div className="flex flex-wrap gap-2">
             {[
-              { name: "Nike IL", url: "https://www.nike.com/il" },
               { name: "Foot Locker IL", url: "https://www.footlocker.co.il" },
-              { name: "Adidas IL", url: "https://www.adidas.co.il" },
+              { name: "Farfetch IL", url: "https://www.farfetch.com/il" },
             ].map(r => (
-              <a key={r.name} href={r.url} target="_blank" rel="noopener noreferrer"
-                className="text-xs px-3 py-1.5 rounded-lg bg-secondary hover:bg-secondary/70 text-foreground transition-colors flex items-center gap-1">
+              <a
+                key={r.name}
+                href={r.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs px-3 py-1.5 rounded-lg bg-secondary hover:bg-secondary/70 text-foreground transition-colors flex items-center gap-1"
+              >
                 {r.name} <ExternalLink className="w-2.5 h-2.5 opacity-50" />
               </a>
             ))}
@@ -207,6 +162,12 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
         </div>
       </div>
     );
+  }
+
+  const agentsReady = dealsDone || stockDone;
+
+  if (!agentsReady && loading) {
+    return <SearchingState city={loc.city} shoe={shoe} />;
   }
 
   return (
@@ -217,57 +178,34 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
         <LocationInput onLocated={() => { setStarted(false); }} compact />
       </div>
 
-      {loading && <SearchProgress />}
-
-
-      {!loading && bestPrice && (
+      {bestPrice && (
         <div className="flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-full bg-green-500/10 text-green-700 dark:text-green-400 font-semibold w-fit">
           <TrendingDown className="w-3 h-3" />
-          Best found: {currencySymbol}{bestPrice}
+          Best found: {bestPrice}
         </div>
       )}
 
-      {!loading && dealSummary && (
+      {dealSummary && (
         <div className="flex items-start gap-2 bg-primary/5 border border-primary/10 rounded-xl px-3 py-2.5">
           <Tag className="w-3.5 h-3.5 text-primary mt-0.5 flex-shrink-0" />
           <p className="text-xs text-muted-foreground">{dealSummary}</p>
         </div>
       )}
 
-      {!loading && (
-        <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-          <ShieldCheck className="w-3 h-3 flex-shrink-0" />
-          Prices sourced live · Shown in {currencySymbol} local currency · Confirm before purchase
-        </p>
-      )}
+      <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+        <ShieldCheck className="w-3 h-3 flex-shrink-0" />
+        Prices sourced live from retailer sites. Always confirm final price before purchase.
+      </p>
 
-      {/* Exact Matches */}
-      {!loading && retailers.length > 0 && (
-        <div className="space-y-3">
-          <p className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-            <CheckCircle className="w-3.5 h-3.5 text-green-500" />
-            Exact Matches
-          </p>
-          <AnimatePresence>
-            {retailers.map((r, i) => (
-              <RetailerCard key={r.retailer_name + i} retailer={r} index={i}
-                shoe={shoe} selectedSize={selectedSize} sizeStandard={sizeStandard}
-                city={loc.city} currencySymbol={currencySymbol} />
-            ))}
-          </AnimatePresence>
-        </div>
-      )}
-
-      {/* No results */}
-      {!loading && retailers.length === 0 && (
+      {retailers.length === 0 && !loading && (
         <div className="text-center py-8">
           <Globe className="w-8 h-8 text-muted-foreground/30 mx-auto mb-3" />
-          <p className="text-sm font-medium">{loadError || `No results found near ${loc.city}`}</p>
+          <p className="text-sm font-medium">No retailers found near {loc.city}</p>
           <p className="text-xs text-muted-foreground mt-1 mb-3">Try adjusting your location or search again.</p>
           <div className="flex flex-wrap gap-2 justify-center">
             {[
-              { name: "Nike IL", url: "https://www.nike.com/il" },
               { name: "Foot Locker IL", url: "https://www.footlocker.co.il" },
+              { name: "Farfetch IL", url: "https://www.farfetch.com/il" },
             ].map(r => (
               <a key={r.name} href={r.url} target="_blank" rel="noopener noreferrer"
                 className="text-xs px-3 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors flex items-center gap-1">
@@ -277,6 +215,23 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
           </div>
         </div>
       )}
+
+      <AnimatePresence>
+        <div className="space-y-3">
+          {retailers.map((r, i) => (
+            <RetailerCard
+              key={r.retailer_name + i}
+              retailer={r}
+              index={i}
+              shoe={shoe}
+              selectedSize={selectedSize}
+              sizeStandard={sizeStandard}
+              city={loc.city}
+              directRetailers={directRetailers}
+            />
+          ))}
+        </div>
+      </AnimatePresence>
 
       {!loading && (
         <button onClick={load} className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mx-auto">
@@ -288,10 +243,21 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
   );
 }
 
-function RetailerCard({ retailer: r, index, shoe, selectedSize, sizeStandard, city, currencySymbol, dimmed = false }) {
-  const isBest = r.is_best_deal && !dimmed;
+function RetailerCard({ retailer: r, index, shoe, selectedSize, sizeStandard, city, directRetailers }) {
+  const isBest = r.is_best_deal;
   const hasDeal = r.discount_pct > 0;
   const shipsOk = r.ships_to_location !== false;
+
+  // Build buy link: prefer agent-provided, then retailer directory
+  const directEntry = directRetailers.find(d => d.name.toLowerCase().includes((r.retailer_name || "").toLowerCase().split(" ")[0]) || (r.retailer_name || "").toLowerCase().includes(d.name.toLowerCase().split(" ")[0]));
+  const buyLink = r.url || r.buy_link || directEntry?.url || null;
+
+  const stockStyle = {
+    "In stock":       "text-green-600 bg-green-50 dark:bg-green-950/30",
+    "Limited stock":  "text-amber-600 bg-amber-50 dark:bg-amber-950/30",
+    "Out of stock":   "text-red-500 bg-red-50 dark:bg-red-950/30",
+    "Check in store": "text-blue-600 bg-blue-50 dark:bg-blue-950/30",
+  }[r.stock_status] || "text-muted-foreground bg-secondary";
 
   const displaySize = selectedSize && sizeStandard !== "US"
     ? fromUSSize(selectedSize, sizeStandard, shoe?.gender)
@@ -301,10 +267,9 @@ function RetailerCard({ retailer: r, index, shoe, selectedSize, sizeStandard, ci
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.04 }}
+      transition={{ delay: index * 0.05 }}
       className={`bg-card border rounded-2xl p-4 transition-all hover:shadow-md ${
-        isBest ? "border-green-400/60 ring-1 ring-green-400/20" :
-        dimmed ? "border-border/30 opacity-80" : "border-border/50"
+        isBest ? "border-green-400/60 ring-1 ring-green-400/20" : "border-border/50"
       }`}
     >
       {isBest && (
@@ -323,6 +288,11 @@ function RetailerCard({ retailer: r, index, shoe, selectedSize, sizeStandard, ci
                 <Tag className="w-2.5 h-2.5" /> {r.discount_pct}% OFF
               </span>
             )}
+            {r.is_time_limited && (
+              <span className="text-[10px] font-bold text-purple-600 bg-purple-50 dark:bg-purple-950/30 px-2 py-0.5 rounded-full flex items-center gap-1">
+                <Clock className="w-2.5 h-2.5" /> Limited Time
+              </span>
+            )}
           </div>
 
           {r.coupon_code && (
@@ -332,7 +302,7 @@ function RetailerCard({ retailer: r, index, shoe, selectedSize, sizeStandard, ci
             </div>
           )}
 
-          <div className="flex items-center gap-1 text-[10px] mt-1 flex-wrap">
+          <div className="flex items-center gap-1 text-[10px] mt-1">
             {shipsOk ? (
               <span className="flex items-center gap-1 text-green-600 dark:text-green-400 font-medium">
                 <Truck className="w-3 h-3" />
@@ -346,18 +316,17 @@ function RetailerCard({ retailer: r, index, shoe, selectedSize, sizeStandard, ci
             )}
           </div>
 
-          {displaySize && (
-            <div className="mt-1.5">
-              <span className="text-[10px] px-2 py-0.5 rounded-lg bg-secondary text-muted-foreground font-medium">
-                Size {displaySize} {sizeStandard}
+          {r.stock_status && (
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              <span className={`text-[10px] px-2 py-0.5 rounded-lg font-medium ${stockStyle}`}>
+                {r.stock_status}
               </span>
+              {displaySize && (
+                <span className="text-[10px] px-2 py-0.5 rounded-lg bg-secondary text-muted-foreground font-medium">
+                  Size {displaySize} {sizeStandard}
+                </span>
+              )}
             </div>
-          )}
-
-          {r.confidence === "low" && (
-            <p className="text-[10px] text-amber-600 mt-1 flex items-center gap-1">
-              <Info className="w-3 h-3" /> Price estimate — confirm on site
-            </p>
           )}
         </div>
 
@@ -366,13 +335,13 @@ function RetailerCard({ retailer: r, index, shoe, selectedSize, sizeStandard, ci
           {r.deal_price ? (
             <>
               <div className={`font-heading font-bold text-xl ${isBest ? "text-green-600 dark:text-green-400" : "text-foreground"}`}>
-                {currencySymbol}{r.deal_price}
+                ${r.deal_price}
               </div>
               {r.original_price > r.deal_price && (
-                <div className="text-xs text-muted-foreground line-through">{currencySymbol}{r.original_price}</div>
+                <div className="text-xs text-muted-foreground line-through">${r.original_price}</div>
               )}
               {r.discount_value > 0 && (
-                <div className="text-[10px] text-green-600 dark:text-green-400 font-semibold">Save {currencySymbol}{r.discount_value.toFixed(0)}</div>
+                <div className="text-[10px] text-green-600 dark:text-green-400 font-semibold">Save ${r.discount_value.toFixed(0)}</div>
               )}
             </>
           ) : (
@@ -381,18 +350,25 @@ function RetailerCard({ retailer: r, index, shoe, selectedSize, sizeStandard, ci
         </div>
       </div>
 
-      {r.buy_link ? (
-        <a href={r.buy_link} target="_blank" rel="noopener noreferrer"
+      {buyLink ? (
+        <a
+          href={buyLink}
+          target="_blank"
+          rel="noopener noreferrer"
           className={`mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90 active:scale-[0.98] ${
             isBest ? "bg-green-500 text-white" : "bg-primary text-primary-foreground"
-          }`}>
+          }`}
+        >
           <ExternalLink className="w-3.5 h-3.5" />
           {isBest ? `Best Deal at ${r.retailer_name}` : `Buy at ${r.retailer_name}`}
         </a>
       ) : (
-        <a href={`https://www.google.com/search?q=${encodeURIComponent((shoe?.brand || "") + " " + (shoe?.name || "") + " " + r.retailer_name + " buy")}`}
-          target="_blank" rel="noopener noreferrer"
-          className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold bg-secondary text-foreground hover:bg-secondary/70 transition-all active:scale-[0.98]">
+        <a
+          href={`https://www.google.com/search?q=${encodeURIComponent((shoe?.brand || "") + " " + (shoe?.name || "") + " " + r.retailer_name + " buy")}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold bg-secondary text-foreground hover:bg-secondary/70 transition-all active:scale-[0.98]"
+        >
           <ExternalLink className="w-3.5 h-3.5" />
           Search at {r.retailer_name}
         </a>

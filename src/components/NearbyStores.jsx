@@ -72,7 +72,7 @@ function LoadingState({ shoe }) {
   );
 }
 
-function StoreCard({ store, index, shoe, selectedSize, currencySymbol = "$" }) {
+function StoreCard({ store, index, shoe, selectedSize }) {
   const conf = CONFIDENCE_STYLES[store.stock_confidence] || CONFIDENCE_STYLES.medium;
   const Icon = conf.icon;
 
@@ -116,25 +116,10 @@ function StoreCard({ store, index, shoe, selectedSize, currencySymbol = "$" }) {
           </div>
         </div>
 
-        <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-          {/* Price */}
-          {store.price != null && (
-            <div className="text-right">
-              {store.original_price != null && store.original_price > store.price && (
-                <p className="text-[10px] text-muted-foreground line-through leading-none">
-                  {currencySymbol}{store.original_price.toLocaleString()}
-                </p>
-              )}
-              <p className="text-sm font-bold text-foreground leading-tight">
-                {currencySymbol}{store.price.toLocaleString()}
-              </p>
-            </div>
-          )}
-          {/* Stock confidence badge */}
-          <div className={`flex items-center gap-1 px-2 py-1 rounded-xl text-[10px] font-semibold ${conf.bg} ${conf.text}`}>
-            <Icon className="w-3 h-3" />
-            {store.stock_status || conf.label}
-          </div>
+        {/* Stock confidence badge */}
+        <div className={`flex items-center gap-1 px-2 py-1 rounded-xl text-[10px] font-semibold flex-shrink-0 ${conf.bg} ${conf.text}`}>
+          <Icon className="w-3 h-3" />
+          {store.stock_status || conf.label}
         </div>
       </div>
 
@@ -193,13 +178,12 @@ function StoreCard({ store, index, shoe, selectedSize, currencySymbol = "$" }) {
 }
 
 export default function NearbyStores({ title = "Nearby Stores", maxCount = 6, shoe = null, selectedSize = null, selectedColor = null }) {
-  const [stores, setStores]         = useState([]);
-  const [summary, setSummary]       = useState("");
-  const [currencySymbol, setCurrencySymbol] = useState("$");
-  const [loading, setLoading]       = useState(false);
-  const [started, setStarted]       = useState(false);
-  const [error, setError]           = useState(null);
-  const [loc, setLoc]               = useState(getLocation());
+  const [stores, setStores]     = useState([]);
+  const [summary, setSummary]   = useState("");
+  const [loading, setLoading]   = useState(false);
+  const [started, setStarted]   = useState(false);
+  const [error, setError]       = useState(null);
+  const [loc, setLoc]           = useState(getLocation());
 
   useEffect(() => {
     setStarted(false);
@@ -229,7 +213,6 @@ export default function NearbyStores({ title = "Nearby Stores", maxCount = 6, sh
       cityFallback: location.city || null,
       selectedSize: selectedSize || null,
       selectedColor: selectedColor || null,
-      countryCode: location.countryCode || 'US',
       radiusKm: 20,
     });
 
@@ -239,7 +222,6 @@ export default function NearbyStores({ title = "Nearby Stores", maxCount = 6, sh
     } else {
       setStores((data.stores || []).slice(0, maxCount));
       setSummary(data.summary || "");
-      if (data.currency_symbol) setCurrencySymbol(data.currency_symbol);
     }
     setLoading(false);
   };
@@ -336,7 +318,6 @@ export default function NearbyStores({ title = "Nearby Stores", maxCount = 6, sh
                   index={i}
                   shoe={shoe}
                   selectedSize={selectedSize}
-                  currencySymbol={currencySymbol}
                 />
               ))}
               {stores.length === 0 && (

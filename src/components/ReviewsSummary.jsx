@@ -35,19 +35,7 @@ const ScoreBar = ({ score }) => {
   );
 };
 
-const CACHE_KEY = (id) => `buyer_insights_v3_${id}`;
-
-function getCached(id) {
-  try {
-    const raw = localStorage.getItem(CACHE_KEY(id));
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch { return null; }
-}
-
-function setCached(id, data) {
-  try { localStorage.setItem(CACHE_KEY(id), JSON.stringify(data)); } catch {}
-}
+const CACHE_KEY = (id) => `buyer_insights_${id}`;
 
 export default function ReviewsSummary({ shoe }) {
   const [data, setData] = useState(null);
@@ -55,21 +43,49 @@ export default function ReviewsSummary({ shoe }) {
 
   useEffect(() => {
     if (!shoe) return;
-    const cached = getCached(shoe.id);
-    if (cached) { setData(cached); return; }
+    // Check session cache first
+    try {
+      const cached = sessionStorage.getItem(CACHE_KEY(shoe.id));
+      if (cached) { setData(JSON.parse(cached)); return; }
+    } catch {}
     fetchInsights();
   }, [shoe?.id]);
 
   const fetchInsights = async () => {
     setLoading(true);
     try {
-      const res = await base44.functions.invoke('getShoeReviews', {
-        brand: shoe.brand,
-        name: shoe.name,
-        model: shoe.model || null,
+      const result = await base44.integrations.Core.InvokeLLM({
+        prompt: `Search the web for real buyer reviews of the "${shoe.brand} ${shoe.name}". 
+Find actual user ratings and reviews from sites like Reddit, RunRepeat, Trustpilot, brand sites, and sneaker review blogs.
+Return accurate scores out of 5 for each aspect based on what real users say.
+Also return 1-2 top pros and 1 top con from real reviews, and sizing advice (runs small/large/true to size).
+Be specific to THIS exact shoe model.`,
+        add_context_from_internet: true,
+        response_json_schema: {
+          type: "object",
+          properties: {
+            overall_rating: { type: "number" },
+            review_count: { type: "number" },
+            scores: {
+              type: "object",
+              properties: {
+                comfort:       { type: "number" },
+                sizing:        { type: "number" },
+                durability:    { type: "number" },
+                traction:      { type: "number" },
+                breathability: { type: "number" },
+                style:         { type: "number" },
+                value:         { type: "number" },
+              }
+            },
+            top_pros: { type: "array", items: { type: "string" } },
+            top_con:  { type: "string" },
+            sizing_advice: { type: "string" },
+            source_note: { type: "string" },
+          }
+        }
       });
-      const result = res?.data || res;
-      setCached(shoe.id, result);
+      try { sessionStorage.setItem(CACHE_KEY(shoe.id), JSON.stringify(result)); } catch {}
       setData(result);
     } catch {
       setData(null);

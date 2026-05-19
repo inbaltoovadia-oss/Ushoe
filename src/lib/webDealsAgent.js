@@ -4,14 +4,14 @@
  */
 
 import { base44 } from "@/api/base44Client";
-import { getCachedWebDeals, setCachedWebDeals, normalizeCity } from "./agentCache";
+import { getCachedWebDeals, setCachedWebDeals } from "./agentCache";
 import { getLocation } from "./locationStore";
 
 export async function runWebDealsAgent({ city, query = "", onStep }) {
   const loc = getLocation();
   const country = loc.country || "United States";
   const countryCode = (loc.countryCode || "US").toUpperCase();
-  const cacheKey = `webdeals_${normalizeCity(city)}_${(country).toLowerCase().replace(/\s+/g,"_")}_${query.toLowerCase().replace(/\s+/g,"_")}`;
+  const cacheKey = `webdeals_${city}_${country}_${query}`.toLowerCase().replace(/\s+/g, "_");
 
   const cached = getCachedWebDeals(cacheKey);
   if (cached) return cached;

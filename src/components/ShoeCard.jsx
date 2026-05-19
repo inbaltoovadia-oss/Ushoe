@@ -17,7 +17,6 @@ import MatchScoreBadge from "./MatchScoreBadge";
 
 
 
-
 // Brand-specific fallbacks — Unsplash URLs are reliable and CORS-safe
 const BRAND_FALLBACKS = {
   Nike: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600&q=80",
