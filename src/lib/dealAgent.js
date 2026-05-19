@@ -52,6 +52,8 @@ export async function runDealAgent({ shoe, city, size = null, color = null, coun
       is_best_deal:      !!p.is_best_deal,
       ships_to_location: p.ships_to_user !== false,
       buy_link:          p.buy_link || null,
+      sizes_available:   p.sizes_available || [],
+      colors_available:  p.colors_available || [],
     };
   });
 

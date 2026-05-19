@@ -67,36 +67,39 @@ Deno.serve(async (req) => {
 
     // Step 1: Ask the LLM with web search to find real product pages
     const result = await base44.asServiceRole.integrations.Core.InvokeLLM({
-      prompt: `You are a real-time price search agent. Search the web NOW for: "${q}" available in ${countryName} (${cityName}).
+      prompt: `CRITICAL: You are a real-time price search agent. Search the web NOW for: "${q}" available in ${countryName} (${cityName}).
 
-YOUR JOB: Find the actual product listing pages for this exact shoe and return the REAL current prices.
+YOUR JOB: Visit ACTUAL product pages RIGHT NOW and copy the EXACT prices, sizes, colors, and shipping info.
 
-STRICT RULES — violations will break the app:
-1. buy_link MUST be an actual URL you found in your web search results for this exact product. Copy it verbatim. Do NOT construct or guess URLs. If you didn't find a real product URL for a retailer, skip that retailer.
-2. price MUST be the exact price shown on that product page right now. Do NOT estimate or use old data.
-3. ${isIsrael ? 'User is in ISRAEL. Search Israeli retailers: nike.com/il, footlocker.co.il, adidas.co.il, terminalx.com, renuar.co.il, dynamica.co.il, ac.co.il. Prices MUST be in ILS (shekels, ₪).' : `User is in ${countryName}. Search retailers that serve ${countryName}. Prices MUST be in ${countryName}'s currency (${isIsrael ? 'ILS/₪' : 'local currency'}).`}
-4. currency MUST match the country/region: Israel = ILS (₪), US = USD ($), UK = GBP (£), EU = EUR (€), etc.
-5. ships_to_user = true only if the retailer's site actually serves ${countryName}
-6. Do not include Amazon, eBay, or marketplaces unless specifically relevant
-7. Return up to 5 results only
+STRICT RULES — MUST FOLLOW:
+1. Visit each product page and COPY the exact price shown — do NOT estimate or guess
+2. buy_link MUST be the real URL from your search — copy verbatim from results
+3. Check sizes_available on the product page — list what's actually in stock
+4. Check colors_available — list colorways shown on the page
+5. Verify shipping to ${countryName} — look for shipping policy or delivery info
+6. ${isIsrael ? 'ISRAEL USER — search these retailers: Foot Locker Israel, Nike IL, Adidas IL, Terminal X, Renuar, Dynamica, AC Sports. Prices in ILS (₪).' : `Search major retailers shipping to ${countryName}: Foot Locker, Nike, Adidas, JD Sports, Size?, Offspring, Sneaker District, Farfetch. Prices in local currency.`}
+7. MUST return at least 5 retailers — search multiple stores
+8. NO Amazon, eBay, or marketplaces
 
-For each result provide:
-- name: exact product name as shown on the page
-- brand: brand
-- price: current sale/regular price as string with currency symbol (e.g. "₪549", "$89.99", "€89")
-- original_price: original/was price as string (null if not on sale)
-- currency: the currency code for ${countryName} (${isIsrael ? 'ILS' : 'local currency'})
-- retailer: store name
-- buy_link: the EXACT URL from your search results (copy-paste verbatim)
-- ships_to_user: boolean
-- estimated_shipping: shipping info string
-- in_stock: boolean
-- is_best_deal: true for the cheapest option
-- price_confidence: "high" (you saw the price on the page), "medium" (from search snippet), "low" (estimated)
-- discount_percent: number (0 if not on sale)
+For EACH retailer, provide:
+- name: exact product name from page
+- brand: brand name
+- price: EXACT price as string with currency (e.g. "₪549", "$120", "€95") — copy from page
+- original_price: was price if on sale (e.g. "₪699") or null
+- currency: "ILS", "USD", "EUR", "GBP", etc.
+- retailer: store name (e.g. "Foot Locker", "Nike", "Adidas")
+- buy_link: EXACT product URL — copy from search results
+- ships_to_user: true if they ship to ${countryName}
+- estimated_shipping: shipping cost/delivery time from page (e.g. "Free shipping", "₪20 - 3-5 days")
+- in_stock: true if available now
+- sizes_available: array of sizes shown as in stock (e.g. [40, 40.5, 41, 42])
+- colors_available: array of color names available (e.g. ["Black/White", "Triple White"])
+- is_best_deal: true for cheapest
+- price_confidence: "high" (you saw it on page), "medium" (snippet), "low" (guess)
+- discount_percent: percentage off if on sale
 - price_fetched_at: current ISO timestamp
 
-Also find 3 real shoe stores near ${cityName} with real addresses.`,
+Also find 3 real shoe stores near ${cityName} with addresses.`,
       add_context_from_internet: true,
       model: "gemini_3_flash",
       response_json_schema: {
@@ -104,6 +107,7 @@ Also find 3 real shoe stores near ${cityName} with real addresses.`,
         properties: {
           web_picks: {
             type: "array",
+            minItems: 5,
             items: {
               type: "object",
               properties: {
@@ -117,11 +121,14 @@ Also find 3 real shoe stores near ${cityName} with real addresses.`,
                 ships_to_user:      { type: "boolean" },
                 estimated_shipping: { type: "string" },
                 in_stock:           { type: "boolean" },
+                sizes_available:    { type: "array", items: { type: "number" } },
+                colors_available:   { type: "array", items: { type: "string" } },
                 is_best_deal:       { type: "boolean" },
                 price_confidence:   { type: "string" },
                 discount_percent:   { type: "number" },
                 price_fetched_at:   { type: "string" },
               },
+              required: ["name", "brand", "price", "currency", "retailer", "buy_link", "ships_to_user", "in_stock"],
             },
           },
           nearby_stores: {

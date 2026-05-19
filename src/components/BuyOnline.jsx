@@ -380,6 +380,32 @@ function RetailerCard({ retailer: r, index, shoe, selectedSize, sizeStandard, ci
               )}
             </div>
           )}
+
+          {r.sizes_available && r.sizes_available.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1">
+              {r.sizes_available.slice(0, 6).map((size, idx) => (
+                <span key={idx} className="text-[10px] px-1.5 py-0.5 rounded bg-green-50 dark:bg-green-950/20 text-green-700 dark:text-green-400 font-medium border border-green-200 dark:border-green-800">
+                  {size}
+                </span>
+              ))}
+              {r.sizes_available.length > 6 && (
+                <span className="text-[10px] px-1.5 py-0.5 text-muted-foreground">+{r.sizes_available.length - 6} more</span>
+              )}
+            </div>
+          )}
+
+          {r.colors_available && r.colors_available.length > 0 && (
+            <div className="mt-1.5 flex flex-wrap gap-1">
+              {r.colors_available.slice(0, 3).map((color, idx) => (
+                <span key={idx} className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground font-medium">
+                  {color}
+                </span>
+              ))}
+              {r.colors_available.length > 3 && (
+                <span className="text-[10px] px-1.5 py-0.5 text-muted-foreground">+{r.colors_available.length - 3} more</span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Price block */}
