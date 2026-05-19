@@ -107,6 +107,7 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
   const [bestPrice, setBestPrice]         = useState(null);
   const [currencySymbol, setCurrencySymbol] = useState("$");
   const [loading, setLoading]             = useState(false);
+  const [loadError, setLoadError]         = useState(null);
   const [started, setStarted]             = useState(false);
   const [sizeStandard, setSizeStandard]   = useState("US");
   const [loc, setLoc]                     = useState(getLocation());
@@ -122,6 +123,7 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
 
   const load = async () => {
     setLoading(true);
+    setLoadError(null);
     setRetailers([]);
     setSimilar([]);
     setDealSummary("");
@@ -146,6 +148,7 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
       setSimilar(result.similar_retailers || []);
     } catch (err) {
       console.error("BuyOnline load error:", err);
+      setLoadError("Search timed out. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -276,7 +279,7 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
       {!loading && retailers.length === 0 && similarRetailers.length === 0 && (
         <div className="text-center py-8">
           <Globe className="w-8 h-8 text-muted-foreground/30 mx-auto mb-3" />
-          <p className="text-sm font-medium">No results found near {loc.city}</p>
+          <p className="text-sm font-medium">{loadError || `No results found near ${loc.city}`}</p>
           <p className="text-xs text-muted-foreground mt-1 mb-3">Try adjusting your location or search again.</p>
           <div className="flex flex-wrap gap-2 justify-center">
             {[

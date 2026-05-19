@@ -86,21 +86,18 @@ Deno.serve(async (req) => {
     if (cached) return Response.json({ ...cached, cached: true });
 
     const result = await base44.asServiceRole.integrations.Core.InvokeLLM({
-      prompt: `Search the web for the best online prices for: "${q}" in ${countryName} (${cc}).
+      prompt: `Find current online prices for: "${q}" in ${countryName} (${cc}).
 
-Check these retailers: ${retailers}
+Check ONLY these top 3 retailers: ${retailers.split(',').slice(0, 3).join(',')}
 
-For each retailer where you find this EXACT product in stock:
-- Go to the actual product page and get the LIVE price as shown (in ${currency.code})
-- Only include if the product is currently available to buy (Add to Cart / In Stock)
-- The buy_link must be the real product URL from that specific retailer
-- price_numeric must be the exact number shown on the site in ${currency.code} — do NOT convert or estimate
-- If you cannot confirm a live price from a specific retailer, skip that retailer entirely
+For each retailer that has this exact product:
+- Get the current price in ${currency.code} (plain number only)
+- Include the direct product URL
+- Only include confirmed in-stock items
 
-Return up to 5 exact matches sorted cheapest first.
-Also return up to 2 similar/related products if the exact model is not found at some stores.
-
-All prices in ${currency.code} as plain numbers, no currency symbols.`,
+Return up to 3 exact matches, cheapest first.
+Return up to 2 similar alternatives if needed.
+All prices in ${currency.code}, plain numbers only.`,
       add_context_from_internet: true,
       model: 'gemini_3_flash',
       response_json_schema: {
