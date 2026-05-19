@@ -1,8 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
-// In-memory cache: key → { data, ts }
 const CACHE = new Map();
-const CACHE_TTL = 6 * 60 * 60 * 1000; // 6 hours
+const CACHE_TTL = 4 * 60 * 60 * 1000; // 4 hours
 
 function cacheGet(key) {
   const entry = CACHE.get(key);
@@ -12,57 +11,64 @@ function cacheGet(key) {
 }
 function cacheSet(key, data) {
   CACHE.set(key, { data, ts: Date.now() });
-  if (CACHE.size > 500) {
-    // Evict oldest 20% when full
-    const keys = [...CACHE.keys()].slice(0, 100);
+  if (CACHE.size > 400) {
+    const keys = [...CACHE.keys()].slice(0, 80);
     keys.forEach(k => CACHE.delete(k));
   }
 }
 
-/** Normalize city for fuzzy location matching (same metro = same cache key) */
 function normalizeCity(city = "") {
-  return city
-    .toLowerCase()
-    .replace(/\s*-\s*/g, "")
-    .replace(/[^a-z0-9]/g, "")
-    .replace(/(city|metro|downtown|district|area)$/, "")
-    .trim();
+  return city.toLowerCase().replace(/\s*-\s*/g, "").replace(/[^a-z0-9]/g, "").replace(/(city|metro|downtown|district|area)$/, "").trim();
 }
 
-/**
- * Snap lat/lng to ~11 km grid cell (0.1° precision).
- * Users within ~10 km share the same cache bucket.
- */
 function geoHash(lat, lng) {
   if (lat == null || lng == null || isNaN(lat) || isNaN(lng)) return null;
   const snap = (v) => (Math.floor(v * 10) / 10).toFixed(1);
   return `${snap(lat)}_${snap(lng)}`;
 }
 
-/**
- * Try to fetch a URL and confirm it resolves (HEAD request, 5s timeout).
- * Returns true if the URL is reachable, false otherwise.
- */
-async function verifyUrl(url) {
-  if (!url || !url.startsWith("https://")) return false;
-  try {
-    const ctrl = new AbortController();
-    const timeout = setTimeout(() => ctrl.abort(), 6000);
-    const resp = await fetch(url, {
-      method: "GET",
-      signal: ctrl.signal,
-      redirect: "follow",
-      headers: {
-        "User-Agent": "Mozilla/5.0 (compatible; PriceBot/1.0)",
-        "Accept": "text/html,*/*",
-      },
-    });
-    clearTimeout(timeout);
-    // Accept any non-server-error response — 200, 301, 302, 403, 405 all mean the URL exists
-    return resp.status < 500;
-  } catch {
-    return false;
-  }
+const CURRENCY_MAP = {
+  IL: { code: 'ILS', symbol: '₪', name: 'Israeli Shekel' },
+  GB: { code: 'GBP', symbol: '£', name: 'British Pound' },
+  DE: { code: 'EUR', symbol: '€', name: 'Euro' }, FR: { code: 'EUR', symbol: '€', name: 'Euro' },
+  IT: { code: 'EUR', symbol: '€', name: 'Euro' }, ES: { code: 'EUR', symbol: '€', name: 'Euro' },
+  NL: { code: 'EUR', symbol: '€', name: 'Euro' }, BE: { code: 'EUR', symbol: '€', name: 'Euro' },
+  AT: { code: 'EUR', symbol: '€', name: 'Euro' }, PT: { code: 'EUR', symbol: '€', name: 'Euro' },
+  IE: { code: 'EUR', symbol: '€', name: 'Euro' }, FI: { code: 'EUR', symbol: '€', name: 'Euro' },
+  GR: { code: 'EUR', symbol: '€', name: 'Euro' },
+  AU: { code: 'AUD', symbol: 'A$', name: 'Australian Dollar' },
+  CA: { code: 'CAD', symbol: 'C$', name: 'Canadian Dollar' },
+  JP: { code: 'JPY', symbol: '¥', name: 'Japanese Yen' },
+  KR: { code: 'KRW', symbol: '₩', name: 'Korean Won' },
+  IN: { code: 'INR', symbol: '₹', name: 'Indian Rupee' },
+  BR: { code: 'BRL', symbol: 'R$', name: 'Brazilian Real' },
+  MX: { code: 'MXN', symbol: 'MX$', name: 'Mexican Peso' },
+  SE: { code: 'SEK', symbol: 'kr', name: 'Swedish Krona' },
+  NO: { code: 'NOK', symbol: 'kr', name: 'Norwegian Krone' },
+  DK: { code: 'DKK', symbol: 'kr', name: 'Danish Krone' },
+  CH: { code: 'CHF', symbol: 'CHF', name: 'Swiss Franc' },
+  SG: { code: 'SGD', symbol: 'S$', name: 'Singapore Dollar' },
+  HK: { code: 'HKD', symbol: 'HK$', name: 'Hong Kong Dollar' },
+  NZ: { code: 'NZD', symbol: 'NZ$', name: 'New Zealand Dollar' },
+  ZA: { code: 'ZAR', symbol: 'R', name: 'South African Rand' },
+  AE: { code: 'AED', symbol: 'AED', name: 'UAE Dirham' },
+  SA: { code: 'SAR', symbol: 'SAR', name: 'Saudi Riyal' },
+};
+
+function getCurrencyInfo(countryCode) {
+  return CURRENCY_MAP[(countryCode || 'US').toUpperCase()] || { code: 'USD', symbol: '$', name: 'US Dollar' };
+}
+
+// Known trusted retailer domains per country
+const TRUSTED_RETAILERS = {
+  IL: ['nike.com/il', 'adidas.co.il', 'footlocker.co.il', 'terminalx.com', 'dynamica.co.il', 'ac.co.il', 'farfetch.com'],
+  US: ['nike.com', 'adidas.com', 'footlocker.com', 'finishline.com', 'zappos.com', 'jdsports.com', 'champs.com', 'eastbay.com'],
+  GB: ['nike.com/gb', 'adidas.co.uk', 'footlocker.co.uk', 'jdsports.co.uk', 'schuh.co.uk'],
+  DE: ['nike.com/de', 'adidas.de', 'footlocker.de', 'zalando.de', 'snipes.com'],
+};
+
+function getTrustedRetailers(cc) {
+  return TRUSTED_RETAILERS[cc] || TRUSTED_RETAILERS['US'];
 }
 
 Deno.serve(async (req) => {
@@ -71,14 +77,15 @@ Deno.serve(async (req) => {
     const { query, category, city, country, countryCode, latitude = null, longitude = null } = await req.json();
 
     if (!query || !query.trim()) {
-      return Response.json({ web_picks: [], nearby_stores: [] });
+      return Response.json({ web_picks: [], nearby_stores: [], currency_symbol: '$', currency_code: 'USD' });
     }
 
     const q = query.trim();
     const cc = (countryCode || 'US').toUpperCase();
     const countryName = country || 'United States';
     const cityName = city || countryName;
-    const isIsrael = cc === 'IL';
+    const currency = getCurrencyInfo(cc);
+    const trustedRetailers = getTrustedRetailers(cc).join(', ');
 
     const locKey = geoHash(latitude, longitude) || normalizeCity(cityName);
     const cacheKey = `${q}::${cc}::${locKey}`;
@@ -87,40 +94,46 @@ Deno.serve(async (req) => {
       return Response.json({ ...cached, cached: true });
     }
 
-    // Step 1: Ask the LLM with web search to find real product pages
     const result = await base44.asServiceRole.integrations.Core.InvokeLLM({
-      prompt: `You are a real-time price search agent. Search the web NOW for: "${q}" currently IN STOCK and available to buy in ${countryName} (${cityName}).
+      prompt: `You are a real-time sneaker price search agent for a user in ${countryName} (${cityName}).
 
-YOUR JOB: Find actual product listing pages where this EXACT shoe model is CURRENTLY IN STOCK and return the REAL prices shown right now.
+Search the web RIGHT NOW for: "${q}"
 
-STRICT RULES:
-1. EXACT MODEL MATCH — Before including any result, verify the product page is for the EXACT same model as "${q}". Same brand, same model name, same colorway if specified. If the page shows a different colorway, a similar model, or a vague product name — SKIP IT. Do not include close matches.
-2. buy_link MUST be a real URL from your search results for this exact product. Copy verbatim. Never construct or guess URLs.
-3. price MUST be the exact price shown on that page right now. Never estimate or use old cached data.
-4. in_stock = true ONLY if the item shows "Add to Cart", "In Stock", "Available", or similar. If it shows "Out of Stock", "Sold Out", "Notify Me" — SKIP that retailer entirely.
-5. ${isIsrael ? 'User is in ISRAEL. Prefer: nike.com/il, footlocker.co.il, adidas.co.il, terminalx.com, dynamica.co.il, ac.co.il. Prices in ILS (₪).' : `Only include retailers that ship to ${countryName}.`}
-6. ships_to_user = true only if the retailer actually ships to ${countryName}.
-7. Do NOT include Amazon, eBay, or general marketplaces.
-8. Return up to 5 in-stock results only — quality over quantity. Zero results is better than wrong results.
+═══ CRITICAL REQUIREMENTS ═══
 
-For each result:
-- name: exact product name from the page
-- brand: brand name
-- price: current price string with currency symbol (e.g. "₪549", "$89.99")
-- original_price: original/was price string (null if not on sale)
+1. EXACT MODEL MATCH — Only include results that are the EXACT shoe: same brand, same model name, same colorway (if specified in the query). If the page shows a different colorway, different version, or similar-but-not-exact model — SKIP IT entirely.
+
+2. CURRENTLY IN STOCK — Only include if the page shows "Add to Cart", "Buy Now", "In Stock", or "Available". Skip anything showing "Out of Stock", "Sold Out", "Notify Me When Available", or "Coming Soon".
+
+3. LOCAL CURRENCY — All prices MUST be in ${currency.name} (${currency.code}, ${currency.symbol}). Return the price EXACTLY as shown on the retailer page in ${currency.symbol}. Do NOT convert or estimate — only include results that show prices in ${currency.code}.
+
+4. SHIPS TO USER — Only include retailers that ship to ${countryName}. Preferred trusted retailers for ${cc}: ${trustedRetailers}
+
+5. REAL URLs ONLY — buy_link must be the exact URL from your search results. Copy it verbatim. Never construct or guess.
+
+6. NO MARKETPLACES — Do not include Amazon, eBay, StockX, GOAT, Facebook Marketplace, or general reseller platforms.
+
+7. ZERO RESULTS > WRONG RESULTS — If you cannot find any in-stock, exact-match, locally-priced results, return an empty array. Do not pad with approximate results.
+
+Return up to 5 results, ranked by: (1) price lowest first, (2) most trusted retailer.
+
+For each result, return:
+- name: exact product name as shown on the page
+- brand: brand name  
+- price: current price as string with ${currency.symbol} symbol (e.g. "${currency.symbol}499")
+- original_price: original/was price string with ${currency.symbol} (null if not on sale)
+- price_numeric: price as a plain number (no symbols)
 - retailer: store name
-- buy_link: EXACT URL from your search
-- ships_to_user: boolean
-- estimated_shipping: shipping info
-- in_stock: boolean (MUST be true — skip if out of stock)
-- is_best_deal: true for the cheapest in-stock option
-- price_confidence: "high" (price visible on page), "medium" (from snippet), "low" (estimated)
+- buy_link: exact URL from your search
+- ships_to_user: true (since you already verified shipping)
+- estimated_shipping: shipping info (e.g. "Free shipping", "3-5 days", "Free delivery over ${currency.symbol}300")
+- in_stock: true
+- is_best_deal: true for the cheapest option only
+- price_confidence: "high" if price is clearly shown on the product page, "medium" if from search snippet
 - discount_percent: number (0 if no sale)
-- price_fetched_at: current ISO timestamp
-
-Also find 3 real shoe stores near ${cityName} with real addresses.`,
+- exact_colorway_match: true if colorway exactly matches the search query`,
       add_context_from_internet: true,
-      model: "gemini_3_1_pro",
+      model: "gemini_3_flash",
       response_json_schema: {
         type: "object",
         properties: {
@@ -129,32 +142,20 @@ Also find 3 real shoe stores near ${cityName} with real addresses.`,
             items: {
               type: "object",
               properties: {
-                name:               { type: "string" },
-                brand:              { type: "string" },
-                price:              { type: "string" },
-                original_price:     { type: "string" },
-                retailer:           { type: "string" },
-                buy_link:           { type: "string" },
-                ships_to_user:      { type: "boolean" },
-                estimated_shipping: { type: "string" },
-                in_stock:           { type: "boolean" },
-                is_best_deal:       { type: "boolean" },
-                price_confidence:   { type: "string" },
-                discount_percent:   { type: "number" },
-                price_fetched_at:   { type: "string" },
-              },
-            },
-          },
-          nearby_stores: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                name:        { type: "string" },
-                address:     { type: "string" },
-                distance_km: { type: "number" },
-                phone:       { type: "string" },
-                maps_url:    { type: "string" },
+                name:                  { type: "string" },
+                brand:                 { type: "string" },
+                price:                 { type: "string" },
+                original_price:        { type: "string" },
+                price_numeric:         { type: "number" },
+                retailer:              { type: "string" },
+                buy_link:              { type: "string" },
+                ships_to_user:         { type: "boolean" },
+                estimated_shipping:    { type: "string" },
+                in_stock:              { type: "boolean" },
+                is_best_deal:          { type: "boolean" },
+                price_confidence:      { type: "string" },
+                discount_percent:      { type: "number" },
+                exact_colorway_match:  { type: "boolean" },
               },
             },
           },
@@ -162,47 +163,42 @@ Also find 3 real shoe stores near ${cityName} with real addresses.`,
       },
     });
 
-    // Step 2: Verify each URL actually resolves — run checks in parallel
     const rawPicks = result?.web_picks || [];
 
-    const verificationResults = await Promise.all(
-      rawPicks.map(async (p) => {
-        if (!p.buy_link || !p.buy_link.startsWith("https://")) return false;
-        return verifyUrl(p.buy_link);
-      })
-    );
-
     const seen = new Set();
-    const filteredPicks = rawPicks
-      .filter((p, idx) => {
-        if (!p.retailer) return false;
-        if (!verificationResults[idx]) return false; // drop unverified URLs
-        if (p.in_stock === false) return false; // drop out-of-stock items
-        const key = (p.retailer + (p.name || '')).toLowerCase();
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      })
-      .map(p => ({ ...p, price_fetched_at: p.price_fetched_at || new Date().toISOString() }));
+    const exactMatches = [];
+    const similarOptions = [];
 
-    // Mark cheapest as best deal if none flagged
-    if (filteredPicks.length > 0 && !filteredPicks.some(p => p.is_best_deal)) {
-      const prices = filteredPicks.map(p => parseFloat((p.price || '0').replace(/[^0-9.]/g, '')) || Infinity);
-      const minIdx = prices.indexOf(Math.min(...prices));
-      if (minIdx >= 0) filteredPicks[minIdx] = { ...filteredPicks[minIdx], is_best_deal: true };
+    for (const p of rawPicks) {
+      if (!p.retailer || p.in_stock === false) continue;
+      const key = (p.retailer + (p.name || '')).toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const item = {
+        ...p,
+        price_numeric: p.price_numeric || parseFloat((p.price || '0').replace(/[^0-9.]/g, '')) || null,
+        price_fetched_at: new Date().toISOString(),
+        currency_code: currency.code,
+        currency_symbol: currency.symbol,
+      };
+      if (p.exact_colorway_match !== false) {
+        exactMatches.push(item);
+      } else {
+        similarOptions.push(item);
+      }
     }
 
-    // Process stores
-    const filteredStores = (result?.nearby_stores || [])
-      .filter(s => s.name && s.address && s.address.length > 5)
-      .map(s => ({
-        ...s,
-        maps_url: s.maps_url || `https://www.google.com/maps/search/${encodeURIComponent(`${s.name} ${s.address}`)}`,
-      }));
+    // Mark cheapest exact match as best deal
+    if (exactMatches.length > 0 && !exactMatches.some(p => p.is_best_deal)) {
+      const minIdx = exactMatches.reduce((mi, p, i, arr) => (p.price_numeric || 9999) < (arr[mi].price_numeric || 9999) ? i : mi, 0);
+      exactMatches[minIdx] = { ...exactMatches[minIdx], is_best_deal: true };
+    }
 
     const response = {
-      web_picks: filteredPicks,
-      nearby_stores: filteredStores,
+      web_picks: exactMatches,
+      similar_options: similarOptions,
+      currency_code: currency.code,
+      currency_symbol: currency.symbol,
       location_used: `${cityName}, ${countryName}`,
       fetched_at: new Date().toISOString(),
     };
@@ -211,6 +207,6 @@ Also find 3 real shoe stores near ${cityName} with real addresses.`,
     return Response.json(response);
 
   } catch (error) {
-    return Response.json({ web_picks: [], nearby_stores: [], error: error.message });
+    return Response.json({ web_picks: [], similar_options: [], error: error.message });
   }
 });
