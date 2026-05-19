@@ -89,36 +89,37 @@ Deno.serve(async (req) => {
 
     // Step 1: Ask the LLM with web search to find real product pages
     const result = await base44.asServiceRole.integrations.Core.InvokeLLM({
-      prompt: `You are a real-time price search agent. Search the web NOW for: "${q}" available in ${countryName} (${cityName}).
+      prompt: `You are a real-time price search agent. Search the web NOW for: "${q}" currently IN STOCK and available to buy in ${countryName} (${cityName}).
 
-YOUR JOB: Find the actual product listing pages for this exact shoe and return the REAL current prices.
+YOUR JOB: Find actual product listing pages where this shoe is CURRENTLY IN STOCK and return the REAL prices shown right now.
 
-STRICT RULES — violations will break the app:
-1. buy_link MUST be an actual URL you found in your web search results for this exact product. Copy it verbatim. Do NOT construct or guess URLs. If you didn't find a real product URL for a retailer, skip that retailer.
-2. price MUST be the exact price shown on that product page right now. Do NOT estimate or use old data.
-3. ${isIsrael ? 'User is in ISRAEL. Prefer Israeli retailers: nike.com/il, footlocker.co.il, adidas.co.il, terminalx.com, renuar.co.il, dynamica.co.il, ac.co.il. Return prices in ILS (₪).' : `User is in ${countryName}. Only include retailers that ship to ${countryName}.`}
-4. ships_to_user = true only if the retailer's site actually serves ${countryName}
-5. Do not include Amazon, eBay, or marketplaces unless specifically relevant
-6. Return up to 5 results only
+STRICT RULES:
+1. buy_link MUST be a real URL from your search results for this exact product. Copy verbatim. Never construct or guess URLs.
+2. price MUST be the exact price shown on that page right now. Never estimate.
+3. in_stock = true ONLY if the item shows "Add to Cart", "In Stock", "Available", or similar. If it shows "Out of Stock", "Sold Out", "Notify Me" — SKIP that retailer entirely.
+4. ${isIsrael ? 'User is in ISRAEL. Prefer: nike.com/il, footlocker.co.il, adidas.co.il, terminalx.com, dynamica.co.il, ac.co.il. Prices in ILS (₪).' : `Only include retailers that ship to ${countryName}.`}
+5. ships_to_user = true only if the retailer actually ships to ${countryName}.
+6. Do NOT include Amazon, eBay, or general marketplaces.
+7. Return up to 5 in-stock results only — quality over quantity.
 
-For each result provide:
-- name: exact product name as shown on the page
-- brand: brand
-- price: current sale/regular price as string with currency symbol (e.g. "₪549", "$89.99")
-- original_price: original/was price as string (null if not on sale)
+For each result:
+- name: exact product name from the page
+- brand: brand name
+- price: current price string with currency symbol (e.g. "₪549", "$89.99")
+- original_price: original/was price string (null if not on sale)
 - retailer: store name
-- buy_link: the EXACT URL from your search results (copy-paste verbatim)
+- buy_link: EXACT URL from your search
 - ships_to_user: boolean
-- estimated_shipping: shipping info string
-- in_stock: boolean
-- is_best_deal: true for the cheapest option
-- price_confidence: "high" (you saw the price on the page), "medium" (from search snippet), "low" (estimated)
-- discount_percent: number (0 if not on sale)
+- estimated_shipping: shipping info
+- in_stock: boolean (MUST be true — skip if out of stock)
+- is_best_deal: true for the cheapest in-stock option
+- price_confidence: "high" (price visible on page), "medium" (from snippet), "low" (estimated)
+- discount_percent: number (0 if no sale)
 - price_fetched_at: current ISO timestamp
 
 Also find 3 real shoe stores near ${cityName} with real addresses.`,
       add_context_from_internet: true,
-      model: "gemini_3_flash",
+      model: "gemini_3_1_pro",
       response_json_schema: {
         type: "object",
         properties: {
@@ -175,6 +176,7 @@ Also find 3 real shoe stores near ${cityName} with real addresses.`,
       .filter((p, idx) => {
         if (!p.retailer) return false;
         if (!verificationResults[idx]) return false; // drop unverified URLs
+        if (p.in_stock === false) return false; // drop out-of-stock items
         const key = (p.retailer + (p.name || '')).toLowerCase();
         if (seen.has(key)) return false;
         seen.add(key);

@@ -35,21 +35,18 @@ const ScoreBar = ({ score }) => {
   );
 };
 
-const CACHE_KEY = (id) => `buyer_insights_v2_${id}`;
-const CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
+const CACHE_KEY = (id) => `buyer_insights_v3_${id}`;
 
 function getCached(id) {
   try {
     const raw = localStorage.getItem(CACHE_KEY(id));
     if (!raw) return null;
-    const { data, ts } = JSON.parse(raw);
-    if (Date.now() - ts > CACHE_TTL) { localStorage.removeItem(CACHE_KEY(id)); return null; }
-    return data;
+    return JSON.parse(raw);
   } catch { return null; }
 }
 
 function setCached(id, data) {
-  try { localStorage.setItem(CACHE_KEY(id), JSON.stringify({ data, ts: Date.now() })); } catch {}
+  try { localStorage.setItem(CACHE_KEY(id), JSON.stringify(data)); } catch {}
 }
 
 export default function ReviewsSummary({ shoe }) {

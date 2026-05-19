@@ -120,6 +120,9 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
           <p className="text-sm text-muted-foreground text-center">
             Find the best online prices for <strong>{shoe?.name}</strong>{selectedSize ? ` (size ${displaySize} ${sizeStandard})` : ""} near {loc.city}
           </p>
+          <p className="text-xs text-muted-foreground/70 text-center bg-secondary/60 rounded-xl px-3 py-2">
+            💡 Tip: If this shoe isn't found, try searching by its full name (e.g. <em>"Nike Air Max 90 White"</em>) using the assistant or the search bar above.
+          </p>
         </div>
 
         <LocationInput onLocated={() => {}} compact />
