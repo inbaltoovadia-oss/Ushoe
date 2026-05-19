@@ -8,12 +8,12 @@
 import { useState, useEffect } from "react";
 import {
   Globe, Loader2, ExternalLink, CheckCircle, AlertCircle,
-  RefreshCw, TrendingDown, Truck, Tag, Zap, Clock, ShieldCheck, XCircle
+  RefreshCw, TrendingDown, Truck, Tag, Zap, Clock, ShieldCheck, XCircle, Copy, Search, HelpCircle
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getLocation, subscribeLocation } from "../lib/locationStore";
 import { runDealAgent } from "../lib/dealAgent";
-import { formatLocalPrice } from "../lib/currencyConverter";
+import { formatLocalPrice, getCurrencyForCountry } from "../lib/currencyConverter";
 import SearchingState from "./SearchingState";
 import { getRetailersForCountry } from "../lib/retailerDirectory";
 import SizeStandardToggle, { DisplaySize } from "./SizeStandardToggle";
@@ -69,6 +69,7 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
   const [stockDone, setStockDone]     = useState(false);
   const [sizeStandard, setSizeStandard] = useState("US");
   const [loc, setLoc]                 = useState(getLocation());
+  const [copied, setCopied]           = useState(false);
 
   useEffect(() => subscribeLocation(setLoc), []);
 
@@ -78,6 +79,7 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
     setDealsDone(false);
     setStockDone(false);
     setDealSummary("");
+    setCopied(false);
   }, [shoe?.id]);
 
   const load = async () => {
@@ -106,6 +108,14 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
   };
 
   const directRetailers = getRetailersForCountry(loc.countryCode, shoe?.name, shoe?.brand);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(shoe?.name || "");
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {}
+  };
 
   // Convert selected size for display
   const displaySize = selectedSize && sizeStandard !== "US"
@@ -177,6 +187,43 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
       <div className="flex items-center justify-between flex-wrap gap-2">
         <SizeStandardToggle standard={sizeStandard} onChange={setSizeStandard} />
         <LocationInput onLocated={() => { setStarted(false); }} compact />
+      </div>
+
+      {/* Step-by-step guide */}
+      <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
+        <div className="flex items-start gap-2 mb-3">
+          <HelpCircle className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+          <p className="text-xs font-semibold text-blue-800 dark:text-blue-300">How to buy this shoe online:</p>
+        </div>
+        <ol className="space-y-2 text-xs text-blue-700 dark:text-blue-200">
+          <li className="flex items-start gap-2">
+            <span className="font-bold">1.</span>
+            <span>Click a "Buy" button above to visit the retailer's website</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="font-bold">2.</span>
+            <span>If a page shows "Not Found" or error, copy the shoe name below:</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="font-bold">3.</span>
+            <div className="flex-1 flex items-center gap-2">
+              <div className="flex-1 flex items-center gap-2 px-3 py-2 bg-white dark:bg-slate-900 rounded-lg border border-blue-200 dark:border-blue-700">
+                <span className="text-xs truncate font-medium">{shoe?.name}</span>
+                <button
+                  onClick={handleCopy}
+                  className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded bg-blue-100 dark:bg-blue-900 hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors flex-shrink-0"
+                >
+                  {copied ? <CheckCircle className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                  {copied ? "Copied!" : "Copy"}
+                </button>
+              </div>
+            </div>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="font-bold">4.</span>
+            <span>Paste it into the retailer's search bar and search again</span>
+          </li>
+        </ol>
       </div>
 
       {bestPrice && (
@@ -253,6 +300,11 @@ function RetailerCard({ retailer: r, index, shoe, selectedSize, sizeStandard, ci
   // Build buy link: prefer agent-provided, then retailer directory
   const directEntry = directRetailers.find(d => d.name.toLowerCase().includes((r.retailer_name || "").toLowerCase().split(" ")[0]) || (r.retailer_name || "").toLowerCase().includes(d.name.toLowerCase().split(" ")[0]));
   const buyLink = r.url || r.buy_link || directEntry?.url || null;
+
+  // Display original currency from website + optional local conversion
+  const originalCurrency = r.currency || "USD";
+  const localCurrency = getCurrencyForCountry(countryCode);
+  const showOriginal = originalCurrency !== "USD";
 
   const stockStyle = {
     "In stock":       "text-green-600 bg-green-50 dark:bg-green-950/30",
@@ -336,6 +388,11 @@ function RetailerCard({ retailer: r, index, shoe, selectedSize, sizeStandard, ci
         <div className="text-right flex-shrink-0">
           {r.deal_price ? (
             <>
+              {showOriginal && (
+                <div className="text-xs text-muted-foreground mb-0.5">
+                  {originalCurrency === "ILS" ? "₪" : originalCurrency === "EUR" ? "€" : originalCurrency === "GBP" ? "£" : originalCurrency === "CAD" ? "C$" : originalCurrency === "AUD" ? "A$" : originalCurrency === "JPY" ? "¥" : "$"}{r.deal_price} {originalCurrency}
+                </div>
+              )}
               <div className={`font-heading font-bold text-xl ${isBest ? "text-green-600 dark:text-green-400" : "text-foreground"}`}>
                 {formatLocalPrice(r.deal_price, countryCode) || `$${r.deal_price}`}
               </div>

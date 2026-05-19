@@ -82,8 +82,9 @@ STRICT RULES — violations will break the app:
 For each result provide:
 - name: exact product name as shown on the page
 - brand: brand
-- price: current sale/regular price as string with currency symbol (e.g. "₪549", "$89.99")
+- price: current sale/regular price as string with currency symbol (e.g. "₪549", "$89.99", "€89")
 - original_price: original/was price as string (null if not on sale)
+- currency: the currency code from the website (e.g. "ILS", "USD", "EUR") — detect from the price symbol or website domain
 - retailer: store name
 - buy_link: the EXACT URL from your search results (copy-paste verbatim)
 - ships_to_user: boolean
@@ -109,6 +110,7 @@ Also find 3 real shoe stores near ${cityName} with real addresses.`,
                 brand:              { type: "string" },
                 price:              { type: "string" },
                 original_price:     { type: "string" },
+                currency:           { type: "string" },
                 retailer:           { type: "string" },
                 buy_link:           { type: "string" },
                 ships_to_user:      { type: "boolean" },

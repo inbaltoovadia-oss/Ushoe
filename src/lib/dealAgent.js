@@ -40,6 +40,7 @@ export async function runDealAgent({ shoe, city, size = null, color = null, coun
       retailer_name:     p.retailer || p.name,
       deal_price:        priceNum,
       original_price:    origNum || null,
+      currency:          p.currency || "USD",
       discount_pct:      discount,
       discount_value:    origNum && priceNum ? Math.max(0, origNum - priceNum) : 0,
       shipping_free:     (p.estimated_shipping || "").toLowerCase().includes("free"),
