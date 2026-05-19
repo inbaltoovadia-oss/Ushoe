@@ -301,8 +301,8 @@ function RetailerCard({ retailer: r, index, shoe, selectedSize, sizeStandard, ci
   const directEntry = directRetailers.find(d => d.name.toLowerCase().includes((r.retailer_name || "").toLowerCase().split(" ")[0]) || (r.retailer_name || "").toLowerCase().includes(d.name.toLowerCase().split(" ")[0]));
   const buyLink = r.url || r.buy_link || directEntry?.url || null;
 
-  // Always display in user's local currency
-  const localCurrency = getCurrencyForCountry(countryCode);
+  // Prices are already in the website's local currency - display as-is
+  const displayCurrency = r.currency || "USD";
 
   const stockStyle = {
     "In stock":       "text-green-600 bg-green-50 dark:bg-green-950/30",
@@ -387,16 +387,16 @@ function RetailerCard({ retailer: r, index, shoe, selectedSize, sizeStandard, ci
           {r.deal_price ? (
             <>
               <div className={`font-heading font-bold text-xl ${isBest ? "text-green-600 dark:text-green-400" : "text-foreground"}`}>
-                {formatLocalPrice(r.deal_price, countryCode) || `$${r.deal_price}`}
+                {r.price || `${displayCurrency === "ILS" ? "₪" : displayCurrency === "EUR" ? "€" : displayCurrency === "GBP" ? "£" : "$"}${r.deal_price}`}
               </div>
               {r.original_price && r.original_price > r.deal_price && (
                 <div className="text-xs text-muted-foreground line-through">
-                  {formatLocalPrice(r.original_price, countryCode) || `$${r.original_price}`}
+                  {r.original_price}
                 </div>
               )}
               {r.discount_value && r.discount_value > 0 && (
                 <div className="text-[10px] text-green-600 dark:text-green-400 font-semibold">
-                  Save {formatLocalPrice(r.discount_value, countryCode) || `$${r.discount_value.toFixed(0)}`}
+                  Save {displayCurrency === "ILS" ? "₪" : displayCurrency === "EUR" ? "€" : displayCurrency === "GBP" ? "£" : "$"}{r.discount_value.toFixed(0)}
                 </div>
               )}
             </>
