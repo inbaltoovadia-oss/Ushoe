@@ -73,70 +73,70 @@ Deno.serve(async (req) => {
       return Response.json({ ...cached.data, cached: true });
     }
 
-    // Single parallel call: stores + local price
-    const [storeResult, priceResult] = await Promise.all([
-      base44.asServiceRole.integrations.Core.InvokeLLM({
-        prompt: `Find up to 5 real sneaker stores near ${city} (${cc}) that stock the EXACT shoe: "${shoeFullName}".
+    // Single combined call: find stores AND get price reference in one shot to avoid timeout
+    const combined = await base44.asServiceRole.integrations.Core.InvokeLLM({
+      prompt: `You are a sneaker shopping assistant for a user in ${city}, ${cc}.
+
+Do TWO things in ONE search:
+
+TASK 1 — Find up to 4 real physical sneaker stores near ${city} (${cc}) that likely carry: "${shoeFullName}".
 ${sizeInfo ? `Size needed: ${sizeInfo}.` : ''}
-${colorInfo ? `Colorway: ${colorInfo}.` : ''}
+- Only real stores with verified addresses near ${city}
+- Prefer: official ${shoe.brand} store, Foot Locker, JD Sports, local sneaker boutiques
+- stock_confidence: "high" = known ${shoe.brand} retailer, "medium" = general sneaker store, "low" = uncertain
+- Include: name, address, phone, website, maps_url, distance_km, rating, is_open, stock_confidence, stock_status, why
 
-CRITICAL RULES:
-1. Only include stores that are REAL physical locations in or near ${city} with verified addresses.
-2. Prefer official brand stores (${shoe.brand}), then Foot Locker, JD Sports, local sneaker boutiques.
-3. stock_confidence = "high" only if the store is known to regularly carry ${shoe.brand} sneakers in this style.
-4. stock_confidence = "medium" for general sneaker retailers likely to have it.
-5. stock_confidence = "low" for stores that might carry it but uncertain.
-6. Rank by: (1) stock_confidence high→low, (2) distance closest first.
-7. For each store include: name, address, phone, website, maps_url (Google Maps link), distance_km, rating (out of 5), is_open (boolean), stock_confidence, stock_status (short phrase), why (reason ≤10 words why they'd carry it).
+TASK 2 — Find the current online price of "${shoeFullName}" from the official ${shoe.brand} website in ${cc === 'IL' ? 'Israel (ILS ₪)' : `${cc} (${currency.code} ${currency.symbol})`}.
+- Search "${shoeFullName} ${cc === 'IL' ? 'site:nike.com/il OR site:adidas.co.il' : `site:${shoe.brand.toLowerCase()}.com`}"
+- brand_site_price: the price shown on the product page as a plain number
+- brand_site_original: original/was price if on sale (null if not)
+- brand_site_url: the exact product URL
+- cheapest_price: lowest price from ANY local retailer website (plain number)
+- cheapest_retailer: name of that retailer
 
-Return real data only. If you cannot find real stores near ${city}, return an empty stores array.`,
-        add_context_from_internet: true,
-        model: 'gemini_3_flash',
-        response_json_schema: {
-          type: 'object',
-          properties: {
-            stores: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  name:             { type: 'string' },
-                  address:          { type: 'string' },
-                  phone:            { type: 'string' },
-                  website:          { type: 'string' },
-                  maps_url:         { type: 'string' },
-                  distance_km:      { type: 'number' },
-                  rating:           { type: 'number' },
-                  is_open:          { type: 'boolean' },
-                  stock_confidence: { type: 'string' },
-                  stock_status:     { type: 'string' },
-                  why:              { type: 'string' },
-                }
+All prices in ${currency.code}, plain numbers only, no symbols.`,
+      add_context_from_internet: true,
+      model: 'gemini_3_flash',
+      response_json_schema: {
+        type: 'object',
+        properties: {
+          stores: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                name:             { type: 'string' },
+                address:          { type: 'string' },
+                phone:            { type: 'string' },
+                website:          { type: 'string' },
+                maps_url:         { type: 'string' },
+                distance_km:      { type: 'number' },
+                rating:           { type: 'number' },
+                is_open:          { type: 'boolean' },
+                stock_confidence: { type: 'string' },
+                stock_status:     { type: 'string' },
+                why:              { type: 'string' },
               }
-            },
-            summary: { type: 'string' },
-          }
+            }
+          },
+          summary:             { type: 'string' },
+          brand_site_price:    { type: 'number' },
+          brand_site_original: { type: 'number' },
+          brand_site_url:      { type: 'string' },
+          cheapest_price:      { type: 'number' },
+          cheapest_retailer:   { type: 'string' },
         }
-      }),
-      base44.asServiceRole.integrations.Core.InvokeLLM({
-        prompt: `What is the current retail price of "${shoeFullName}" in ${cc === 'IL' ? 'Israel (ILS, ₪)' : `${cc} in ${currency.code} (${currency.symbol})`}?
-Find the official brand website price and any active sale price RIGHT NOW.
-Return price_current as a plain number in ${currency.code} (no symbols). Return null if not found.`,
-        add_context_from_internet: true,
-        model: 'gemini_3_flash',
-        response_json_schema: {
-          type: 'object',
-          properties: {
-            price_current:  { type: 'number' },
-            price_original: { type: 'number' },
-            is_on_sale:     { type: 'boolean' },
-          }
-        }
-      })
-    ]);
+      }
+    });
 
-    const onlinePrice = priceResult?.price_current || null;
-    const onlineOriginal = priceResult?.price_original || null;
+    const storeResult = combined;
+    const priceResult = combined;
+
+    // Use cheapest found price, fall back to brand site price
+    const onlinePrice = priceResult?.cheapest_price || priceResult?.brand_site_price || null;
+    const onlineOriginal = priceResult?.brand_site_original || null;
+    const priceSource = priceResult?.cheapest_retailer || (priceResult?.brand_site_price ? `${shoe.brand} website` : null);
+    const priceUrl = priceResult?.cheapest_url || priceResult?.brand_site_url || null;
 
     const finalStores = (storeResult.stores || [])
       .filter(s => s.name && s.address && s.address.length > 5)
@@ -152,6 +152,9 @@ Return price_current as a plain number in ${currency.code} (no symbols). Return 
         is_best_option: i === 0,
         price: onlinePrice,
         original_price: onlineOriginal,
+        price_source: priceSource,
+        price_url: priceUrl,
+        price_is_approximate: true, // always flag as approximate for in-store
         currency_code: currency.code,
         currency_symbol: currency.symbol,
       }));
