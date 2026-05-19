@@ -14,8 +14,7 @@ import PriceTrackButton from "./PriceTrackButton";
 import SponsoredModal from "./SponsoredModal";
 import DealIndicator from "./DealIndicator.jsx";
 import MatchScoreBadge from "./MatchScoreBadge";
-import { getCurrencySymbol } from "../lib/currency";
-import { getLocation } from "../lib/locationStore";
+
 
 
 
@@ -196,7 +195,7 @@ export default function ShoeCard({ shoe, index = 0, sponsored = false, onSponsor
             </div>
 
             <div className="flex items-center justify-between mt-2">
-              <span className="font-heading font-bold text-base">{getCurrencySymbol(getLocation().countryCode)}{shoe.price}</span>
+              <span className="font-heading font-bold text-base">${shoe.price}</span>
               {shoe.rating && (
                 <span className="text-[10px] text-muted-foreground">⭐ {shoe.rating}</span>
               )}

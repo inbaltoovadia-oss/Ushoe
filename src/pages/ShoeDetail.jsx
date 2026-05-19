@@ -31,8 +31,7 @@ import { AnimatePresence as AP } from "framer-motion";
 import { clearAllAgentCache } from "../lib/agentCache";
 import SizeStandardToggle, { DisplaySize } from "../components/SizeStandardToggle";
 import { toUSSize, fromUSSize, convertSizeList } from "../lib/sizeConverter";
-import { getCurrencySymbol } from "../lib/currency";
-import { getLocation } from "../lib/locationStore";
+
 
 // One-time bust of old cached agent results (runs once per session)
 if (!sessionStorage.getItem("ushoe_cache_v6")) {
@@ -84,8 +83,7 @@ export default function ShoeDetail() {
   const [activeTab, setActiveTab]     = useState(tabParam || null); // null | "nearby" | "online"
   const [showShare, setShowShare]         = useState(false);
   const [showCollections, setShowCollections] = useState(false);
-  const loc = getLocation();
-  const currencySymbol = getCurrencySymbol(loc.countryCode);
+
 
   useEffect(() => { loadShoe(); }, [id]);
   useEffect(() => subscribeWishlist(() => setWishlisted(isInWishlist(id))), [id]);
@@ -218,13 +216,13 @@ export default function ShoeDetail() {
 
             {/* Price block */}
             <div className="flex items-center gap-3 flex-wrap">
-              <span className="font-heading font-black text-4xl">{currencySymbol}{shoe.price}</span>
+              <span className="font-heading font-black text-4xl">${shoe.price}</span>
               {shoe.original_price > shoe.price && (
                 <>
-                  <span className="text-xl text-muted-foreground line-through font-normal">{currencySymbol}{shoe.original_price}</span>
+                  <span className="text-xl text-muted-foreground line-through font-normal">${shoe.original_price}</span>
                   <span className="inline-flex items-center gap-1 bg-green-500 text-white text-sm font-bold px-3 py-1 rounded-full">
                     <Tag className="w-3.5 h-3.5" />
-                    Save {discount}% · {currencySymbol}{(shoe.original_price - shoe.price).toFixed(0)} off
+                    Save {discount}% · ${(shoe.original_price - shoe.price).toFixed(0)} off
                   </span>
                 </>
               )}
