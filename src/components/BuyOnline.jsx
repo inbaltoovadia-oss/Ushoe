@@ -182,7 +182,7 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
       {bestPrice && (
         <div className="flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-full bg-green-500/10 text-green-700 dark:text-green-400 font-semibold w-fit">
           <TrendingDown className="w-3 h-3" />
-          Best found: {bestPrice}
+          Best found: {getCurrencySymbol(loc.countryCode)}{bestPrice}
         </div>
       )}
 
