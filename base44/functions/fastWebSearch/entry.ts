@@ -96,20 +96,18 @@ const SEARCH_SCHEMA = {
 };
 
 function buildPrompt(shoeName, retailers, currency, countryName, cc) {
-  return `Search the web RIGHT NOW for the current live price of "${shoeName}" at these retailers in ${countryName}: ${retailers.join(', ')}.
+  return `Search the web RIGHT NOW for the current live retail price of "${shoeName}" at these SPECIFIC retailers in ${countryName}: ${retailers.join(', ')}.
 
-IMPORTANT: Search each retailer's website for this exact product. Return ONLY results you actually found online with real prices.
-- price_numeric: the actual current price in ${currency.code} as a plain number
-- original_price_numeric: the original/was price if on sale, otherwise same as price
-- buy_link: the ACTUAL direct product page URL you found (not a search URL)
-- in_stock: true only if the product is actually available
-- ships_to_user: true if they ship to ${countryName}
-- discount_percent: real discount % if on sale
-- price_confidence: "high" if you found the exact product page, "medium" if similar
-- exact_colorway_match: true if exact model/colorway matches
-
-Only include retailers where you actually found the product. If a retailer doesn't carry it, skip them.
-Also include up to 2 similar_options (alternative shoes you found at good prices).`;
+CRITICAL RULES:
+- Search EACH retailer's website individually for this exact product
+- Return MAXIMUM ONE result per retailer — do NOT list the same retailer chain multiple times
+- Each result must be from a DIFFERENT store brand/chain
+- ONLY include a retailer if you actually found this product on their website with a real price
+- If a retailer doesn't sell this shoe, skip them entirely — do not fabricate results
+- Prices must be in ${currency.code} as plain numbers (no symbols)
+- buy_link must be the DIRECT product page URL you found on their website
+- price_confidence: "high" = found exact product page, "medium" = found similar listing
+- exact_colorway_match: true only if colorway/color exactly matches the search query`;
 }
 
 Deno.serve(async (req) => {
@@ -153,31 +151,22 @@ Deno.serve(async (req) => {
       ...(res2?.results || []),
     ].filter(p => p.retailer && p.price_numeric > 0);
 
-    const allSimilar = [
-      ...(res1?.similar_options || []),
-      ...(res2?.similar_options || []),
-    ].filter(p => p.retailer && p.price_numeric > 0);
-
-    // Deduplicate by retailer name
+    // Deduplicate strictly by retailer brand (first word of retailer name)
     const seen = new Set();
     const deduped = allPicks.filter(p => {
-      const k = (p.retailer || '').toLowerCase();
-      if (seen.has(k)) return false;
-      seen.add(k);
+      // Normalize to brand key: "Foot Locker Israel" → "footlocker", "Nike Israel" → "nike"
+      const brand = (p.retailer || '').toLowerCase()
+        .replace(/\s*(israel|uk|us|de|fr|il)\s*/g, '')
+        .replace(/[^a-z]/g, '')
+        .trim();
+      if (seen.has(brand)) return false;
+      seen.add(brand);
       return true;
     });
 
     // Sort by price, mark best deal
     deduped.sort((a, b) => (a.price_numeric || 9999) - (b.price_numeric || 9999));
     if (deduped.length > 0) deduped[0] = { ...deduped[0], is_best_deal: true };
-
-    const seenSimilar = new Set();
-    const dedupedSimilar = allSimilar.filter(p => {
-      const k = (p.name || p.retailer || '').toLowerCase();
-      if (seenSimilar.has(k)) return false;
-      seenSimilar.add(k);
-      return true;
-    }).slice(0, 3);
 
     const response = {
       web_picks: deduped.map(p => ({
@@ -187,11 +176,7 @@ Deno.serve(async (req) => {
         currency_code: currency.code,
         currency_symbol: currency.symbol,
       })),
-      similar_options: dedupedSimilar.map(p => ({
-        ...p,
-        currency_code: currency.code,
-        currency_symbol: currency.symbol,
-      })),
+      similar_options: [],
       currency_code: currency.code,
       currency_symbol: currency.symbol,
       location_used: `${city || countryName}, ${countryName}`,

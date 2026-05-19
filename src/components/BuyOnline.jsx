@@ -105,7 +105,6 @@ function SearchProgress() {
 
 export default function BuyOnline({ shoe, selectedSize = null, selectedColor = null }) {
   const [retailers, setRetailers]         = useState([]);
-  const [similarRetailers, setSimilar]    = useState([]);
   const [dealSummary, setDealSummary]     = useState("");
   const [bestPrice, setBestPrice]         = useState(null);
   const [currencySymbol, setCurrencySymbol] = useState("$");
@@ -120,7 +119,6 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
   useEffect(() => {
     setStarted(false);
     setRetailers([]);
-    setSimilar([]);
     setDealSummary("");
   }, [shoe?.id]);
 
@@ -128,7 +126,6 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
     setLoading(true);
     setLoadError(null);
     setRetailers([]);
-    setSimilar([]);
     setDealSummary("");
     setBestPrice(null);
 
@@ -148,7 +145,6 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
       setBestPrice(result.best_price_found);
       setCurrencySymbol(result.currency_symbol || "$");
       setRetailers(result.retailers || []);
-      setSimilar(result.similar_retailers || []);
     } catch (err) {
       console.error("BuyOnline load error:", err);
       setLoadError("Search timed out. Please try again.");
@@ -262,25 +258,8 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
         </div>
       )}
 
-      {/* Similar Options */}
-      {!loading && similarRetailers.length > 0 && (
-        <div className="space-y-3 mt-1">
-          <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
-            <Info className="w-3.5 h-3.5" />
-            Similar Options
-          </p>
-          <AnimatePresence>
-            {similarRetailers.map((r, i) => (
-              <RetailerCard key={r.retailer_name + i} retailer={r} index={i}
-                shoe={shoe} selectedSize={selectedSize} sizeStandard={sizeStandard}
-                city={loc.city} currencySymbol={currencySymbol} dimmed />
-            ))}
-          </AnimatePresence>
-        </div>
-      )}
-
       {/* No results */}
-      {!loading && retailers.length === 0 && similarRetailers.length === 0 && (
+      {!loading && retailers.length === 0 && (
         <div className="text-center py-8">
           <Globe className="w-8 h-8 text-muted-foreground/30 mx-auto mb-3" />
           <p className="text-sm font-medium">{loadError || `No results found near ${loc.city}`}</p>

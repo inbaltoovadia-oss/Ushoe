@@ -73,28 +73,34 @@ Deno.serve(async (req) => {
       return Response.json({ ...cached.data, cached: true });
     }
 
-    // Single combined call: find stores AND get price reference in one shot to avoid timeout
+    // Find real nearby physical stores with their own individual prices
     const combined = await base44.asServiceRole.integrations.Core.InvokeLLM({
-      prompt: `You are a sneaker shopping assistant for a user in ${city}, ${cc}.
+      prompt: `Search the web for real physical sneaker stores near ${city}, ${cc} that carry "${shoeFullName}".
+${sizeInfo ? `The customer needs ${sizeInfo}.` : ''}
 
-Do TWO things in ONE search:
+Find up to 5 DIFFERENT real physical stores. Each must be a different store chain/brand (e.g. Nike Store, Adidas Store, Foot Locker, JD Sports, a local boutique — NOT multiple branches of the same chain).
 
-TASK 1 — Find up to 4 real physical sneaker stores near ${city} (${cc}) that likely carry: "${shoeFullName}".
-${sizeInfo ? `Size needed: ${sizeInfo}.` : ''}
-- Only real stores with verified addresses near ${city}
-- Prefer: official ${shoe.brand} store, Foot Locker, JD Sports, local sneaker boutiques
-- stock_confidence: "high" = known ${shoe.brand} retailer, "medium" = general sneaker store, "low" = uncertain
-- Include: name, address, phone, website, maps_url, distance_km, rating, is_open, stock_confidence, stock_status, why
+For EACH store, also search their website for the current price of "${shoeFullName}" in ${currency.code}.
 
-TASK 2 — Find the current online price of "${shoeFullName}" from the official ${shoe.brand} website in ${cc === 'IL' ? 'Israel (ILS ₪)' : `${cc} (${currency.code} ${currency.symbol})`}.
-- Search "${shoeFullName} ${cc === 'IL' ? 'site:nike.com/il OR site:adidas.co.il' : `site:${shoe.brand.toLowerCase()}.com`}"
-- brand_site_price: the price shown on the product page as a plain number
-- brand_site_original: original/was price if on sale (null if not)
-- brand_site_url: the exact product URL
-- cheapest_price: lowest price from ANY local retailer website (plain number)
-- cheapest_retailer: name of that retailer
+CRITICAL: Each store must have its OWN individual price from that store's website or known in-store pricing. Do NOT use the same price for all stores.
 
-All prices in ${currency.code}, plain numbers only, no symbols.`,
+Return:
+- name: exact store name
+- address: real street address in ${city}
+- phone: store phone number if found
+- website: store website URL
+- maps_url: Google Maps URL for this store
+- distance_km: estimated distance from city center
+- rating: Google Maps rating if known
+- is_open: current open/closed status if known
+- stock_confidence: "high" if it's an official brand store or known to carry this model, "medium" if general sneaker store, "low" if uncertain
+- stock_status: short text like "Likely in stock" or "Call to confirm"
+- price: this store's current price for "${shoeFullName}" in ${currency.code} as a plain number (search their website)
+- original_price: original price before any sale, or null
+- price_url: direct URL to the product on this store's website
+- why: one sentence explaining why this store likely has the shoe
+
+All prices in ${currency.code} as plain numbers only.`,
       add_context_from_internet: true,
       model: 'gemini_3_flash',
       response_json_schema: {
@@ -115,31 +121,28 @@ All prices in ${currency.code}, plain numbers only, no symbols.`,
                 is_open:          { type: 'boolean' },
                 stock_confidence: { type: 'string' },
                 stock_status:     { type: 'string' },
+                price:            { type: 'number' },
+                original_price:   { type: 'number' },
+                price_url:        { type: 'string' },
                 why:              { type: 'string' },
               }
             }
           },
-          summary:             { type: 'string' },
-          brand_site_price:    { type: 'number' },
-          brand_site_original: { type: 'number' },
-          brand_site_url:      { type: 'string' },
-          cheapest_price:      { type: 'number' },
-          cheapest_retailer:   { type: 'string' },
+          summary: { type: 'string' },
         }
       }
     });
 
-    const storeResult = combined;
-    const priceResult = combined;
-
-    // Use cheapest found price, fall back to brand site price
-    const onlinePrice = priceResult?.cheapest_price || priceResult?.brand_site_price || null;
-    const onlineOriginal = priceResult?.brand_site_original || null;
-    const priceSource = priceResult?.cheapest_retailer || (priceResult?.brand_site_price ? `${shoe.brand} website` : null);
-    const priceUrl = priceResult?.cheapest_url || priceResult?.brand_site_url || null;
-
-    const finalStores = (storeResult.stores || [])
-      .filter(s => s.name && s.address && s.address.length > 5)
+    // Deduplicate by store chain brand
+    const seenChains = new Set();
+    const finalStores = (combined.stores || [])
+      .filter(s => {
+        if (!s.name || !s.address || s.address.length < 5) return false;
+        const chainKey = s.name.toLowerCase().replace(/\s*(israel|il|store|shop|\d+)/g, '').replace(/[^a-z]/g, '').trim();
+        if (seenChains.has(chainKey)) return false;
+        seenChains.add(chainKey);
+        return true;
+      })
       .sort((a, b) => {
         const order = { high: 0, medium: 1, low: 2 };
         const conf = (order[a.stock_confidence] ?? 1) - (order[b.stock_confidence] ?? 1);
@@ -150,18 +153,16 @@ All prices in ${currency.code}, plain numbers only, no symbols.`,
         ...s,
         maps_url: s.maps_url || `https://www.google.com/maps/search/${encodeURIComponent(s.name + ' ' + s.address)}`,
         is_best_option: i === 0,
-        price: onlinePrice,
-        original_price: onlineOriginal,
-        price_source: priceSource,
-        price_url: priceUrl,
-        price_is_approximate: true, // always flag as approximate for in-store
+        price: s.price || null,
+        original_price: s.original_price || null,
+        price_is_approximate: true,
         currency_code: currency.code,
         currency_symbol: currency.symbol,
       }));
 
     const result = {
       stores: finalStores,
-      summary: storeResult.summary || `Found ${finalStores.length} stores near ${city} for ${shoeFullName}.`,
+      summary: combined.summary || `Found ${finalStores.length} stores near ${city} for ${shoeFullName}.`,
       shoe_searched: shoeFullName,
       currency_code: currency.code,
       currency_symbol: currency.symbol,
