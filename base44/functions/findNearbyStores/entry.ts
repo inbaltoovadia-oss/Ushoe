@@ -17,8 +17,19 @@ function normalizeCity(city = '') {
     .trim();
 }
 
-function getCacheKey(shoeId, city, size) {
-  return `${shoeId}_${normalizeCity(city)}_${size || ''}`;
+/**
+ * Snap lat/lng to ~11 km grid cell (0.1° precision).
+ * Users within ~10 km share the same cache bucket.
+ */
+function geoHash(lat, lng) {
+  if (lat == null || lng == null || isNaN(lat) || isNaN(lng)) return null;
+  const snap = (v) => (Math.floor(v * 10) / 10).toFixed(1);
+  return `${snap(lat)}_${snap(lng)}`;
+}
+
+function getCacheKey(shoeId, lat, lng, city, size) {
+  const loc = geoHash(lat, lng) || normalizeCity(city);
+  return `${shoeId}_${loc}_${size || ''}`;
 }
 
 Deno.serve(async (req) => {
@@ -43,8 +54,8 @@ Deno.serve(async (req) => {
     const shoeFullName = `${shoe.brand} ${shoe.name}${shoe.colorway ? ' ' + shoe.colorway : ''}`;
     const sizeInfo = selectedSize ? `US size ${selectedSize}` : '';
 
-    // Cache check
-    const cacheKey = getCacheKey(shoe.id || shoe.name, city, selectedSize);
+    // Cache check — bucket by geohash (~10 km) when coords available, else city name
+    const cacheKey = getCacheKey(shoe.id || shoe.name, latitude, longitude, city, selectedSize);
     const cached = CACHE.get(cacheKey);
     if (cached && Date.now() - cached.ts < CACHE_TTL) {
       return Response.json({ ...cached.data, cached: true });

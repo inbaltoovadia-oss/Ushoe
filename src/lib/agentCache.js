@@ -13,6 +13,8 @@
  * Low Credit Mode: when localStorage key "ushoe_low_credit" is set to "1",
  * TTLs are doubled and non-essential agents skip live fetches.
  *
+ * Location bucketing: geoHash() snaps lat/lng to a ~11km grid cell so users
+ * within ~10 km share the same cache key without any server round-trip.
  * City normalization: cities within the same metro area share a cache key
  * by stripping common suffixes, punctuation, and lowercasing.
  */
@@ -35,6 +37,17 @@ const TTL = {
   indicator: 2  * 60 * 60 * 1000,
   nearby:    6  * 60 * 60 * 1000,   // 6 hours — store locations are stable
 };
+
+/**
+ * Snap lat/lng to a ~11 km grid cell so nearby users share the same cache key.
+ * Precision: 1 decimal degree ≈ 111 km → 0.1° ≈ 11 km (good enough for ~10 km bucket).
+ * Returns a string like "32.1_34.8" that is stable for an entire grid cell.
+ */
+export function geoHash(lat, lng) {
+  if (lat == null || lng == null || isNaN(lat) || isNaN(lng)) return null;
+  const snap = (v) => (Math.floor(v * 10) / 10).toFixed(1);
+  return `${snap(lat)}_${snap(lng)}`;
+}
 
 /**
  * Normalize a city string so nearby/equivalent locations share the same key.
@@ -80,12 +93,14 @@ function writeCache(key, data) {
 }
 
 // ── Deals ──────────────────────────────────────────────────────────────────
-export function getCachedDeals(shoeId, city, size = "", color = "") {
-  const key = cacheKey("deals", shoeId, `${normalizeCity(city)}_${size}_${color}`);
+export function getCachedDeals(shoeId, city, size = "", color = "", lat = null, lng = null) {
+  const loc = geoHash(lat, lng) || normalizeCity(city);
+  const key = cacheKey("deals", shoeId, `${loc}_${size}_${color}`);
   return readCache("deals", key);
 }
-export function setCachedDeals(shoeId, city, data, size = "", color = "") {
-  writeCache(cacheKey("deals", shoeId, `${normalizeCity(city)}_${size}_${color}`), data);
+export function setCachedDeals(shoeId, city, data, size = "", color = "", lat = null, lng = null) {
+  const loc = geoHash(lat, lng) || normalizeCity(city);
+  writeCache(cacheKey("deals", shoeId, `${loc}_${size}_${color}`), data);
 }
 
 // ── Stock / Inventory ──────────────────────────────────────────────────────
@@ -105,11 +120,13 @@ export function setCachedWebDeals(cityQuery, data) {
 }
 
 // ── Nearby Stores ─────────────────────────────────────────────────────────
-export function getCachedNearby(shoeId, city, size = "") {
-  return readCache("nearby", cacheKey("nearby", shoeId, `${normalizeCity(city)}_${size}`));
+export function getCachedNearby(shoeId, city, size = "", lat = null, lng = null) {
+  const loc = geoHash(lat, lng) || normalizeCity(city);
+  return readCache("nearby", cacheKey("nearby", shoeId, `${loc}_${size}`));
 }
-export function setCachedNearby(shoeId, city, data, size = "") {
-  writeCache(cacheKey("nearby", shoeId, `${normalizeCity(city)}_${size}`), data);
+export function setCachedNearby(shoeId, city, data, size = "", lat = null, lng = null) {
+  const loc = geoHash(lat, lng) || normalizeCity(city);
+  writeCache(cacheKey("nearby", shoeId, `${loc}_${size}`), data);
 }
 
 // ── Shipping ──────────────────────────────────────────────────────────────

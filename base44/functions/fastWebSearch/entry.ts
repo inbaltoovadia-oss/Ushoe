@@ -30,6 +30,16 @@ function normalizeCity(city = "") {
 }
 
 /**
+ * Snap lat/lng to ~11 km grid cell (0.1° precision).
+ * Users within ~10 km share the same cache bucket.
+ */
+function geoHash(lat, lng) {
+  if (lat == null || lng == null || isNaN(lat) || isNaN(lng)) return null;
+  const snap = (v) => (Math.floor(v * 10) / 10).toFixed(1);
+  return `${snap(lat)}_${snap(lng)}`;
+}
+
+/**
  * Try to fetch a URL and confirm it resolves (HEAD request, 5s timeout).
  * Returns true if the URL is reachable, false otherwise.
  */
@@ -58,7 +68,7 @@ async function verifyUrl(url) {
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-    const { query, category, city, country, countryCode } = await req.json();
+    const { query, category, city, country, countryCode, latitude = null, longitude = null } = await req.json();
 
     if (!query || !query.trim()) {
       return Response.json({ web_picks: [], nearby_stores: [] });
@@ -70,7 +80,8 @@ Deno.serve(async (req) => {
     const cityName = city || countryName;
     const isIsrael = cc === 'IL';
 
-    const cacheKey = `${q}::${cc}::${normalizeCity(cityName)}`;
+    const locKey = geoHash(latitude, longitude) || normalizeCity(cityName);
+    const cacheKey = `${q}::${cc}::${locKey}`;
     const cached = cacheGet(cacheKey);
     if (cached) {
       return Response.json({ ...cached, cached: true });
