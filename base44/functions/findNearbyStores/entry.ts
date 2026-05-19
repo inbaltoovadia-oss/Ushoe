@@ -79,43 +79,63 @@ Deno.serve(async (req) => {
     const currency = CURRENCY_MAP[(countryCode || '').toUpperCase()] || 'USD';
     const currencySymbol = CURRENCY_SYMBOLS[currency] || currency;
 
-    const prompt = `Find 5 real sneaker stores near ${city} that stock ${shoeFullName}.${sizeInfo ? ` Size: ${sizeInfo}.` : ''}
-Include official ${shoe.brand} stores, Foot Locker, JD Sports, and local sneaker boutiques.
-For each store provide: name, address, phone, website (the store's own URL if it has one), maps_url (Google Maps search URL), distance_km from city center, rating, stock_confidence (high/medium/low), stock_status, why (≤10 words), is_open.
-Also search for the current in-store or local price of ${shoeFullName}${sizeInfo ? ` in ${sizeInfo}` : ''} at each store. Return price as a number in ${currency} (${currencySymbol}). If no price found, return null.`;
+    // Step 1: Fetch real online prices in parallel with store search
+    const onlinePriceQuery = `${shoeFullName}${sizeInfo ? ' ' + sizeInfo : ''} buy price site:nike.com OR site:adidas.com OR site:footlocker.com OR site:jdsports.com OR site:zappos.com`;
 
-    const aiResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
-      prompt,
-      add_context_from_internet: true,
-      model: 'gemini_3_flash',
-      response_json_schema: {
-        type: 'object',
-        properties: {
-          stores: {
-            type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                name:             { type: 'string' },
-                address:          { type: 'string' },
-                phone:            { type: 'string' },
-                website:          { type: 'string' },
-                maps_url:         { type: 'string' },
-                distance_km:      { type: 'number' },
-                rating:           { type: 'number' },
-                is_open:          { type: 'boolean' },
-                stock_confidence: { type: 'string' },
-                stock_status:     { type: 'string' },
-                why:              { type: 'string' },
-                price:            { type: 'number' },
-                original_price:   { type: 'number' },
+    const [aiResult, onlinePriceResult] = await Promise.all([
+      base44.asServiceRole.integrations.Core.InvokeLLM({
+        prompt: `Find 5 real sneaker stores near ${city} that stock ${shoeFullName}.${sizeInfo ? ` Size: ${sizeInfo}.` : ''}
+Include official ${shoe.brand} stores, Foot Locker, JD Sports, and local sneaker boutiques.
+For each store provide: name, address, phone, website (the store's own URL if it has one), maps_url (Google Maps search URL), distance_km from city center, rating, stock_confidence (high/medium/low), stock_status, why (≤10 words), is_open.`,
+        add_context_from_internet: true,
+        model: 'gemini_3_flash',
+        response_json_schema: {
+          type: 'object',
+          properties: {
+            stores: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  name:             { type: 'string' },
+                  address:          { type: 'string' },
+                  phone:            { type: 'string' },
+                  website:          { type: 'string' },
+                  maps_url:         { type: 'string' },
+                  distance_km:      { type: 'number' },
+                  rating:           { type: 'number' },
+                  is_open:          { type: 'boolean' },
+                  stock_confidence: { type: 'string' },
+                  stock_status:     { type: 'string' },
+                  why:              { type: 'string' },
+                }
               }
-            }
-          },
-          summary: { type: 'string' },
+            },
+            summary: { type: 'string' },
+          }
         }
-      }
-    });
+      }),
+      base44.asServiceRole.integrations.Core.InvokeLLM({
+        prompt: `Search the web RIGHT NOW for the current retail price of "${shoeFullName}"${sizeInfo ? ` in ${sizeInfo}` : ''} in ${countryCode === 'IL' ? 'Israel' : 'the country with code ' + countryCode}.
+Find the official brand website price and any sale/discount price.
+Return prices as plain numbers in ${currency}. No currency symbols in the number fields.`,
+        add_context_from_internet: true,
+        model: 'gemini_3_flash',
+        response_json_schema: {
+          type: 'object',
+          properties: {
+            current_price:  { type: 'number' },
+            original_price: { type: 'number' },
+            source:         { type: 'string' },
+            is_on_sale:     { type: 'boolean' },
+          }
+        }
+      })
+    ]);
+
+    // Use the real online price for all stores (same price in-store = online for major retailers)
+    const onlinePrice = onlinePriceResult?.current_price || null;
+    const onlineOriginalPrice = onlinePriceResult?.original_price || null;
 
     const finalStores = (aiResult.stores || [])
       .filter(s => s.name && s.address)
@@ -129,6 +149,8 @@ Also search for the current in-store or local price of ${shoeFullName}${sizeInfo
         ...s,
         maps_url: s.maps_url || `https://www.google.com/maps/search/${encodeURIComponent(s.name + ' ' + s.address)}`,
         is_best_option: i === 0,
+        price: onlinePrice,
+        original_price: onlineOriginalPrice,
       }));
 
     const result = {
