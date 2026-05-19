@@ -19,7 +19,7 @@ If a shoe is known to have poor breathability (e.g. leather shoes), score it low
 Be specific to THIS exact shoe model: ${shoeName}.
 Also return review_count (actual number of reviews found), 2 top pros and 1 top con from real reviews, and sizing advice (runs small/large/true to size).`,
       add_context_from_internet: true,
-      model: 'claude_sonnet_4_6',
+      model: 'gemini_3_1_pro',
       response_json_schema: {
         type: 'object',
         properties: {
