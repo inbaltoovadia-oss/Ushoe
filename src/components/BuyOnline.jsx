@@ -175,9 +175,9 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
     );
   }
 
-  const agentsReady = dealsDone || stockDone;
+  const agentsReady = dealsDone && stockDone;
 
-  if (!agentsReady && loading) {
+  if (loading && !agentsReady) {
     return <SearchingState city={loc.city} shoe={shoe} />;
   }
 
