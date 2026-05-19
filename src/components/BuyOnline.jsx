@@ -14,6 +14,92 @@ import SizeStandardToggle, { DisplaySize } from "./SizeStandardToggle";
 import LocationInput from "./LocationInput";
 import { fromUSSize } from "../lib/sizeConverter";
 
+const SEARCH_STEPS = [
+  { label: "Connecting to retailer feeds…",    detail: "Reaching out to local stores" },
+  { label: "Searching Nike & brand stores…",   detail: "Checking official brand websites" },
+  { label: "Scanning Foot Locker & JD Sports…",detail: "Checking major sneaker retailers" },
+  { label: "Verifying live stock & prices…",   detail: "Confirming in-stock items only" },
+  { label: "Comparing & ranking deals…",       detail: "Finding you the best price" },
+];
+
+function SearchProgress({ retailersSearched = 0, totalRetailers = 5 }) {
+  const [stepIdx, setStepIdx] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setStepIdx(i => Math.min(i + 1, SEARCH_STEPS.length - 1));
+    }, 3500);
+    return () => clearInterval(timer);
+  }, []);
+
+  const step = SEARCH_STEPS[stepIdx];
+  const progressPct = Math.max(8, Math.round(((stepIdx + 1) / SEARCH_STEPS.length) * 100));
+
+  return (
+    <div className="py-4 space-y-4">
+      {/* Step label */}
+      <div className="flex items-center gap-3">
+        <div className="relative flex-shrink-0">
+          <Globe className="w-5 h-5 text-primary" />
+          <Loader2 className="w-3 h-3 text-primary animate-spin absolute -top-1 -right-1" />
+        </div>
+        <div className="flex-1">
+          <AnimatePresence mode="wait">
+            <motion.p
+              key={stepIdx}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.3 }}
+              className="text-sm font-semibold text-foreground"
+            >
+              {step.label}
+            </motion.p>
+          </AnimatePresence>
+          <p className="text-xs text-muted-foreground mt-0.5">{step.detail}</p>
+        </div>
+        <span className="text-xs font-bold text-primary">{progressPct}%</span>
+      </div>
+
+      {/* Progress bar */}
+      <div className="h-2 bg-secondary rounded-full overflow-hidden">
+        <motion.div
+          className="h-full bg-primary rounded-full"
+          initial={{ width: "8%" }}
+          animate={{ width: `${progressPct}%` }}
+          transition={{ duration: 0.8, ease: "easeOut" }}
+        />
+      </div>
+
+      {/* Step dots */}
+      <div className="flex items-center gap-2 justify-center">
+        {SEARCH_STEPS.map((s, i) => (
+          <div
+            key={i}
+            className={`rounded-full transition-all duration-500 ${
+              i < stepIdx ? "w-2 h-2 bg-primary" :
+              i === stepIdx ? "w-3 h-3 bg-primary ring-2 ring-primary/30" :
+              "w-2 h-2 bg-secondary"
+            }`}
+          />
+        ))}
+      </div>
+
+      {/* Skeleton cards */}
+      {[1, 2, 3].map(i => (
+        <div key={i} className="rounded-2xl border border-border/40 p-4 space-y-3 overflow-hidden">
+          <div className="flex items-center justify-between">
+            <div className="h-4 w-32 bg-secondary rounded-full animate-pulse" />
+            <div className="h-6 w-20 bg-secondary rounded-full animate-pulse" />
+          </div>
+          <div className="h-3 w-44 bg-secondary/70 rounded-full animate-pulse" />
+          <div className="h-10 w-full bg-secondary/40 rounded-xl animate-pulse" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function BuyOnline({ shoe, selectedSize = null, selectedColor = null }) {
   const [retailers, setRetailers]         = useState([]);
   const [similarRetailers, setSimilar]    = useState([]);
@@ -123,12 +209,7 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
         <LocationInput onLocated={() => { setStarted(false); }} compact />
       </div>
 
-      {loading && (
-        <div className="flex items-center gap-2 py-6 justify-center text-sm text-muted-foreground">
-          <Loader2 className="w-4 h-4 animate-spin text-primary" />
-          Searching live prices near {loc.city}…
-        </div>
-      )}
+      {loading && <SearchProgress />}
 
       {!loading && bestPrice && (
         <div className="flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-full bg-green-500/10 text-green-700 dark:text-green-400 font-semibold w-fit">

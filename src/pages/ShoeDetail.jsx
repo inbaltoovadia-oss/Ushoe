@@ -34,9 +34,9 @@ import { toUSSize, fromUSSize, convertSizeList } from "../lib/sizeConverter";
 
 
 // One-time bust of old cached agent results (runs once per session)
-if (!sessionStorage.getItem("ushoe_cache_v6")) {
+if (!sessionStorage.getItem("ushoe_cache_v7")) {
   clearAllAgentCache();
-  sessionStorage.setItem("ushoe_cache_v6", "1");
+  sessionStorage.setItem("ushoe_cache_v7", "1");
 }
 
 const TRUST_BADGES = [
