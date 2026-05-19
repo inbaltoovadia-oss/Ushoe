@@ -410,19 +410,14 @@ function RetailerCard({ retailer: r, index, shoe, selectedSize, sizeStandard, ci
 
         {/* Price block */}
         <div className="text-right flex-shrink-0">
-          {r.deal_price ? (
+          {r.price ? (
             <>
               <div className={`font-heading font-bold text-xl ${isBest ? "text-green-600 dark:text-green-400" : "text-foreground"}`}>
-                {r.price || `${displayCurrency === "ILS" ? "₪" : displayCurrency === "EUR" ? "€" : displayCurrency === "GBP" ? "£" : "$"}${r.deal_price}`}
+                {r.price}
               </div>
-              {r.original_price && r.original_price > r.deal_price && (
+              {r.original_price && (
                 <div className="text-xs text-muted-foreground line-through">
                   {r.original_price}
-                </div>
-              )}
-              {r.discount_value && r.discount_value > 0 && (
-                <div className="text-[10px] text-green-600 dark:text-green-400 font-semibold">
-                  Save {displayCurrency === "ILS" ? "₪" : displayCurrency === "EUR" ? "€" : displayCurrency === "GBP" ? "£" : "$"}{r.discount_value.toFixed(0)}
                 </div>
               )}
             </>
