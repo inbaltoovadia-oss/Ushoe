@@ -66,13 +66,14 @@ export async function runDealAgent({ shoe, city, size = null, color = null, coun
       maps_url: s.maps_url || `https://www.google.com/maps/search/${encodeURIComponent(`${s.name} ${s.address}`)}`,
     }));
 
-  const bestPrice = retailers.reduce((min, r) => {
-    if (r.deal_price && (min === null || r.deal_price < min)) return r.deal_price;
+  // Find best price retailer and return the formatted price string
+  const bestRetailer = retailers.find(r => r.is_best_deal) || retailers.reduce((min, r) => {
+    if (r.deal_price && (!min || r.deal_price < min.deal_price)) return r;
     return min;
   }, null);
+  const bestPrice = bestRetailer?.price || null;
 
   const hasDeal = retailers.some(r => r.discount_pct > 0);
-  const bestRetailer = retailers.find(r => r.is_best_deal);
 
   const summary = bestRetailer
     ? `Best price: ${bestRetailer.deal_price} at ${bestRetailer.retailer_name}${bestRetailer.discount_pct > 0 ? ` (${bestRetailer.discount_pct}% off)` : ""}`

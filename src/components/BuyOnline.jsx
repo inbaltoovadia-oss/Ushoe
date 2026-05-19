@@ -99,6 +99,8 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
 
     // Run only ONE search — deal agent gets all retailer data including stock
     const dealResult = await runDealAgent(agentArgs);
+    console.log('Deal result:', dealResult);
+    console.log('Retailers:', dealResult.retailers);
     setDealSummary(dealResult.summary);
     setBestPrice(dealResult.best_price_found);
     setDealsDone(true);
