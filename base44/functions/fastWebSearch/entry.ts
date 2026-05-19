@@ -168,7 +168,12 @@ Also find 3 real shoe stores near ${cityName} with addresses.`,
         seen.add(key);
         return true;
       })
-      .map(p => ({ ...p, price_fetched_at: p.price_fetched_at || new Date().toISOString() }));
+      .map(p => ({
+        ...p,
+        price_fetched_at: p.price_fetched_at || new Date().toISOString(),
+        // Normalize "null" strings to actual null
+        original_price: p.original_price === "null" || p.original_price === null ? null : p.original_price,
+      }));
 
     // Mark cheapest as best deal if none flagged
     if (filteredPicks.length > 0 && !filteredPicks.some(p => p.is_best_deal)) {
