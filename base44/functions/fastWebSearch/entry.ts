@@ -74,17 +74,18 @@ YOUR JOB: Find the actual product listing pages for this exact shoe and return t
 STRICT RULES — violations will break the app:
 1. buy_link MUST be an actual URL you found in your web search results for this exact product. Copy it verbatim. Do NOT construct or guess URLs. If you didn't find a real product URL for a retailer, skip that retailer.
 2. price MUST be the exact price shown on that product page right now. Do NOT estimate or use old data.
-3. ${isIsrael ? 'User is in ISRAEL. Prefer Israeli retailers: nike.com/il, footlocker.co.il, adidas.co.il, terminalx.com, renuar.co.il, dynamica.co.il, ac.co.il. Return prices in ILS (₪).' : `User is in ${countryName}. Only include retailers that ship to ${countryName}.`}
-4. ships_to_user = true only if the retailer's site actually serves ${countryName}
-5. Do not include Amazon, eBay, or marketplaces unless specifically relevant
-6. Return up to 5 results only
+3. ${isIsrael ? 'User is in ISRAEL. Search Israeli retailers: nike.com/il, footlocker.co.il, adidas.co.il, terminalx.com, renuar.co.il, dynamica.co.il, ac.co.il. Prices MUST be in ILS (shekels, ₪).' : `User is in ${countryName}. Search retailers that serve ${countryName}. Prices MUST be in ${countryName}'s currency (${isIsrael ? 'ILS/₪' : 'local currency'}).`}
+4. currency MUST match the country/region: Israel = ILS (₪), US = USD ($), UK = GBP (£), EU = EUR (€), etc.
+5. ships_to_user = true only if the retailer's site actually serves ${countryName}
+6. Do not include Amazon, eBay, or marketplaces unless specifically relevant
+7. Return up to 5 results only
 
 For each result provide:
 - name: exact product name as shown on the page
 - brand: brand
 - price: current sale/regular price as string with currency symbol (e.g. "₪549", "$89.99", "€89")
 - original_price: original/was price as string (null if not on sale)
-- currency: the currency code from the website (e.g. "ILS", "USD", "EUR") — detect from the price symbol or website domain
+- currency: the currency code for ${countryName} (${isIsrael ? 'ILS' : 'local currency'})
 - retailer: store name
 - buy_link: the EXACT URL from your search results (copy-paste verbatim)
 - ships_to_user: boolean

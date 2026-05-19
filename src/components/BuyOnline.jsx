@@ -301,10 +301,8 @@ function RetailerCard({ retailer: r, index, shoe, selectedSize, sizeStandard, ci
   const directEntry = directRetailers.find(d => d.name.toLowerCase().includes((r.retailer_name || "").toLowerCase().split(" ")[0]) || (r.retailer_name || "").toLowerCase().includes(d.name.toLowerCase().split(" ")[0]));
   const buyLink = r.url || r.buy_link || directEntry?.url || null;
 
-  // Display original currency from website + optional local conversion
-  const originalCurrency = r.currency || "USD";
+  // Always display in user's local currency
   const localCurrency = getCurrencyForCountry(countryCode);
-  const showOriginal = originalCurrency !== "USD";
 
   const stockStyle = {
     "In stock":       "text-green-600 bg-green-50 dark:bg-green-950/30",
@@ -388,20 +386,15 @@ function RetailerCard({ retailer: r, index, shoe, selectedSize, sizeStandard, ci
         <div className="text-right flex-shrink-0">
           {r.deal_price ? (
             <>
-              {showOriginal && (
-                <div className="text-xs text-muted-foreground mb-0.5">
-                  {originalCurrency === "ILS" ? "₪" : originalCurrency === "EUR" ? "€" : originalCurrency === "GBP" ? "£" : originalCurrency === "CAD" ? "C$" : originalCurrency === "AUD" ? "A$" : originalCurrency === "JPY" ? "¥" : "$"}{r.deal_price} {originalCurrency}
-                </div>
-              )}
               <div className={`font-heading font-bold text-xl ${isBest ? "text-green-600 dark:text-green-400" : "text-foreground"}`}>
                 {formatLocalPrice(r.deal_price, countryCode) || `$${r.deal_price}`}
               </div>
-              {r.original_price > r.deal_price && (
+              {r.original_price && r.original_price > r.deal_price && (
                 <div className="text-xs text-muted-foreground line-through">
                   {formatLocalPrice(r.original_price, countryCode) || `$${r.original_price}`}
                 </div>
               )}
-              {r.discount_value > 0 && (
+              {r.discount_value && r.discount_value > 0 && (
                 <div className="text-[10px] text-green-600 dark:text-green-400 font-semibold">
                   Save {formatLocalPrice(r.discount_value, countryCode) || `$${r.discount_value.toFixed(0)}`}
                 </div>
