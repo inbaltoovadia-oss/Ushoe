@@ -1,29 +1,25 @@
 /**
- * fastWebSearch — Fast retailer price lookup using LLM knowledge + direct links.
- * Uses gpt_5_mini (no internet) for fast sub-10s response, then constructs direct buy links.
+ * fastWebSearch — Real live prices via Gemini web search.
+ * Splits into 2 parallel searches (brand site + multi-retailer) to stay under timeout.
  */
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
 const CACHE = new Map();
-const CACHE_TTL = 30 * 60 * 1000; // 30 min
+const CACHE_TTL = 20 * 60 * 1000; // 20 min
 
 function cacheGet(key) {
-  const entry = CACHE.get(key);
-  if (!entry) return null;
-  if (Date.now() - entry.ts > CACHE_TTL) { CACHE.delete(key); return null; }
-  return entry.data;
+  const e = CACHE.get(key);
+  if (!e) return null;
+  if (Date.now() - e.ts > CACHE_TTL) { CACHE.delete(key); return null; }
+  return e.data;
 }
 function cacheSet(key, data) {
   CACHE.set(key, { data, ts: Date.now() });
-  if (CACHE.size > 200) {
-    const keys = [...CACHE.keys()].slice(0, 40);
-    keys.forEach(k => CACHE.delete(k));
-  }
+  if (CACHE.size > 150) [...CACHE.keys()].slice(0, 30).forEach(k => CACHE.delete(k));
 }
 
 const CURRENCY_MAP = {
-  IL: { code: 'ILS', symbol: '₪' },
-  GB: { code: 'GBP', symbol: '£' },
+  IL: { code: 'ILS', symbol: '₪' }, GB: { code: 'GBP', symbol: '£' },
   DE: { code: 'EUR', symbol: '€' }, FR: { code: 'EUR', symbol: '€' },
   IT: { code: 'EUR', symbol: '€' }, ES: { code: 'EUR', symbol: '€' },
   NL: { code: 'EUR', symbol: '€' }, BE: { code: 'EUR', symbol: '€' },
@@ -34,34 +30,86 @@ const CURRENCY_MAP = {
   CH: { code: 'CHF', symbol: 'CHF' }, SG: { code: 'SGD', symbol: 'S$' },
   AE: { code: 'AED', symbol: 'AED' },
 };
-
 function getCurrency(cc) {
   return CURRENCY_MAP[(cc || 'US').toUpperCase()] || { code: 'USD', symbol: '$' };
 }
 
-const RETAILER_DOMAINS = {
-  IL: [
-    { name: 'Nike Israel', searchUrl: 'https://www.nike.com/il/w?q={q}', brand: 'Nike', domain: 'nike.com/il' },
-    { name: 'Adidas Israel', searchUrl: 'https://www.adidas.co.il/search?q={q}', brand: 'Adidas', domain: 'adidas.co.il' },
-    { name: 'Foot Locker Israel', searchUrl: 'https://www.footlocker.co.il/search?q={q}', brand: null, domain: 'footlocker.co.il' },
-    { name: 'Terminal X', searchUrl: 'https://www.terminalx.com/search?q={q}', brand: null, domain: 'terminalx.com' },
-  ],
-  US: [
-    { name: 'Nike', searchUrl: 'https://www.nike.com/w?q={q}', brand: 'Nike', domain: 'nike.com' },
-    { name: 'Adidas', searchUrl: 'https://www.adidas.com/us/search?q={q}', brand: 'Adidas', domain: 'adidas.com' },
-    { name: 'Foot Locker', searchUrl: 'https://www.footlocker.com/search?query={q}', brand: null, domain: 'footlocker.com' },
-    { name: 'Finish Line', searchUrl: 'https://www.finishline.com/store/browse/search.jsp?_dyncharset=UTF-8&query={q}', brand: null, domain: 'finishline.com' },
-    { name: 'Zappos', searchUrl: 'https://www.zappos.com/search?term={q}', brand: null, domain: 'zappos.com' },
-  ],
-  GB: [
-    { name: 'Nike UK', searchUrl: 'https://www.nike.com/gb/w?q={q}', brand: 'Nike', domain: 'nike.com/gb' },
-    { name: 'Adidas UK', searchUrl: 'https://www.adidas.co.uk/search?q={q}', brand: 'Adidas', domain: 'adidas.co.uk' },
-    { name: 'JD Sports', searchUrl: 'https://www.jdsports.co.uk/search/{q}/', brand: null, domain: 'jdsports.co.uk' },
-  ],
+// Retailer sets per country — split into 2 groups for parallel search
+const RETAILER_SETS = {
+  IL: {
+    group1: ['Nike Israel (nike.com/il)', 'Adidas Israel (adidas.co.il)'],
+    group2: ['Foot Locker Israel (footlocker.co.il)', 'Terminal X (terminalx.com)', 'Shoebox Israel (shoebox.co.il)'],
+  },
+  US: {
+    group1: ['Nike (nike.com)', 'Adidas (adidas.com)'],
+    group2: ['Foot Locker (footlocker.com)', 'Finish Line (finishline.com)', 'Zappos (zappos.com)'],
+  },
+  GB: {
+    group1: ['Nike UK (nike.com/gb)', 'Adidas UK (adidas.co.uk)'],
+    group2: ['JD Sports (jdsports.co.uk)', 'Size? (size.co.uk)', 'Foot Locker UK (footlocker.co.uk)'],
+  },
+  DE: {
+    group1: ['Nike DE (nike.com/de)', 'Adidas DE (adidas.de)'],
+    group2: ['Foot Locker DE (footlocker.de)', 'Zalando DE (zalando.de)', 'JD Sports DE (jdsports.de)'],
+  },
+};
+function getRetailerSets(cc) {
+  return RETAILER_SETS[cc] || RETAILER_SETS['US'];
+}
+
+const SEARCH_SCHEMA = {
+  type: 'object',
+  properties: {
+    results: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          retailer:               { type: 'string' },
+          name:                   { type: 'string' },
+          price_numeric:          { type: 'number' },
+          original_price_numeric: { type: 'number' },
+          buy_link:               { type: 'string' },
+          in_stock:               { type: 'boolean' },
+          ships_to_user:          { type: 'boolean' },
+          estimated_shipping:     { type: 'string' },
+          discount_percent:       { type: 'number' },
+          price_confidence:       { type: 'string' },
+          exact_colorway_match:   { type: 'boolean' },
+        }
+      }
+    },
+    similar_options: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          retailer:      { type: 'string' },
+          name:          { type: 'string' },
+          price_numeric: { type: 'number' },
+          buy_link:      { type: 'string' },
+          in_stock:      { type: 'boolean' },
+        }
+      }
+    },
+  }
 };
 
-function getRetailers(cc) {
-  return RETAILER_DOMAINS[cc] || RETAILER_DOMAINS['US'];
+function buildPrompt(shoeName, retailers, currency, countryName, cc) {
+  return `Search the web RIGHT NOW for the current live price of "${shoeName}" at these retailers in ${countryName}: ${retailers.join(', ')}.
+
+IMPORTANT: Search each retailer's website for this exact product. Return ONLY results you actually found online with real prices.
+- price_numeric: the actual current price in ${currency.code} as a plain number
+- original_price_numeric: the original/was price if on sale, otherwise same as price
+- buy_link: the ACTUAL direct product page URL you found (not a search URL)
+- in_stock: true only if the product is actually available
+- ships_to_user: true if they ship to ${countryName}
+- discount_percent: real discount % if on sale
+- price_confidence: "high" if you found the exact product page, "medium" if similar
+- exact_colorway_match: true if exact model/colorway matches
+
+Only include retailers where you actually found the product. If a retailer doesn't carry it, skip them.
+Also include up to 2 similar_options (alternative shoes you found at good prices).`;
 }
 
 Deno.serve(async (req) => {
@@ -73,96 +121,74 @@ Deno.serve(async (req) => {
       return Response.json({ web_picks: [], similar_options: [], currency_symbol: '$', currency_code: 'USD' });
     }
 
-    const q = query.trim();
+    const q = query.trim().replace(/ buy$/i, '').trim();
     const cc = (countryCode || 'US').toUpperCase();
     const countryName = country || 'United States';
     const currency = getCurrency(cc);
-    const retailers = getRetailers(cc);
+    const sets = getRetailerSets(cc);
 
-    const cacheKey = `v5::${q}::${cc}`;
+    const cacheKey = `v6::${q}::${cc}`;
     const cached = cacheGet(cacheKey);
     if (cached) return Response.json({ ...cached, cached: true });
 
-    // Fast LLM call — no internet, uses training knowledge for pricing estimates
-    const result = await base44.asServiceRole.integrations.Core.InvokeLLM({
-      prompt: `You are a sneaker price expert. For the query: "${q}" in ${countryName} (${cc}):
+    // Run 2 parallel Gemini web searches — each focused on fewer retailers = faster
+    const [res1, res2] = await Promise.all([
+      base44.asServiceRole.integrations.Core.InvokeLLM({
+        prompt: buildPrompt(q, sets.group1, currency, countryName, cc),
+        add_context_from_internet: true,
+        model: 'gemini_3_flash',
+        response_json_schema: SEARCH_SCHEMA,
+      }),
+      base44.asServiceRole.integrations.Core.InvokeLLM({
+        prompt: buildPrompt(q, sets.group2, currency, countryName, cc),
+        add_context_from_internet: true,
+        model: 'gemini_3_flash',
+        response_json_schema: SEARCH_SCHEMA,
+      }),
+    ]);
 
-1. Estimate the current retail price in ${currency.code} based on your knowledge of typical pricing for this shoe model.
-2. List up to 4 of these specific retailers that would carry it: ${retailers.map(r => r.name).join(', ')}
-3. For each retailer, provide a realistic price estimate in ${currency.code}.
-4. If this model has a well-known sale or discount at any retailer, reflect that.
-5. For similar/alternative shoes (different brand or model), suggest up to 2.
+    // Merge results from both searches
+    const allPicks = [
+      ...(res1?.results || []),
+      ...(res2?.results || []),
+    ].filter(p => p.retailer && p.price_numeric > 0);
 
-Be specific and realistic. Use actual known prices if you know them. Do NOT make up wildly incorrect prices.
-Prices must be plain numbers in ${currency.code}, no symbols.
+    const allSimilar = [
+      ...(res1?.similar_options || []),
+      ...(res2?.similar_options || []),
+    ].filter(p => p.retailer && p.price_numeric > 0);
 
-For buy_link: Use the retailer's search URL format with the shoe name encoded. Example for Nike Israel: https://www.nike.com/il/w?q=air+force+1`,
-      response_json_schema: {
-        type: 'object',
-        properties: {
-          web_picks: {
-            type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                retailer:              { type: 'string' },
-                name:                  { type: 'string' },
-                price_numeric:         { type: 'number' },
-                original_price_numeric:{ type: 'number' },
-                buy_link:              { type: 'string' },
-                in_stock:              { type: 'boolean' },
-                ships_to_user:         { type: 'boolean' },
-                estimated_shipping:    { type: 'string' },
-                discount_percent:      { type: 'number' },
-                price_confidence:      { type: 'string' },
-                exact_colorway_match:  { type: 'boolean' },
-                is_best_deal:          { type: 'boolean' },
-              }
-            }
-          },
-          similar_options: {
-            type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                retailer:      { type: 'string' },
-                name:          { type: 'string' },
-                price_numeric: { type: 'number' },
-                buy_link:      { type: 'string' },
-                in_stock:      { type: 'boolean' },
-              }
-            }
-          },
-        }
-      }
+    // Deduplicate by retailer name
+    const seen = new Set();
+    const deduped = allPicks.filter(p => {
+      const k = (p.retailer || '').toLowerCase();
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
     });
 
-    // Enhance buy links — if the LLM gave a bad/missing link, construct a search URL
-    const qEncoded = encodeURIComponent(q.replace(/ buy$/i, '').trim());
-    const retailerMap = Object.fromEntries(retailers.map(r => [r.name.toLowerCase(), r]));
+    // Sort by price, mark best deal
+    deduped.sort((a, b) => (a.price_numeric || 9999) - (b.price_numeric || 9999));
+    if (deduped.length > 0) deduped[0] = { ...deduped[0], is_best_deal: true };
 
-    function enhanceLink(pick) {
-      if (pick.buy_link && pick.buy_link.startsWith('http')) return pick.buy_link;
-      const rKey = (pick.retailer || '').toLowerCase();
-      const matched = retailers.find(r => rKey.includes(r.name.toLowerCase().split(' ')[0].toLowerCase()));
-      if (matched) return matched.searchUrl.replace('{q}', qEncoded);
-      return `https://www.google.com/search?q=${encodeURIComponent(q + ' ' + (pick.retailer || '') + ' buy')}`;
-    }
-
-    const picks = (result?.web_picks || []).map(p => ({ ...p, buy_link: enhanceLink(p) }));
-    picks.sort((a, b) => (a.price_numeric || 9999) - (b.price_numeric || 9999));
-    if (picks.length > 0) picks[0] = { ...picks[0], is_best_deal: true };
+    const seenSimilar = new Set();
+    const dedupedSimilar = allSimilar.filter(p => {
+      const k = (p.name || p.retailer || '').toLowerCase();
+      if (seenSimilar.has(k)) return false;
+      seenSimilar.add(k);
+      return true;
+    }).slice(0, 3);
 
     const response = {
-      web_picks: picks.map(p => ({
+      web_picks: deduped.map(p => ({
         ...p,
         original_price: p.original_price_numeric || null,
+        is_best_deal: !!p.is_best_deal,
         currency_code: currency.code,
         currency_symbol: currency.symbol,
       })),
-      similar_options: (result?.similar_options || []).map(p => ({
+      similar_options: dedupedSimilar.map(p => ({
         ...p,
-        buy_link: enhanceLink(p),
         currency_code: currency.code,
         currency_symbol: currency.symbol,
       })),
@@ -170,13 +196,12 @@ For buy_link: Use the retailer's search URL format with the shoe name encoded. E
       currency_symbol: currency.symbol,
       location_used: `${city || countryName}, ${countryName}`,
       fetched_at: new Date().toISOString(),
-      note: 'Prices are estimates based on typical retail pricing. Confirm on retailer site.',
     };
 
     cacheSet(cacheKey, response);
     return Response.json(response);
 
   } catch (error) {
-    return Response.json({ web_picks: [], similar_options: [], error: error.message });
+    return Response.json({ web_picks: [], similar_options: [], error: error.message }, { status: 500 });
   }
 });

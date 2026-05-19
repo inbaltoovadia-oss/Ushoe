@@ -15,28 +15,42 @@ import LocationInput from "./LocationInput";
 import { fromUSSize } from "../lib/sizeConverter";
 
 const SEARCH_STEPS = [
-  { label: "Connecting to retailer feeds…",    detail: "Reaching out to local stores" },
-  { label: "Searching Nike & brand stores…",   detail: "Checking official brand websites" },
-  { label: "Scanning Foot Locker & JD Sports…",detail: "Checking major sneaker retailers" },
-  { label: "Verifying live stock & prices…",   detail: "Confirming in-stock items only" },
-  { label: "Comparing & ranking deals…",       detail: "Finding you the best price" },
+  { label: "Opening live retailer feeds…",      detail: "Connecting to store databases",         pct: 8  },
+  { label: "Searching brand official stores…",  detail: "Checking Nike, Adidas direct sites",    pct: 20 },
+  { label: "Scanning Foot Locker & JD Sports…", detail: "Checking major sneaker chains",         pct: 35 },
+  { label: "Checking Terminal X & boutiques…",  detail: "Independent and local retailers",       pct: 50 },
+  { label: "Reading live price pages…",         detail: "Extracting real-time prices & stock",   pct: 65 },
+  { label: "Verifying stock availability…",     detail: "Confirming items actually in stock",    pct: 78 },
+  { label: "Comparing deals & shipping…",       detail: "Calculating best value for your city",  pct: 88 },
+  { label: "Almost done — ranking results…",    detail: "Sorting by price and availability",     pct: 95 },
 ];
 
-function SearchProgress({ retailersSearched = 0, totalRetailers = 5 }) {
+function SearchProgress() {
   const [stepIdx, setStepIdx] = useState(0);
+  const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
-    const timer = setInterval(() => {
+    // Advance steps roughly every 10s over ~80s total
+    const stepTimer = setInterval(() => {
       setStepIdx(i => Math.min(i + 1, SEARCH_STEPS.length - 1));
-    }, 3500);
-    return () => clearInterval(timer);
+    }, 10000);
+    const secTimer = setInterval(() => setElapsed(e => e + 1), 1000);
+    return () => { clearInterval(stepTimer); clearInterval(secTimer); };
   }, []);
 
   const step = SEARCH_STEPS[stepIdx];
-  const progressPct = Math.max(8, Math.round(((stepIdx + 1) / SEARCH_STEPS.length) * 100));
 
   return (
     <div className="py-4 space-y-4">
+      {/* Live badge */}
+      <div className="flex items-center gap-2">
+        <span className="flex items-center gap-1.5 text-[10px] font-bold text-red-500 bg-red-500/10 px-2 py-1 rounded-full">
+          <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse inline-block" />
+          LIVE SEARCH
+        </span>
+        <span className="text-[10px] text-muted-foreground">{elapsed}s elapsed · real prices from retailer websites</span>
+      </div>
+
       {/* Step label */}
       <div className="flex items-center gap-3">
         <div className="relative flex-shrink-0">
@@ -58,32 +72,21 @@ function SearchProgress({ retailersSearched = 0, totalRetailers = 5 }) {
           </AnimatePresence>
           <p className="text-xs text-muted-foreground mt-0.5">{step.detail}</p>
         </div>
-        <span className="text-xs font-bold text-primary">{progressPct}%</span>
+        <span className="text-xs font-bold text-primary">{step.pct}%</span>
       </div>
 
       {/* Progress bar */}
       <div className="h-2 bg-secondary rounded-full overflow-hidden">
         <motion.div
           className="h-full bg-primary rounded-full"
-          initial={{ width: "8%" }}
-          animate={{ width: `${progressPct}%` }}
-          transition={{ duration: 0.8, ease: "easeOut" }}
+          animate={{ width: `${step.pct}%` }}
+          transition={{ duration: 1.2, ease: "easeOut" }}
         />
       </div>
 
-      {/* Step dots */}
-      <div className="flex items-center gap-2 justify-center">
-        {SEARCH_STEPS.map((s, i) => (
-          <div
-            key={i}
-            className={`rounded-full transition-all duration-500 ${
-              i < stepIdx ? "w-2 h-2 bg-primary" :
-              i === stepIdx ? "w-3 h-3 bg-primary ring-2 ring-primary/30" :
-              "w-2 h-2 bg-secondary"
-            }`}
-          />
-        ))}
-      </div>
+      <p className="text-[10px] text-muted-foreground text-center">
+        Live web search takes 30–90 seconds · Results are real prices from actual retailer sites
+      </p>
 
       {/* Skeleton cards */}
       {[1, 2, 3].map(i => (
@@ -219,6 +222,7 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
       </div>
 
       {loading && <SearchProgress />}
+
 
       {!loading && bestPrice && (
         <div className="flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-full bg-green-500/10 text-green-700 dark:text-green-400 font-semibold w-fit">
