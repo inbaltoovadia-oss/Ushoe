@@ -1,11 +1,10 @@
 /**
- * DEAL + NEARBY AGENT
- * Single fastWebSearch call returns both online deals AND nearby stores.
- * Results are cached per shoe+city+size+color for 10 min.
+ * DEAL AGENT
+ * Calls fastWebSearch via SDK. Results cached per shoe+city+size+color for 30 min.
  */
 
 import { base44 } from "@/api/base44Client";
-import { getCachedDeals, setCachedDeals, normalizeCity } from "./agentCache";
+import { getCachedDeals, setCachedDeals } from "./agentCache";
 
 export async function runDealAgent({ shoe, city, size = null, color = null, countryCode = "", latitude = null, longitude = null, forceRefresh = false }) {
   if (!forceRefresh) {
@@ -38,7 +37,7 @@ export async function runDealAgent({ shoe, city, size = null, color = null, coun
 
   function mapPick(p) {
     const priceNum = p.price_numeric || parseFloat((p.price || "0").replace(/[^0-9.]/g, "")) || null;
-    const origNum = p.original_price ? parseFloat((p.original_price || "0").replace(/[^0-9.]/g, "")) || null : null;
+    const origNum = p.original_price_numeric || (p.original_price ? parseFloat(String(p.original_price || "0").replace(/[^0-9.]/g, "")) || null : null);
     const discount = origNum && priceNum && origNum > priceNum
       ? Math.round(((origNum - priceNum) / origNum) * 100)
       : (p.discount_percent || 0);
@@ -65,8 +64,6 @@ export async function runDealAgent({ shoe, city, size = null, color = null, coun
   const retailers = picks.map(mapPick);
   const similar_retailers = similarPicks.map(p => ({ ...mapPick(p), exact_match: false }));
 
-  const nearby_stores = [];
-
   const bestPrice = retailers.reduce((min, r) => {
     if (r.deal_price && (min === null || r.deal_price < min)) return r.deal_price;
     return min;
@@ -76,12 +73,12 @@ export async function runDealAgent({ shoe, city, size = null, color = null, coun
   const bestRetailer = retailers.find(r => r.is_best_deal);
 
   const summary = bestRetailer
-    ? `Best price: ${bestRetailer.deal_price} at ${bestRetailer.retailer_name}${bestRetailer.discount_pct > 0 ? ` (${bestRetailer.discount_pct}% off)` : ""}`
+    ? `Best price: ${bestRetailer.currency_symbol}${bestRetailer.deal_price} at ${bestRetailer.retailer_name}${bestRetailer.discount_pct > 0 ? ` (${bestRetailer.discount_pct}% off)` : ""}`
     : retailers.length > 0
     ? `Found ${retailers.length} retailer${retailers.length > 1 ? "s" : ""} carrying this shoe`
     : "";
 
-  const result = { summary, best_price_found: bestPrice, has_active_deals: hasDeal, retailers, similar_retailers, nearby_stores, currency_symbol: currencySymbol, currency_code: currencyCode };
+  const result = { summary, best_price_found: bestPrice, has_active_deals: hasDeal, retailers, similar_retailers, nearby_stores: [], currency_symbol: currencySymbol, currency_code: currencyCode };
   setCachedDeals(shoe.id, city, result, size, color, latitude, longitude);
   return result;
 }
