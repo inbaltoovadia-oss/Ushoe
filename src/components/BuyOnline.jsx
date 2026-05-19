@@ -13,6 +13,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { getLocation, subscribeLocation } from "../lib/locationStore";
 import { runDealAgent } from "../lib/dealAgent";
+import { formatLocalPrice } from "../lib/currencyConverter";
 import SearchingState from "./SearchingState";
 import { getRetailersForCountry } from "../lib/retailerDirectory";
 import SizeStandardToggle, { DisplaySize } from "./SizeStandardToggle";
@@ -219,16 +220,17 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
       <AnimatePresence>
         <div className="space-y-3">
           {retailers.map((r, i) => (
-            <RetailerCard
-              key={r.retailer_name + i}
-              retailer={r}
-              index={i}
-              shoe={shoe}
-              selectedSize={selectedSize}
-              sizeStandard={sizeStandard}
-              city={loc.city}
-              directRetailers={directRetailers}
-            />
+              <RetailerCard
+                key={r.retailer_name + i}
+                retailer={r}
+                index={i}
+                shoe={shoe}
+                selectedSize={selectedSize}
+                sizeStandard={sizeStandard}
+                city={loc.city}
+                countryCode={loc.countryCode}
+                directRetailers={directRetailers}
+              />
           ))}
         </div>
       </AnimatePresence>
@@ -243,7 +245,7 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
   );
 }
 
-function RetailerCard({ retailer: r, index, shoe, selectedSize, sizeStandard, city, directRetailers }) {
+function RetailerCard({ retailer: r, index, shoe, selectedSize, sizeStandard, city, countryCode, directRetailers }) {
   const isBest = r.is_best_deal;
   const hasDeal = r.discount_pct > 0;
   const shipsOk = r.ships_to_location !== false;
@@ -335,13 +337,17 @@ function RetailerCard({ retailer: r, index, shoe, selectedSize, sizeStandard, ci
           {r.deal_price ? (
             <>
               <div className={`font-heading font-bold text-xl ${isBest ? "text-green-600 dark:text-green-400" : "text-foreground"}`}>
-                ${r.deal_price}
+                {formatLocalPrice(r.deal_price, countryCode) || `$${r.deal_price}`}
               </div>
               {r.original_price > r.deal_price && (
-                <div className="text-xs text-muted-foreground line-through">${r.original_price}</div>
+                <div className="text-xs text-muted-foreground line-through">
+                  {formatLocalPrice(r.original_price, countryCode) || `$${r.original_price}`}
+                </div>
               )}
               {r.discount_value > 0 && (
-                <div className="text-[10px] text-green-600 dark:text-green-400 font-semibold">Save ${r.discount_value.toFixed(0)}</div>
+                <div className="text-[10px] text-green-600 dark:text-green-400 font-semibold">
+                  Save {formatLocalPrice(r.discount_value, countryCode) || `$${r.discount_value.toFixed(0)}`}
+                </div>
               )}
             </>
           ) : (
