@@ -5,10 +5,10 @@
  */
 
 import { base44 } from "@/api/base44Client";
-import { getCachedDeals, setCachedDeals } from "./agentCache";
+import { getCachedDeals, setCachedDeals, normalizeCity } from "./agentCache";
 
 export async function runDealAgent({ shoe, city, size = null, color = null, countryCode = "" }) {
-  const cached = getCachedDeals(shoe.id, city, size, color);
+  const cached = getCachedDeals(shoe.id, normalizeCity(city), size, color);
   if (cached) return cached;
 
   const country = shoe._country || "United States";
@@ -77,6 +77,6 @@ export async function runDealAgent({ shoe, city, size = null, color = null, coun
     : "";
 
   const result = { summary, best_price_found: bestPrice, has_active_deals: hasDeal, retailers, nearby_stores };
-  setCachedDeals(shoe.id, city, result, size, color);
+  setCachedDeals(shoe.id, normalizeCity(city), result, size, color);
   return result;
 }

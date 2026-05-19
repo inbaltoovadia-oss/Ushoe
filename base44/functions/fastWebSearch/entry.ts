@@ -2,7 +2,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
 // In-memory cache: key → { data, ts }
 const CACHE = new Map();
-const CACHE_TTL = 3 * 60 * 60 * 1000; // 3 hours — match client TTL
+const CACHE_TTL = 6 * 60 * 60 * 1000; // 6 hours
 
 function cacheGet(key) {
   const entry = CACHE.get(key);
@@ -12,10 +12,21 @@ function cacheGet(key) {
 }
 function cacheSet(key, data) {
   CACHE.set(key, { data, ts: Date.now() });
-  if (CACHE.size > 200) {
-    const oldest = CACHE.keys().next().value;
-    CACHE.delete(oldest);
+  if (CACHE.size > 500) {
+    // Evict oldest 20% when full
+    const keys = [...CACHE.keys()].slice(0, 100);
+    keys.forEach(k => CACHE.delete(k));
   }
+}
+
+/** Normalize city for fuzzy location matching (same metro = same cache key) */
+function normalizeCity(city = "") {
+  return city
+    .toLowerCase()
+    .replace(/\s*-\s*/g, "")
+    .replace(/[^a-z0-9]/g, "")
+    .replace(/(city|metro|downtown|district|area)$/, "")
+    .trim();
 }
 
 /**
@@ -59,7 +70,7 @@ Deno.serve(async (req) => {
     const cityName = city || countryName;
     const isIsrael = cc === 'IL';
 
-    const cacheKey = `${q}::${cc}::${cityName}`.toLowerCase().replace(/\s+/g, '_');
+    const cacheKey = `${q}::${cc}::${normalizeCity(cityName)}`;
     const cached = cacheGet(cacheKey);
     if (cached) {
       return Response.json({ ...cached, cached: true });

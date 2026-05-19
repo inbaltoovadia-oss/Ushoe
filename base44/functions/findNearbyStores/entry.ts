@@ -5,10 +5,20 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
 const CACHE = new Map();
-const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+const CACHE_TTL = 3 * 60 * 60 * 1000; // 3 hours — store locations are stable
+
+/** Normalize city for fuzzy location matching */
+function normalizeCity(city = '') {
+  return city
+    .toLowerCase()
+    .replace(/\s*-\s*/g, '')
+    .replace(/[^a-z0-9]/g, '')
+    .replace(/(city|metro|downtown|district|area)$/, '')
+    .trim();
+}
 
 function getCacheKey(shoeId, city, size) {
-  return `${shoeId}_${(city || '').toLowerCase().replace(/\s+/g, '_')}_${size || ''}`;
+  return `${shoeId}_${normalizeCity(city)}_${size || ''}`;
 }
 
 Deno.serve(async (req) => {

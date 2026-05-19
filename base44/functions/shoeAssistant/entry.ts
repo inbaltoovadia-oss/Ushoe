@@ -1,5 +1,28 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
+// In-memory cache for repeated identical queries (same message + countryCode + no conversation history)
+const QUERY_CACHE = new Map();
+const QUERY_CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+
+function queryCacheKey(message, countryCode, useWebSearch) {
+  return `${(message || '').toLowerCase().trim()}::${(countryCode || 'US').toUpperCase()}::${useWebSearch}`;
+}
+
+function queryCacheGet(key) {
+  const entry = QUERY_CACHE.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.ts > QUERY_CACHE_TTL) { QUERY_CACHE.delete(key); return null; }
+  return entry.data;
+}
+
+function queryCacheSet(key, data) {
+  QUERY_CACHE.set(key, { data, ts: Date.now() });
+  if (QUERY_CACHE.size > 300) {
+    const oldest = QUERY_CACHE.keys().next().value;
+    QUERY_CACHE.delete(oldest);
+  }
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -13,8 +36,16 @@ Deno.serve(async (req) => {
       userProfile = {},
       catalogSnapshot = [],
       userLocation = {},
-      useWebSearch = true, // can be toggled off by client
+      useWebSearch = true,
     } = body;
+
+    // Cache hit: only cache fresh single-turn queries (no conversation history)
+    const isFirstTurn = conversationHistory.length === 0;
+    const ck = isFirstTurn ? queryCacheKey(message, userLocation.countryCode, useWebSearch) : null;
+    if (ck) {
+      const hit = queryCacheGet(ck);
+      if (hit) return Response.json({ ...hit, cached: true });
+    }
 
     // Build persona string
     const personaLines = [];
@@ -35,7 +66,6 @@ Deno.serve(async (req) => {
       .map((s, i) => `${i}: ${s.brand} ${s.name} $${s.price} [${s.category}]${s.is_trending ? ' 🔥' : ''}`)
       .join('\n');
 
-    // When client has web search ON, always use it — don't gate on intent keywords
     const doWebSearch = useWebSearch === true;
 
     const isIsrael = (userLocation.countryCode || '').toUpperCase() === 'IL';
@@ -60,7 +90,6 @@ Rules: 1 best pick, reference catalog by index, be punchy.`;
 
 ${historyText ? `CONVERSATION:\n${historyText}\n` : ''}User: ${message}`;
 
-    // Always use gemini_3_flash for speed — it supports web search and is much faster than pro
     const aiResponse = await base44.asServiceRole.integrations.Core.InvokeLLM({
       prompt: fullPrompt,
       add_context_from_internet: doWebSearch,
@@ -90,21 +119,24 @@ ${historyText ? `CONVERSATION:\n${historyText}\n` : ''}User: ${message}`;
       }
     });
 
-    // Strict filter: only include results confirmed to ship to user
     const webRecs = doWebSearch
       ? (aiResponse.web_recommendations || [])
           .filter(r => r.ships_to_user === true && r.name && r.brand)
           .slice(0, 3)
       : [];
 
-    return Response.json({
+    const result = {
       reply:               aiResponse.reply || 'Let me help you find the perfect shoe.',
-      // Never show a catalog card when web search is active — send web links instead
       best_pick_index:     doWebSearch ? -1 : (aiResponse.best_pick_index ?? -1),
       follow_up_questions: (aiResponse.follow_up_questions || []).slice(0, 2),
       used_web:            doWebSearch,
       web_recommendations: webRecs,
-    });
+    };
+
+    // Store in cache only for first-turn queries
+    if (ck) queryCacheSet(ck, result);
+
+    return Response.json(result);
 
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
