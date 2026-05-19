@@ -91,16 +91,17 @@ Deno.serve(async (req) => {
     const result = await base44.asServiceRole.integrations.Core.InvokeLLM({
       prompt: `You are a real-time price search agent. Search the web NOW for: "${q}" currently IN STOCK and available to buy in ${countryName} (${cityName}).
 
-YOUR JOB: Find actual product listing pages where this shoe is CURRENTLY IN STOCK and return the REAL prices shown right now.
+YOUR JOB: Find actual product listing pages where this EXACT shoe model is CURRENTLY IN STOCK and return the REAL prices shown right now.
 
 STRICT RULES:
-1. buy_link MUST be a real URL from your search results for this exact product. Copy verbatim. Never construct or guess URLs.
-2. price MUST be the exact price shown on that page right now. Never estimate.
-3. in_stock = true ONLY if the item shows "Add to Cart", "In Stock", "Available", or similar. If it shows "Out of Stock", "Sold Out", "Notify Me" — SKIP that retailer entirely.
-4. ${isIsrael ? 'User is in ISRAEL. Prefer: nike.com/il, footlocker.co.il, adidas.co.il, terminalx.com, dynamica.co.il, ac.co.il. Prices in ILS (₪).' : `Only include retailers that ship to ${countryName}.`}
-5. ships_to_user = true only if the retailer actually ships to ${countryName}.
-6. Do NOT include Amazon, eBay, or general marketplaces.
-7. Return up to 5 in-stock results only — quality over quantity.
+1. EXACT MODEL MATCH — Before including any result, verify the product page is for the EXACT same model as "${q}". Same brand, same model name, same colorway if specified. If the page shows a different colorway, a similar model, or a vague product name — SKIP IT. Do not include close matches.
+2. buy_link MUST be a real URL from your search results for this exact product. Copy verbatim. Never construct or guess URLs.
+3. price MUST be the exact price shown on that page right now. Never estimate or use old cached data.
+4. in_stock = true ONLY if the item shows "Add to Cart", "In Stock", "Available", or similar. If it shows "Out of Stock", "Sold Out", "Notify Me" — SKIP that retailer entirely.
+5. ${isIsrael ? 'User is in ISRAEL. Prefer: nike.com/il, footlocker.co.il, adidas.co.il, terminalx.com, dynamica.co.il, ac.co.il. Prices in ILS (₪).' : `Only include retailers that ship to ${countryName}.`}
+6. ships_to_user = true only if the retailer actually ships to ${countryName}.
+7. Do NOT include Amazon, eBay, or general marketplaces.
+8. Return up to 5 in-stock results only — quality over quantity. Zero results is better than wrong results.
 
 For each result:
 - name: exact product name from the page
