@@ -46,6 +46,7 @@ Deno.serve(async (req) => {
       cityFallback = null,
       latitude = null,
       longitude = null,
+      countryCode = 'US',
     } = body;
 
     if (!shoe) return Response.json({ error: 'Missing shoe data' }, { status: 400 });
@@ -61,9 +62,27 @@ Deno.serve(async (req) => {
       return Response.json({ ...cached.data, cached: true });
     }
 
+    // Map country code to currency
+    const CURRENCY_MAP = {
+      IL: 'ILS', GB: 'GBP', EU: 'EUR', DE: 'EUR', FR: 'EUR', IT: 'EUR', ES: 'EUR',
+      NL: 'EUR', BE: 'EUR', AT: 'EUR', PT: 'EUR', IE: 'EUR', FI: 'EUR', GR: 'EUR',
+      AU: 'AUD', CA: 'CAD', JP: 'JPY', KR: 'KRW', CN: 'CNY', IN: 'INR',
+      BR: 'BRL', MX: 'MXN', SE: 'SEK', NO: 'NOK', DK: 'DKK', CH: 'CHF',
+      SG: 'SGD', HK: 'HKD', NZ: 'NZD', ZA: 'ZAR', AE: 'AED', SA: 'SAR',
+    };
+    const CURRENCY_SYMBOLS = {
+      USD: '$', ILS: '₪', GBP: '£', EUR: '€', AUD: 'A$', CAD: 'C$',
+      JPY: '¥', KRW: '₩', CNY: '¥', INR: '₹', BRL: 'R$', MXN: 'MX$',
+      SEK: 'kr', NOK: 'kr', DKK: 'kr', CHF: 'CHF', SGD: 'S$', HKD: 'HK$',
+      NZD: 'NZ$', ZAR: 'R', AED: 'AED', SAR: 'SAR',
+    };
+    const currency = CURRENCY_MAP[(countryCode || '').toUpperCase()] || 'USD';
+    const currencySymbol = CURRENCY_SYMBOLS[currency] || currency;
+
     const prompt = `Find 5 real sneaker stores near ${city} that stock ${shoeFullName}.${sizeInfo ? ` Size: ${sizeInfo}.` : ''}
 Include official ${shoe.brand} stores, Foot Locker, JD Sports, and local sneaker boutiques.
-For each store provide: name, address, phone, website (the store's own URL if it has one), maps_url (Google Maps search URL), distance_km from city center, rating, stock_confidence (high/medium/low), stock_status, why (≤10 words), is_open.`;
+For each store provide: name, address, phone, website (the store's own URL if it has one), maps_url (Google Maps search URL), distance_km from city center, rating, stock_confidence (high/medium/low), stock_status, why (≤10 words), is_open.
+Also search for the current in-store or local price of ${shoeFullName}${sizeInfo ? ` in ${sizeInfo}` : ''} at each store. Return price as a number in ${currency} (${currencySymbol}). If no price found, return null.`;
 
     const aiResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
       prompt,
@@ -88,6 +107,8 @@ For each store provide: name, address, phone, website (the store's own URL if it
                 stock_confidence: { type: 'string' },
                 stock_status:     { type: 'string' },
                 why:              { type: 'string' },
+                price:            { type: 'number' },
+                original_price:   { type: 'number' },
               }
             }
           },
@@ -114,6 +135,8 @@ For each store provide: name, address, phone, website (the store's own URL if it
       stores: finalStores,
       summary: aiResult.summary || `Found ${finalStores.length} stores near ${city} for ${shoeFullName}.`,
       shoe_searched: shoeFullName,
+      currency,
+      currency_symbol: currencySymbol,
       source: 'gemini_web',
     };
 
