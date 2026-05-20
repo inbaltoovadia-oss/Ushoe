@@ -20,10 +20,10 @@ function getRetailerSearchUrls(query, countryCode) {
   if (countryCode === 'IL') {
     return [
       { retailer: 'Nike Israel',        searchUrl: `https://www.nike.com/il/w?q=${q}&vst=${q}` },
-      { retailer: 'Terminal X',         searchUrl: `https://www.terminalx.com/catalogsearch/result/?q=${q}` },
       { retailer: 'Foot Locker Israel', searchUrl: `https://footlocker.co.il/search?q=${q}` },
       { retailer: 'AC Sports',          searchUrl: `https://www.acsports.co.il/search?q=${q}` },
       { retailer: 'Adidas Israel',      searchUrl: `https://www.adidas.co.il/search?q=${q}` },
+      { retailer: 'Shilav',             searchUrl: `https://www.shilav.co.il/search?q=${q}` },
     ];
   }
   return [
@@ -54,53 +54,72 @@ Deno.serve(async (req) => {
     const retailers = getRetailerSearchUrls(q, cc);
     const retailerList = retailers.map(r => `- ${r.retailer}: ${r.searchUrl}`).join('\n');
 
-    // Use Gemini Flash with live web search — search by shoe name only (no size/color = better results)
-    const prompt = `You are a shopping assistant. Search the web RIGHT NOW for "${q}" and visit each of these retailer websites to find the exact current price:
+    // Use Gemini 3.1 Pro with live web search for accurate cent-level prices
+    const prompt = `You are a shopping assistant. Search the web RIGHT NOW for "${q}" and visit each of these active retailer websites to find the exact current price:
 
 ${retailerList}
 
 CRITICAL INSTRUCTIONS:
-1. Search ONLY by the shoe name "${q}" — do NOT add size or color to your search, it causes "no results found" errors.
-2. Visit each retailer's product page and COPY the price character-for-character as shown (e.g. ₪529.90, $89.99 — do NOT round or estimate).
-3. For buy_link: COPY the EXACT URL from your browser address bar of the product page you visited. If no product page found, use the search URL above.
-4. ONLY include retailers that actually sell this specific shoe. If a retailer does not carry "${q}", skip them entirely — do NOT include them with a low confidence score.
-5. Report in_stock as true/false based on what you see.
-6. Copy exact sizes available from the page (EU or US numbers).
-7. Return ONLY retailers where you found the actual product listed for sale.
-8. Mark is_best_deal=true for the single cheapest verified price.`;
+1. Search ONLY by the shoe name "${q}" — do NOT add size, color, or other terms. Searching by name alone gives the best results.
+2. Actually open each retailer's website, find the product listing page for "${q}", and READ the price displayed on that page.
+3. COPY the price EXACTLY as shown on the page — every digit and decimal (e.g. ₪529.90, $89.99, €119.95). Do NOT round, estimate, or make up a price.
+4. For buy_link: copy the EXACT URL of the product page you visited (the full address bar URL). If no product page was found, use the search URL provided above.
+5. ONLY include a retailer if you found "${q}" actually listed for sale on their site. If the retailer does not carry this shoe, SKIP them entirely.
+6. Verify the store is currently open and operating — skip any permanently closed stores.
+7. Report in_stock as true if the product can be added to cart, false otherwise.
+8. Copy the exact sizes listed on the page.
+9. Mark is_best_deal=true for the single lowest verified price.`;
 
-    const llmResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
-      prompt,
-      add_context_from_internet: true,
-      model: "gemini_3_flash",
-      response_json_schema: {
-        type: "object",
-        properties: {
-          web_picks: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                name:               { type: "string" },
-                brand:              { type: "string" },
-                price:              { type: "string" },
-                original_price:     { type: "string" },
-                currency:           { type: "string" },
-                retailer:           { type: "string" },
-                buy_link:           { type: "string" },
-                in_stock:           { type: "boolean" },
-                estimated_shipping: { type: "string" },
-                sizes_available:    { type: "array", items: { type: "number" } },
-                colors_available:   { type: "array", items: { type: "string" } },
-                is_best_deal:       { type: "boolean" },
-                price_confidence:   { type: "string" },
-                discount_percent:   { type: "number" },
-              },
+    const schema = {
+      type: "object",
+      properties: {
+        web_picks: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              name:               { type: "string" },
+              brand:              { type: "string" },
+              price:              { type: "string" },
+              original_price:     { type: "string" },
+              currency:           { type: "string" },
+              retailer:           { type: "string" },
+              buy_link:           { type: "string" },
+              in_stock:           { type: "boolean" },
+              estimated_shipping: { type: "string" },
+              sizes_available:    { type: "array", items: { type: "number" } },
+              colors_available:   { type: "array", items: { type: "string" } },
+              is_best_deal:       { type: "boolean" },
+              price_confidence:   { type: "string" },
+              discount_percent:   { type: "number" },
             },
           },
         },
       },
-    });
+    };
+
+    // gemini_3_1_pro for cent-accurate prices with live browsing; fallback to gemini_3_flash on timeout
+    let llmResult = null;
+    try {
+      llmResult = await Promise.race([
+        base44.asServiceRole.integrations.Core.InvokeLLM({
+          prompt,
+          add_context_from_internet: true,
+          model: "gemini_3_1_pro",
+          response_json_schema: schema,
+        }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 110000)),
+      ]);
+    } catch {
+      // Fallback to flash if pro times out
+      llmResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
+        prompt,
+        add_context_from_internet: true,
+        model: "gemini_3_flash",
+        response_json_schema: schema,
+      });
+    }
+    llmResult = llmResult;
 
     const rawPicks = llmResult?.web_picks || [];
 
