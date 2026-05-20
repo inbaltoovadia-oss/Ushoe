@@ -1,14 +1,23 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Loader2, Sparkles, Brain, Zap, ArrowRight, RotateCcw, SlidersHorizontal, Globe, ExternalLink, Search, WifiOff } from "lucide-react";
+import { Send, Loader2, Sparkles, Brain, Zap, ArrowRight, RotateCcw, SlidersHorizontal, Globe, ExternalLink, Search, WifiOff, MessageSquare, Trash2 } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { getShoesCatalog } from "../lib/shoeCache";
 import { getUserProfile, subscribeUserProfile } from "../lib/userProfileStore";
 import { rankShoes } from "../lib/personalizationEngine";
 import { getLocation, subscribeLocation } from "../lib/locationStore";
+import { 
+  getStoredConversations, 
+  saveConversation, 
+  createNewConversation, 
+  setActiveConversation,
+  getActiveConversation,
+  syncConversationToEntity 
+} from "../lib/conversationStore";
 import ShoeCard from "../components/ShoeCard";
 import ReactMarkdown from "react-markdown";
 import PreferencesPanel from "../components/assistant/PreferencesPanel";
+import VoiceInput from "../components/VoiceInput";
 
 const STARTER_PROMPTS = [
   "What's the best running shoe for me right now?",
@@ -158,10 +167,18 @@ export default function Assistant() {
   const [showPrefs, setShowPrefs] = useState(false);
   const [useWebSearch, setUseWebSearch] = useState(true);
   const [loc, setLoc] = useState(getLocation());
+  const [currentConv, setCurrentConv] = useState(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [voiceText, setVoiceText] = useState("");
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
 
+  // Load or create conversation on mount
   useEffect(() => {
+    const conv = getActiveConversation() || createNewConversation();
+    setCurrentConv(conv);
+    setMessages(conv.messages || []);
+    
     init();
     const unsubProfile = subscribeUserProfile(async () => {
       const [shoes, profile] = await Promise.all([getShoesCatalog(80), getUserProfile()]);
@@ -172,6 +189,15 @@ export default function Assistant() {
     const unsubLoc = subscribeLocation(setLoc);
     return () => { unsubProfile(); unsubLoc(); };
   }, []);
+
+  // Auto-save conversation on message change
+  useEffect(() => {
+    if (!currentConv) return;
+    const updated = { ...currentConv, messages, updated_at: new Date().toISOString() };
+    saveConversation(updated);
+    // Sync to entity in background (non-blocking)
+    syncConversationToEntity(updated);
+  }, [messages, currentConv]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -219,11 +245,12 @@ export default function Assistant() {
   };
 
   const sendMessage = async (text) => {
-    const q = (text || input).trim();
+    const q = (text || input || voiceText).trim();
     if (!q || loading) return;
     setInput("");
+    setVoiceText("");
 
-    const userMsg = { role: "user", content: q };
+    const userMsg = { role: "user", content: q, timestamp: new Date().toISOString() };
     const history = [...messages];
     setMessages(prev => [...prev, userMsg]);
     setLoading(true);
@@ -236,6 +263,7 @@ export default function Assistant() {
       userProfile,
       userLocation: { city: loc.city, country: loc.country, countryCode: loc.countryCode },
       useWebSearch,
+      conversationId: currentConv?.id,
       // When web search is ON, skip catalog so AI focuses purely on live web results
       catalogSnapshot: useWebSearch ? [] : catalogShoes.slice(0, 8).map(s => ({
         brand: s.brand, name: s.name, price: s.price,
@@ -253,6 +281,7 @@ export default function Assistant() {
       webRecs: data.web_recommendations || [],
       followUps: data.follow_up_questions || [],
       usedWeb: data.used_web,
+      timestamp: new Date().toISOString(),
     };
 
     await base44.entities.SearchHistory.create({ query: q, results_count: (bestPick ? 1 : 0) + (data.web_recommendations?.length || 0) });
@@ -262,7 +291,21 @@ export default function Assistant() {
     inputRef.current?.focus();
   };
 
-  const reset = () => { setMessages([]); init(); };
+  const reset = () => {
+    const newConv = createNewConversation();
+    setCurrentConv(newConv);
+    setMessages([]);
+    init();
+  };
+
+  const loadConversation = (conv) => {
+    setActiveConversation(conv.id);
+    setCurrentConv(conv);
+    setMessages(conv.messages || []);
+    setShowHistory(false);
+  };
+
+  const conversations = getStoredConversations();
   const hasSignals = userProfile?.survey_completed || userProfile?.recent_queries?.length > 0;
 
   return (
@@ -294,6 +337,14 @@ export default function Assistant() {
           </div>
         </div>
         <div className="flex items-center gap-1">
+          <button 
+            onClick={() => setShowHistory(!showHistory)} 
+            className="p-2.5 rounded-xl transition-colors" 
+            style={{ color: "#6B7280" }} 
+            title="Conversation history"
+          >
+            <MessageSquare className="w-4 h-4" />
+          </button>
           <button onClick={() => setShowPrefs(true)} className="p-2.5 rounded-xl transition-colors" style={{ color: "#6B7280" }} title="Edit preferences">
             <SlidersHorizontal className="w-4 h-4" />
           </button>
@@ -410,24 +461,65 @@ export default function Assistant() {
           </button>
           <input
             ref={inputRef}
-            value={input}
+            value={input || voiceText}
             onChange={(e) => setInput(e.target.value)}
             placeholder={useWebSearch ? "Search the web for shoes…" : "Search catalog only…"}
             className="flex-1 bg-transparent outline-none text-sm"
             style={{ color: "#E8EAF6" }}
             disabled={loading || !profileLoaded}
-            dir={isRTL(input) ? "rtl" : "ltr"}
+            dir={isRTL(input || voiceText) ? "rtl" : "ltr"}
           />
+          <VoiceInput onTranscript={setVoiceText} disabled={loading || !profileLoaded} />
           <button
             type="submit"
-            disabled={loading || !input.trim() || !profileLoaded}
+            disabled={loading || !(input || voiceText).trim() || !profileLoaded}
             className="p-2 rounded-xl transition-all disabled:opacity-30 active:scale-90"
-            style={{ background: input.trim() && !loading ? "rgba(59,91,219,0.3)" : "transparent", color: "#5B8BF5" }}
+            style={{ background: (input || voiceText).trim() && !loading ? "rgba(59,91,219,0.3)" : "transparent", color: "#5B8BF5" }}
           >
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
           </button>
         </form>
       </div>
+
+      {/* Conversation History Panel */}
+      {showHistory && (
+        <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-sm" onClick={() => setShowHistory(false)}>
+          <div 
+            className="absolute right-0 top-0 bottom-0 w-full max-w-sm bg-[#0D0D0F] border-l border-[#2A2A35] p-4 overflow-y-auto"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-heading font-bold text-lg" style={{ color: "#FFFFFF" }}>Conversations</h2>
+              <button onClick={() => setShowHistory(false)} className="p-2 rounded-xl hover:bg-secondary">
+                <span className="text-xl" style={{ color: "#6B7280" }}>×</span>
+              </button>
+            </div>
+            <div className="space-y-2">
+              {conversations.map(conv => (
+                <button
+                  key={conv.id}
+                  onClick={() => loadConversation(conv)}
+                  className={`w-full text-left p-3 rounded-xl transition-all ${
+                    currentConv?.id === conv.id 
+                      ? "bg-primary/20 border border-primary/30" 
+                      : "bg-secondary/30 hover:bg-secondary/50"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold truncate" style={{ color: "#E8EAF6" }}>{conv.title || "Untitled"}</p>
+                    {currentConv?.id === conv.id && (
+                      <span className="w-2 h-2 rounded-full bg-primary" />
+                    )}
+                  </div>
+                  <p className="text-xs mt-1" style={{ color: "#6B7280" }}>
+                    {conv.messages?.length || 0} messages · {new Date(conv.updated_at).toLocaleDateString()}
+                  </p>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
