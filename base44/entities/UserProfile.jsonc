@@ -41,6 +41,15 @@
       "title": "Survey Completed",
       "default": false
     },
+    "discord_webhook_url": {
+      "type": "string",
+      "title": "Discord Webhook URL"
+    },
+    "discord_alerts_enabled": {
+      "type": "boolean",
+      "title": "Discord Alerts Enabled",
+      "default": false
+    },
     "description": {
       "type": "string",
       "title": "Description",

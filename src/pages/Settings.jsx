@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Crown, Zap, Ruler, UserX, AlertTriangle, Heart, Mail } from "lucide-react";
+import { Crown, Zap, Ruler, UserX, AlertTriangle, Heart, Mail, MessageSquare } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import PlansSection from "../components/settings/PlansSection";
 import WebhooksSection from "../components/settings/WebhooksSection";
 import SizeSection from "../components/settings/SizeSection";
 import PreferencesSection from "../components/settings/PreferencesSection";
 import EmailAlertsSection from "../components/settings/EmailAlertsSection";
+import DiscordAlertsSection from "../components/settings/DiscordAlertsSection";
 import { base44 } from "@/api/base44Client";
 
 export default function Settings() {
@@ -18,6 +19,7 @@ export default function Settings() {
   const TABS = [
     { id: "preferences", label: "Preferences", icon: Heart },
     { id: "alerts", label: "Email Alerts", icon: Mail },
+    { id: "discord", label: "Discord", icon: MessageSquare },
     { id: "size", label: "My Size", icon: Ruler },
     { id: "plan", label: "My Plan", icon: Crown },
     { id: "webhooks", label: "Webhooks", icon: Zap },
@@ -55,6 +57,7 @@ export default function Settings() {
 
         {activeTab === "preferences" && <PreferencesSection />}
         {activeTab === "alerts" && <EmailAlertsSection />}
+        {activeTab === "discord" && <DiscordAlertsSection />}
         {activeTab === "size" && <SizeSection />}
         {activeTab === "plan" && <PlansSection />}
         {activeTab === "webhooks" && <WebhooksSection />}
