@@ -54,21 +54,20 @@ Deno.serve(async (req) => {
     const retailers = getRetailerSearchUrls(q, cc);
     const retailerList = retailers.map(r => `- ${r.retailer}: ${r.searchUrl}`).join('\n');
 
-    // Use Gemini 3.1 Pro with live web search for accurate cent-level prices
-    const prompt = `You are a shopping assistant. Search the web RIGHT NOW for "${q}" and visit each of these active retailer websites to find the exact current price:
+    const prompt = `You are a shopping price checker. I need you to find the current price of "${q}" at each of the following retailers. Visit ALL of them:
 
 ${retailerList}
 
-CRITICAL INSTRUCTIONS:
-1. Search ONLY by the shoe name "${q}" — do NOT add size, color, or other terms. Searching by name alone gives the best results.
-2. Actually open each retailer's website, find the product listing page for "${q}", and READ the price displayed on that page.
-3. COPY the price EXACTLY as shown on the page — every digit and decimal (e.g. ₪529.90, $89.99, €119.95). Do NOT round, estimate, or make up a price.
-4. For buy_link: copy the EXACT URL of the product page you visited (the full address bar URL). If no product page was found, use the search URL provided above.
-5. ONLY include a retailer if you found "${q}" actually listed for sale on their site. If the retailer does not carry this shoe, SKIP them entirely.
-6. Verify the store is currently open and operating — skip any permanently closed stores.
-7. Report in_stock as true if the product can be added to cart, false otherwise.
-8. Copy the exact sizes listed on the page.
-9. Mark is_best_deal=true for the single lowest verified price.`;
+For EACH retailer above:
+- Go to their website and search for "${q}"
+- Find the product page and read the price shown
+- Return an entry even if the price seems high — I want all results
+- Only skip a retailer if the shoe is completely absent from their catalog
+
+Return ALL retailers where the product exists, even at full price with no discount.
+Copy prices exactly as shown (e.g. ₪529.90, $89.99). Do not round.
+For buy_link use the exact product page URL, or the search URL if no product page found.
+Set price_confidence to "high" if you read the price directly from a product page, "medium" if from a search results listing.`;
 
     const schema = {
       type: "object",
