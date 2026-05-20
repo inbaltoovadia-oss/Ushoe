@@ -14,55 +14,25 @@ function cacheSet(k, data) {
   if (CACHE.size > 200) CACHE.delete(CACHE.keys().next().value);
 }
 
-// These search URLs are guaranteed to work (retailer search pages, never 404)
+// Guaranteed working search page URLs — used as fallback buy_link (never 404)
 function getRetailerSearchUrls(query, countryCode) {
   const q = encodeURIComponent(query);
   if (countryCode === 'IL') {
     return [
-      { retailer: 'Nike Israel',       searchUrl: `https://www.nike.com/il/w?q=${q}&vst=${q}`,                         fetchUrl: `https://www.nike.com/il/w?q=${q}&vst=${q}` },
-      { retailer: 'Terminal X',        searchUrl: `https://www.terminalx.com/catalogsearch/result/?q=${q}`,             fetchUrl: `https://www.terminalx.com/catalogsearch/result/?q=${q}` },
-      { retailer: 'Foot Locker Israel',searchUrl: `https://footlocker.co.il/search?q=${q}`,                             fetchUrl: `https://footlocker.co.il/search?q=${q}` },
-      { retailer: 'AC Sports',         searchUrl: `https://www.acsports.co.il/search?q=${q}`,                          fetchUrl: `https://www.acsports.co.il/search?q=${q}` },
-      { retailer: 'Adidas Israel',     searchUrl: `https://www.adidas.co.il/search?q=${q}`,                            fetchUrl: `https://www.adidas.co.il/search?q=${q}` },
+      { retailer: 'Nike Israel',        searchUrl: `https://www.nike.com/il/w?q=${q}&vst=${q}` },
+      { retailer: 'Terminal X',         searchUrl: `https://www.terminalx.com/catalogsearch/result/?q=${q}` },
+      { retailer: 'Foot Locker Israel', searchUrl: `https://footlocker.co.il/search?q=${q}` },
+      { retailer: 'AC Sports',          searchUrl: `https://www.acsports.co.il/search?q=${q}` },
+      { retailer: 'Adidas Israel',      searchUrl: `https://www.adidas.co.il/search?q=${q}` },
     ];
   }
   return [
-    { retailer: 'Nike',        searchUrl: `https://www.nike.com/w?q=${q}&vst=${q}`,               fetchUrl: `https://www.nike.com/w?q=${q}&vst=${q}` },
-    { retailer: 'Foot Locker', searchUrl: `https://www.footlocker.com/search?query=${q}`,          fetchUrl: `https://www.footlocker.com/search?query=${q}` },
-    { retailer: 'Adidas',      searchUrl: `https://www.adidas.com/us/search?q=${q}`,               fetchUrl: `https://www.adidas.com/us/search?q=${q}` },
-    { retailer: 'JD Sports',   searchUrl: `https://www.jdsports.com/search/jdsports/${q}/`,        fetchUrl: `https://www.jdsports.com/search/jdsports/${q}/` },
-    { retailer: 'Zappos',      searchUrl: `https://www.zappos.com/search?term=${q}`,               fetchUrl: `https://www.zappos.com/search?term=${q}` },
+    { retailer: 'Nike',        searchUrl: `https://www.nike.com/w?q=${q}&vst=${q}` },
+    { retailer: 'Foot Locker', searchUrl: `https://www.footlocker.com/search?query=${q}` },
+    { retailer: 'Adidas',      searchUrl: `https://www.adidas.com/us/search?q=${q}` },
+    { retailer: 'JD Sports',   searchUrl: `https://www.jdsports.com/search/jdsports/${q}/` },
+    { retailer: 'Zappos',      searchUrl: `https://www.zappos.com/search?term=${q}` },
   ];
-}
-
-async function fetchPage(url, timeoutMs = 9000) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const res = await fetch(url, {
-      signal: controller.signal,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9,he;q=0.8',
-      },
-    });
-    const text = await res.text();
-    return { ok: res.ok, status: res.status, text, finalUrl: res.url };
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-function cleanHtml(html) {
-  return html
-    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/\s+/g, ' ')
-    .substring(0, 4500);
 }
 
 Deno.serve(async (req) => {
@@ -82,44 +52,27 @@ Deno.serve(async (req) => {
     if (cached) return Response.json({ ...cached, cached: true });
 
     const retailers = getRetailerSearchUrls(q, cc);
+    const retailerList = retailers.map(r => `- ${r.retailer}: ${r.searchUrl}`).join('\n');
 
-    // Fetch all retailer search pages in parallel
-    const fetchResults = await Promise.all(
-      retailers.map(async (r) => {
-        const page = await fetchPage(r.fetchUrl);
-        return { ...r, page };
-      })
-    );
+    // Use Gemini 3.1 Pro with live web search to get real prices directly from retailer pages
+    const prompt = `You are a shopping assistant. Search the web RIGHT NOW and visit each of these retailer websites to find the current price and stock of "${q}" in ${countryName}:
 
-    // Build page snippets from successful fetches
-    const pageSnippets = fetchResults
-      .filter(r => r.page && r.page.ok && r.page.text.length > 300)
-      .map(r => `=== ${r.retailer} ===\nSearch URL: ${r.searchUrl}\n${cleanHtml(r.page.text)}`);
+${retailerList}
 
-    // Always include the guaranteed search URLs in the LLM context even if fetch failed
-    const allRetailerContext = retailers.map(r =>
-      `- ${r.retailer}: guaranteed working search page = ${r.searchUrl}`
-    ).join('\n');
-
-    const extractionPrompt = `You are extracting shoe prices from retailer pages for the query: "${q}" in ${countryName}.
-
-RETAILER SEARCH PAGES (these URLs always work — use them as buy_link if no product URL found):
-${allRetailerContext}
-
-${pageSnippets.length > 0 ? `FETCHED PAGE CONTENT:\n${pageSnippets.join('\n\n')}` : 'Note: Retailer pages were bot-blocked. Use your web knowledge + the search URLs above.'}
-
-RULES:
-1. Return AT LEAST 3 results, one per retailer.
-2. For buy_link: if you found a real product URL in the page text, use it. Otherwise use the retailer's search URL above — it ALWAYS works and never 404s.
-3. Copy prices EXACTLY as seen (e.g. ₪529.90, not ₪530). If price unknown from page, use your best knowledge of typical ${countryName} prices for this shoe.
-4. Set price_confidence="high" if read from page text, "medium" if estimated from web knowledge, "low" if guessing.
-5. Mark is_best_deal=true for the single cheapest option.
-6. Include sizes_available as numbers if visible in page text.`;
+CRITICAL INSTRUCTIONS:
+1. Actually visit each retailer's website and find the product page for "${q}".
+2. Copy the price EXACTLY as shown on the page (e.g. ₪529.90, $89.99 — character for character, do NOT round).
+3. For buy_link: use the EXACT product page URL you visited. If you cannot find a product page, use the search URL listed above — it is guaranteed to work.
+4. Report in_stock as true/false based on what you see on the page.
+5. Copy the exact sizes available as shown on the page (EU or US numbers).
+6. If a retailer's page is unavailable or the product is not listed, still include that retailer using their search URL as buy_link and set price_confidence="low".
+7. Return AT LEAST 3 retailers.
+8. Mark is_best_deal=true for the single cheapest verified price.`;
 
     const llmResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
-      prompt: extractionPrompt,
-      add_context_from_internet: pageSnippets.length === 0,
-      model: pageSnippets.length === 0 ? "gemini_3_flash" : undefined,
+      prompt,
+      add_context_from_internet: true,
+      model: "gemini_3_flash",
       response_json_schema: {
         type: "object",
         properties: {
@@ -173,37 +126,27 @@ RULES:
       return p;
     });
 
-    // Pad to at least 3 results using guaranteed search URLs if needed
-    if (finalPicks.length < 3) {
-      for (const r of retailers) {
-        if (finalPicks.length >= 3) break;
-        const alreadyHave = finalPicks.some(p =>
-          p.retailer.toLowerCase().includes(r.retailer.toLowerCase().split(' ')[0]) ||
-          r.retailer.toLowerCase().includes(p.retailer.toLowerCase().split(' ')[0])
-        );
-        if (!alreadyHave) {
-          finalPicks.push({
-            name: q,
-            brand: '',
-            price: '',
-            original_price: '',
-            currency: cc === 'IL' ? 'ILS' : 'USD',
-            retailer: r.retailer,
-            buy_link: r.searchUrl,
-            in_stock: true,
-            estimated_shipping: '',
-            sizes_available: [],
-            colors_available: [],
-            is_best_deal: false,
-            price_confidence: 'low',
-            discount_percent: 0,
-          });
-        }
+    // Pad to at least 3 results using guaranteed search URLs
+    for (const r of retailers) {
+      if (finalPicks.length >= 3) break;
+      const alreadyHave = finalPicks.some(p =>
+        p.retailer.toLowerCase().includes(r.retailer.toLowerCase().split(' ')[0]) ||
+        r.retailer.toLowerCase().includes(p.retailer.toLowerCase().split(' ')[0])
+      );
+      if (!alreadyHave) {
+        finalPicks.push({
+          name: q, brand: '', price: '', original_price: '',
+          currency: cc === 'IL' ? 'ILS' : 'USD',
+          retailer: r.retailer, buy_link: r.searchUrl,
+          in_stock: true, estimated_shipping: '',
+          sizes_available: [], colors_available: [],
+          is_best_deal: false, price_confidence: 'low', discount_percent: 0,
+        });
       }
     }
 
     // Mark best deal
-    if (finalPicks.length > 0 && !finalPicks.some(p => p.is_best_deal)) {
+    if (!finalPicks.some(p => p.is_best_deal)) {
       const prices = finalPicks.map(p => parseFloat((p.price || '0').replace(/[^0-9.]/g, '')) || Infinity);
       const minIdx = prices.indexOf(Math.min(...prices));
       if (minIdx >= 0 && prices[minIdx] < Infinity) finalPicks[minIdx] = { ...finalPicks[minIdx], is_best_deal: true };
@@ -214,7 +157,6 @@ RULES:
       nearby_stores: [],
       location_used: `${cityName}, ${countryName}`,
       fetched_at: new Date().toISOString(),
-      pages_fetched: fetchResults.filter(r => r.page?.ok).map(r => r.retailer),
     };
 
     if (finalPicks.some(p => p.price_confidence !== 'low')) cacheSet(cacheKey, response);
