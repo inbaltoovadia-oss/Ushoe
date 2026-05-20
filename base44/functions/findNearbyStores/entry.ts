@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
 Include official ${shoe.brand} stores, Foot Locker, JD Sports, and local sneaker boutiques.
 For each store provide: name, address, phone, website (the store's own URL if it has one), maps_url (Google Maps search URL), distance_km from city center, rating, stock_confidence (high/medium/low), stock_status, why (≤10 words), is_open.`;
 
-    const aiResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
+    const llmPromise = base44.asServiceRole.integrations.Core.InvokeLLM({
       prompt,
       add_context_from_internet: true,
       model: 'gemini_3_flash',
@@ -74,6 +74,11 @@ For each store provide: name, address, phone, website (the store's own URL if it
         }
       }
     });
+
+    const aiResult = await Promise.race([
+      llmPromise,
+      new Promise((_, reject) => setTimeout(() => reject(new Error("Store search timeout")), 38000))
+    ]);
 
     const finalStores = (aiResult.stores || [])
       .filter(s => s.name && s.address)

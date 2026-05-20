@@ -232,11 +232,11 @@ export default function ShoeDetail() {
             </div>
 
             {/* ── Colors ── */}
-            {shoe.colors_available?.length > 0 && (
-              <div>
-                <p className="text-sm font-semibold mb-2">
-                  Color{selectedColor ? <span className="text-muted-foreground font-normal"> — {selectedColor}</span> : ""}
-                </p>
+            <div>
+              <p className="text-sm font-semibold mb-2">
+                Color{selectedColor ? <span className="text-muted-foreground font-normal"> — {selectedColor}</span> : ""}
+              </p>
+              {shoe.colors_available?.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
                   {shoe.colors_available.map(color => (
                     <button
@@ -252,23 +252,34 @@ export default function ShoeDetail() {
                     </button>
                   ))}
                 </div>
-              </div>
-            )}
+              ) : (
+                <div>
+                  <input
+                    type="text"
+                    placeholder="e.g. Black/White, Triple Black…"
+                    value={selectedColor || ""}
+                    onChange={e => setSelectedColor(e.target.value || null)}
+                    className="w-full px-3 py-2 rounded-xl text-sm border border-border bg-secondary/50 focus:outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground"
+                  />
+                  <p className="text-[10px] text-muted-foreground mt-1">Type your preferred colorway (optional)</p>
+                </div>
+              )}
+            </div>
 
             {/* ── Sizes ── */}
-            {shoe.sizes_available?.length > 0 && (
-              <div>
-                <div className="flex items-center gap-3 mb-2 flex-wrap">
-                  <p className="text-sm font-semibold">
-                    Size{selectedSize ? (
-                      <span className="text-muted-foreground font-normal">
-                        {" "}— <DisplaySize usSize={selectedSize} standard={sizeStandard} gender={shoe.gender} /> {sizeStandard}
-                      </span>
-                    ) : ""}
-                  </p>
-                  <SizeStandardToggle standard={sizeStandard} onChange={setSizeStandard} />
-                  <SizeConfidenceNote shoe={shoe} />
-                </div>
+            <div>
+              <div className="flex items-center gap-3 mb-2 flex-wrap">
+                <p className="text-sm font-semibold">
+                  Size{selectedSize ? (
+                    <span className="text-muted-foreground font-normal">
+                      {" "}— <DisplaySize usSize={selectedSize} standard={sizeStandard} gender={shoe.gender} /> {sizeStandard}
+                    </span>
+                  ) : ""}
+                </p>
+                <SizeStandardToggle standard={sizeStandard} onChange={setSizeStandard} />
+                <SizeConfidenceNote shoe={shoe} />
+              </div>
+              {shoe.sizes_available?.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
                   {shoe.sizes_available.map(usSize => {
                     const displaySize = sizeStandard === "US"
@@ -289,8 +300,32 @@ export default function ShoeDetail() {
                     );
                   })}
                 </div>
-              </div>
-            )}
+              ) : (
+                <div>
+                  <div className="flex flex-wrap gap-2">
+                    {(shoe.gender === "Women" ? [5,5.5,6,6.5,7,7.5,8,8.5,9,9.5,10,10.5,11] : [6,6.5,7,7.5,8,8.5,9,9.5,10,10.5,11,11.5,12,12.5,13,14]).map(usSize => {
+                      const displaySize = sizeStandard === "US"
+                        ? usSize
+                        : fromUSSize(usSize, sizeStandard, shoe.gender) || usSize;
+                      return (
+                        <button
+                          key={usSize}
+                          onClick={() => setSelectedSize(selectedSize === usSize ? null : usSize)}
+                          className={`min-w-[3rem] h-12 px-2 rounded-xl text-sm font-semibold transition-all ${
+                            selectedSize === usSize
+                              ? "bg-primary text-primary-foreground shadow-md shadow-primary/25"
+                              : "bg-secondary hover:bg-secondary/80 text-foreground"
+                          }`}
+                        >
+                          {displaySize}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-1.5">Select your size to filter by availability (standard range)</p>
+                </div>
+              )}
+            </div>
 
             {/* ── Primary CTAs ── */}
             <div className="flex gap-2">

@@ -65,8 +65,8 @@ Deno.serve(async (req) => {
       return Response.json({ ...cached, cached: true });
     }
 
-    // Step 1: Ask the LLM with web search to find real product pages
-    const result = await base44.asServiceRole.integrations.Core.InvokeLLM({
+    // Step 1: Ask the LLM with web search — hard 38s timeout so it always returns
+    const llmPromise = base44.asServiceRole.integrations.Core.InvokeLLM({
       prompt: `CRITICAL: You are a real-time price search agent. Search the web NOW for: "${q}" available in ${countryName} (${cityName}).
 
 YOUR JOB: Visit ACTUAL product pages RIGHT NOW and copy the EXACT prices, sizes, colors, and shipping info.
@@ -148,12 +148,18 @@ Also find 3 real shoe stores near ${cityName} with addresses.`,
       },
     });
 
-    // Step 2: Verify each URL actually resolves — run checks in parallel
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("LLM timeout")), 38000)
+    );
+
+    const result = await Promise.race([llmPromise, timeoutPromise]);
+
+    // Step 2: Verify URLs in parallel with a short timeout each
     const rawPicks = result?.web_picks || [];
 
     const verificationResults = await Promise.all(
       rawPicks.map(async (p) => {
-        if (!p.buy_link || !p.buy_link.startsWith("https://")) return false;
+        if (!p.buy_link || !p.buy_link.startsWith("https://")) return true; // keep if no URL to verify
         return verifyUrl(p.buy_link);
       })
     );
@@ -162,7 +168,8 @@ Also find 3 real shoe stores near ${cityName} with addresses.`,
     const filteredPicks = rawPicks
       .filter((p, idx) => {
         if (!p.retailer) return false;
-        if (!verificationResults[idx]) return false; // drop unverified URLs
+        // Only drop if URL is present but unreachable — keep entries with no URL
+        if (p.buy_link && !verificationResults[idx]) return false;
         const key = (p.retailer + (p.name || '')).toLowerCase();
         if (seen.has(key)) return false;
         seen.add(key);
