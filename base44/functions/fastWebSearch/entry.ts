@@ -53,17 +53,17 @@ Deno.serve(async (req) => {
     const retailers = getRetailerSearchUrls(q, cc);
     const retailerList = retailers.map(r => `- ${r.retailer}: ${r.searchUrl}`).join('\n');
 
-    const prompt = `You are a shopping price checker. Search each of these retailer websites for "${q}" and return ONLY the ones where you can confirm a real price:
+    const prompt = `You are a shopping price checker. For "${q}", check each retailer's search page below and return the price shown in the search results:
 
 ${retailerList}
 
 RULES:
-- Visit each retailer and find the actual product page for "${q}".
-- Only return a retailer if you found a real price on their site. Skip it if the shoe is not listed.
-- Copy the exact price as shown (e.g. ₪529.90, $89.99). Never estimate or guess.
-- For buy_link use the direct product page URL.
-- Set price_confidence="high" if from a product page, "medium" if from search results listing.
-- Do NOT return entries with empty or made-up prices.`;
+- Use the search URLs provided — do NOT navigate to individual product pages.
+- Read the price directly from the search results listing.
+- Only return a retailer if a real price is visible. Skip if no results.
+- Copy prices exactly as shown (e.g. ₪529.90, $89.99). Never guess.
+- For buy_link use the search URL provided.
+- Set price_confidence="medium" for all results.`;
 
     const schema = {
       type: "object",
