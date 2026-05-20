@@ -26,6 +26,15 @@
       "type": "number",
       "title": "Current Price"
     },
+    "target_price": {
+      "type": "number",
+      "title": "Target Alert Price"
+    },
+    "alert_sent_at": {
+      "type": "string",
+      "title": "Last Alert Sent At",
+      "format": "date-time"
+    },
     "category": {
       "type": "string",
       "title": "Category"
@@ -40,19 +49,5 @@
     "shoe_id",
     "shoe_name",
     "tracked_price"
-  ],
-  "rls": {
-    "create": {
-      "created_by": "{{user.email}}"
-    },
-    "read": {
-      "created_by": "{{user.email}}"
-    },
-    "update": {
-      "created_by": "{{user.email}}"
-    },
-    "delete": {
-      "created_by": "{{user.email}}"
-    }
-  }
+  ]
 }
