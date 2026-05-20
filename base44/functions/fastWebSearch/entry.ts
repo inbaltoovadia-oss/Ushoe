@@ -41,7 +41,7 @@ function getRetailerSearchUrls(query, countryCode) {
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-    const { query, city, country, countryCode } = await req.json();
+    const { query, city, country, countryCode, optimizeBy = 'best_deal' } = await req.json();
 
     if (!query || !query.trim()) return Response.json({ web_picks: [], nearby_stores: [] });
 
@@ -49,6 +49,7 @@ Deno.serve(async (req) => {
     const cc = (countryCode || 'US').toUpperCase();
     const countryName = country || 'United States';
     const cityName = city || countryName;
+    const optimizeMode = optimizeBy || 'best_deal';
 
     const cacheKey = `${q}::${cc}::${cityName}`.toLowerCase().replace(/\s+/g, '_');
     const cached = cacheGet(cacheKey);
@@ -57,9 +58,18 @@ Deno.serve(async (req) => {
     const retailers = getRetailerSearchUrls(q, cc);
 
     const locationHint = cc === 'IL' ? 'Israel' : countryName;
+    
+    const optimizeInstructions = optimizeMode === 'fastest_shipping' 
+      ? "Prioritize retailers with fastest shipping times. Include shipping speed info for each."
+      : optimizeMode === 'closest'
+      ? "Prioritize retailers with physical stores closest to the user location."
+      : "Prioritize the best prices and biggest discounts.";
+    
     const prompt = `Search Google Shopping for: "${q} ${locationHint}"
 
-Return the top 3 results with a real price. For each: retailer name, exact price (e.g. ₪529.90), direct product URL, in_stock true/false. Only include results with a visible price. Never guess prices. price_confidence="high".`;
+${optimizeInstructions}
+
+Return the top 3 results with a real price. For each: retailer name, exact price (e.g. ₪529.90), direct product URL, in_stock true/false, shipping speed if available. Only include results with a visible price. Never guess prices. price_confidence="high".`;
 
     const schema = {
       type: "object",

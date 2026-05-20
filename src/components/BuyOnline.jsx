@@ -70,6 +70,7 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
   const [sizeStandard, setSizeStandard] = useState("US");
   const [loc, setLoc]                 = useState(getLocation());
   const [copied, setCopied]           = useState(false);
+  const [optimizeBy, setOptimizeBy]   = useState("best_deal"); // best_deal, fastest_shipping, closest
 
   useEffect(() => subscribeLocation(setLoc), []);
 
@@ -95,6 +96,7 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
       size: selectedSize,
       color: selectedColor,
       countryCode: loc.countryCode,
+      optimizeBy,
     };
 
     // Run only ONE search — deal agent gets all retailer data including stock
@@ -143,6 +145,20 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
           )}
         </div>
 
+        {/* Optimize by selector */}
+        <div className="flex items-center gap-2">
+          <label className="text-xs font-medium text-muted-foreground">Optimize by:</label>
+          <select
+            value={optimizeBy}
+            onChange={(e) => setOptimizeBy(e.target.value)}
+            className="text-xs px-2 py-1.5 rounded-lg bg-secondary border border-border/50 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+          >
+            <option value="best_deal">Best Deal</option>
+            <option value="fastest_shipping">Fastest Shipping</option>
+            <option value="closest">Closest Store</option>
+          </select>
+        </div>
+
         <button
           onClick={() => { setStarted(true); load(); }}
           className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
@@ -187,6 +203,20 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
       <div className="flex items-center justify-between flex-wrap gap-2">
         <SizeStandardToggle standard={sizeStandard} onChange={setSizeStandard} />
         <LocationInput onLocated={() => { setStarted(false); }} compact />
+      </div>
+
+      {/* Optimize by selector */}
+      <div className="flex items-center gap-2">
+        <label className="text-xs font-medium text-muted-foreground">Optimize by:</label>
+        <select
+          value={optimizeBy}
+          onChange={(e) => setOptimizeBy(e.target.value)}
+          className="text-xs px-2 py-1.5 rounded-lg bg-secondary border border-border/50 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+        >
+          <option value="best_deal">Best Deal</option>
+          <option value="fastest_shipping">Fastest Shipping</option>
+          <option value="closest">Closest Store</option>
+        </select>
       </div>
 
       {/* Step-by-step guide */}

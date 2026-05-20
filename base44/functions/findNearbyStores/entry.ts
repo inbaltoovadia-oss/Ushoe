@@ -100,7 +100,7 @@ Return 5 stores minimum. All addresses must be real.`;
         base44.asServiceRole.integrations.Core.InvokeLLM({
           prompt,
           add_context_from_internet: true,
-          model: 'gemini_3_1_pro',
+          model: 'gemini_3_flash', // Faster model
           response_json_schema: {
             type: 'object',
             properties: {
@@ -127,7 +127,7 @@ Return 5 stores minimum. All addresses must be real.`;
             }
           }
         }),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 160000))
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 45000)) // 45s timeout
       ]);
     } catch {
       aiResult = null;

@@ -7,7 +7,7 @@
 import { base44 } from "@/api/base44Client";
 import { getCachedDeals, setCachedDeals } from "./agentCache";
 
-export async function runDealAgent({ shoe, city, size = null, color = null, countryCode = "" }) {
+export async function runDealAgent({ shoe, city, size = null, color = null, countryCode = "", optimizeBy = "best_deal" }) {
   const cached = getCachedDeals(shoe.id, city, size, color);
   if (cached) return cached;
 
@@ -23,6 +23,7 @@ export async function runDealAgent({ shoe, city, size = null, color = null, coun
     city,
     country,
     countryCode: code,
+    optimizeBy,
   });
 
   const data = res?.data || res || {};
