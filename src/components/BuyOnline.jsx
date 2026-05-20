@@ -14,6 +14,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { getLocation, subscribeLocation } from "../lib/locationStore";
 import { runDealAgent } from "../lib/dealAgent";
 import { formatLocalPrice, getCurrencyForCountry } from "../lib/currencyConverter";
+import { clearAllAgentCache } from "../lib/agentCache";
 import SearchingState from "./SearchingState";
 import { getRetailersForCountry } from "../lib/retailerDirectory";
 import SizeStandardToggle, { DisplaySize } from "./SizeStandardToggle";
@@ -82,7 +83,8 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
     setCopied(false);
   }, [shoe?.id]);
 
-  const load = async () => {
+  const load = async (clearCache = false) => {
+    if (clearCache) clearAllAgentCache();
     setLoading(true);
     setRetailers([]);
     setDealsDone(false);
@@ -99,8 +101,6 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
 
     // Run only ONE search — deal agent gets all retailer data including stock
     const dealResult = await runDealAgent(agentArgs);
-    console.log('Deal result:', dealResult);
-    console.log('Retailers:', dealResult.retailers);
     setDealSummary(dealResult.summary);
     setBestPrice(dealResult.best_price_found);
     setDealsDone(true);
@@ -146,7 +146,7 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
         </div>
 
         <button
-          onClick={() => { setStarted(true); load(); }}
+          onClick={() => { setStarted(true); load(true); }}
           className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
         >
           <Globe className="w-4 h-4" />
@@ -285,7 +285,7 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
       </AnimatePresence>
 
       {!loading && (
-        <button onClick={load} className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mx-auto">
+        <button onClick={() => { clearAllAgentCache(); load(); }} className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mx-auto">
           <RefreshCw className="w-3.5 h-3.5" />
           Re-run search
         </button>

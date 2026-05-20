@@ -76,7 +76,7 @@ export async function runDealAgent({ shoe, city, size = null, color = null, coun
   const hasDeal = retailers.some(r => r.discount_pct > 0);
 
   const summary = bestRetailer
-    ? `Best price: ${bestRetailer.deal_price} at ${bestRetailer.retailer_name}${bestRetailer.discount_pct > 0 ? ` (${bestRetailer.discount_pct}% off)` : ""}`
+    ? `Best price: ${bestRetailer.price || bestRetailer.deal_price} at ${bestRetailer.retailer_name}${bestRetailer.discount_pct > 0 ? ` (${bestRetailer.discount_pct}% off)` : ""}`
     : retailers.length > 0
     ? `Found ${retailers.length} retailer${retailers.length > 1 ? "s" : ""} carrying this shoe`
     : "";
