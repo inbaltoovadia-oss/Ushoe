@@ -102,49 +102,45 @@ ${historyText ? `CONVERSATION:\n${historyText}\n` : ''}User: ${message}`;
         web_recommendations: [],
       };
     } else {
-      // Use LLM for actual shoe queries with 15s timeout for web search
-      const timeoutMs = doWebSearch ? 15000 : 10000;
+      // Use Gemini Flash for real conversations with no timeout (supports multitasking)
       try {
-        aiResponse = await Promise.race([
-          base44.asServiceRole.integrations.Core.InvokeLLM({
-            prompt: fullPrompt,
-            add_context_from_internet: doWebSearch,
-            model: 'gemini_3_flash',
-            response_json_schema: {
-              type: 'object',
-              properties: {
-                reply:               { type: 'string' },
-                best_pick_index:     { type: 'number' },
-                follow_up_questions: { type: 'array', items: { type: 'string' } },
-                web_recommendations: {
-                  type: 'array',
-                  items: {
-                    type: 'object',
-                    properties: {
-                      name:          { type: 'string' },
-                      brand:         { type: 'string' },
-                      price:         { type: 'string' },
-                      retailer:      { type: 'string' },
-                      buy_link:      { type: 'string' },
-                      ships_to_user: { type: 'boolean' },
-                      why:           { type: 'string' },
-                    }
+        aiResponse = await base44.asServiceRole.integrations.Core.InvokeLLM({
+          prompt: fullPrompt,
+          add_context_from_internet: doWebSearch,
+          model: 'gemini_3_flash',
+          response_json_schema: {
+            type: 'object',
+            properties: {
+              reply:               { type: 'string' },
+              best_pick_index:     { type: 'number' },
+              follow_up_questions: { type: 'array', items: { type: 'string' } },
+              web_recommendations: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    name:          { type: 'string' },
+                    brand:         { type: 'string' },
+                    price:         { type: 'string' },
+                    retailer:      { type: 'string' },
+                    buy_link:      { type: 'string' },
+                    ships_to_user: { type: 'boolean' },
+                    why:           { type: 'string' },
                   }
-                },
-              }
+                }
+              },
             }
-          }),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), timeoutMs))
-        ]);
-      } catch (timeoutError) {
-        // Graceful fallback on timeout
+          }
+        });
+      } catch (error) {
+        // Graceful fallback on error
         aiResponse = {
           reply: doWebSearch 
-            ? "Web search is taking longer than expected. Try again or switch to catalog mode!"
-            : "I'm having trouble reaching the servers. Try again!",
+            ? "I'm having trouble reaching the servers. Try again!"
+            : "I couldn't find a good answer. Try rephrasing!",
           best_pick_index: -1,
           follow_up_questions: doWebSearch 
-            ? ["Try catalog mode", "Search a specific brand", "What's your budget?"]
+            ? ["Try again", "Search a specific brand", "What's your budget?"]
             : ["Try again", "What's your budget?", "Running or casual?"],
           web_recommendations: [],
         };
