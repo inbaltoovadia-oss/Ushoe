@@ -7,21 +7,28 @@ import { useState, useEffect } from "react";
 import { Globe, Loader2, Zap } from "lucide-react";
 
 const STEPS = [
-  "Connecting to live retailer feeds…",
-  "Checking prices in your region…",
-  "Comparing deals across retailers…",
-  "Almost there, finalizing results…",
+  { msg: "Connecting to live retailer feeds…", detail: "nike.com/il, footlocker.co.il, terminalx.com" },
+  { msg: "Fetching real-time prices…", detail: "Reading live product pages" },
+  { msg: "Checking sizes & availability…", detail: "Comparing stock across stores" },
+  { msg: "Sorting best deals for you…", detail: "Ranking by price & shipping" },
+  { msg: "Almost there…", detail: "Finalizing results" },
 ];
 
 export default function SearchingState({ city, shoe }) {
   const [step, setStep] = useState(0);
+  const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
-    const interval = setInterval(() => {
+    const stepInterval = setInterval(() => {
       setStep(s => Math.min(s + 1, STEPS.length - 1));
-    }, 7000);
-    return () => clearInterval(interval);
+    }, 10000);
+    const elapsedInterval = setInterval(() => {
+      setElapsed(e => e + 1);
+    }, 1000);
+    return () => { clearInterval(stepInterval); clearInterval(elapsedInterval); };
   }, []);
+
+  const progressPct = Math.min(95, (elapsed / 60) * 100);
 
   return (
     <div className="space-y-4 py-2">
@@ -32,8 +39,8 @@ export default function SearchingState({ city, shoe }) {
           <Loader2 className="w-3 h-3 text-primary animate-spin absolute -top-1 -right-1" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-semibold text-foreground truncate">{STEPS[step]}</p>
-          <p className="text-[10px] text-muted-foreground">Searching live for {shoe?.name} near {city}</p>
+          <p className="text-xs font-semibold text-foreground truncate">{STEPS[step].msg}</p>
+          <p className="text-[10px] text-muted-foreground">{STEPS[step].detail}</p>
         </div>
         <Zap className="w-4 h-4 text-amber-500 flex-shrink-0 animate-pulse" />
       </div>
@@ -54,8 +61,16 @@ export default function SearchingState({ city, shoe }) {
         </div>
       ))}
 
+      {/* Progress bar */}
+      <div className="w-full h-1.5 bg-secondary rounded-full overflow-hidden">
+        <div
+          className="h-full bg-primary rounded-full transition-all duration-1000"
+          style={{ width: `${progressPct}%` }}
+        />
+      </div>
+
       <p className="text-[10px] text-muted-foreground text-center">
-        Live web search active — this takes ~20–30 seconds once, then results are cached instantly
+        Live web search — scanning retailers for real prices ({elapsed}s)… cached after first load
       </p>
     </div>
   );

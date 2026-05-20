@@ -1,31 +1,25 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
-// In-memory cache: key → { data, ts }
 const CACHE = new Map();
-const CACHE_TTL = 20 * 60 * 1000; // 20 minutes — fresh prices
+const CACHE_TTL = 20 * 60 * 1000;
 
-function cacheGet(key) {
-  const entry = CACHE.get(key);
-  if (!entry) return null;
-  if (Date.now() - entry.ts > CACHE_TTL) { CACHE.delete(key); return null; }
-  return entry.data;
+function cacheGet(k) {
+  const e = CACHE.get(k);
+  if (!e) return null;
+  if (Date.now() - e.ts > CACHE_TTL) { CACHE.delete(k); return null; }
+  return e.data;
 }
-function cacheSet(key, data) {
-  CACHE.set(key, { data, ts: Date.now() });
-  if (CACHE.size > 200) {
-    const oldest = CACHE.keys().next().value;
-    CACHE.delete(oldest);
-  }
+function cacheSet(k, data) {
+  CACHE.set(k, { data, ts: Date.now() });
+  if (CACHE.size > 200) CACHE.delete(CACHE.keys().next().value);
 }
 
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-    const { query, category, city, country, countryCode } = await req.json();
+    const { query, city, country, countryCode } = await req.json();
 
-    if (!query || !query.trim()) {
-      return Response.json({ web_picks: [], nearby_stores: [] });
-    }
+    if (!query || !query.trim()) return Response.json({ web_picks: [], nearby_stores: [] });
 
     const q = query.trim();
     const cc = (countryCode || 'US').toUpperCase();
@@ -33,104 +27,77 @@ Deno.serve(async (req) => {
     const cityName = city || countryName;
     const isIsrael = cc === 'IL';
 
-    const cacheKey = `${q}::${cc}::${cityName}`.toLowerCase().replace(/\s+/g, '_');
-    const cached = cacheGet(cacheKey);
-    if (cached) {
-      return Response.json({ ...cached, cached: true });
-    }
+    const key = `${q}::${cc}::${cityName}`.toLowerCase().replace(/\s+/g, '_');
+    const cached = cacheGet(key);
+    if (cached) return Response.json({ ...cached, cached: true });
 
-    const retailerList = isIsrael
-      ? 'Nike Israel (nike.com/il), Adidas Israel (adidas.co.il), Foot Locker Israel (footlocker.co.il), Terminal X (terminalx.com), Dynamica (dynamica.co.il), AC Sports (acsports.co.il), Sport Active'
-      : `Nike, Adidas, Foot Locker, JD Sports, Size?, Offspring, Zalando, ASOS`;
+    const retailers = isIsrael
+      ? 'nike.com/il, footlocker.co.il, terminalx.com, acsports.co.il, adidas.co.il'
+      : 'nike.com, footlocker.com, adidas.com, jdsports.co.uk, zalando.com';
 
-    const currencyNote = isIsrael ? 'ILS (₪)' : 'local currency';
+    const prompt = `Search these retailers RIGHT NOW for "${q}" in ${countryName}: ${retailers}
+Return max 5 results with LIVE prices in ${isIsrael ? '₪ ILS' : '$ USD'}.
+For each: price (exact with ₪), original_price (sale was-price or same), buy_link (real product URL https://...), sizes_available (array of EU size numbers), colors_available (array of color strings), in_stock, estimated_shipping, price_confidence (high=seen on page/medium=estimated), is_best_deal (true for cheapest only), retailer name.`;
 
-    const prompt = `You are a REAL-TIME price search agent. Search the web RIGHT NOW for: "${q}" in ${countryName} (${cityName}).
-
-Search these retailers: ${retailerList}
-
-For each retailer, go to their website and find the ACTUAL CURRENT price. Return 5-7 results.
-
-ACCURACY RULES:
-- price: copy the EXACT number from the page with currency symbol (e.g. "₪529", "$120", "€95") in ${currencyNote}
-- original_price: the crossed-out/was-price if on sale, else same as price
-- buy_link: the real product page URL — must start with https://
-- in_stock: only true if actually available now
-- sizes_available: list of numeric sizes shown as available (e.g. [40, 41, 42, 43])
-- colors_available: color names on the page (e.g. ["White/White", "Black"])
-- estimated_shipping: exact shipping info (e.g. "Free shipping", "₪25 - 3-5 days")
-- price_confidence: "high" if you saw the price on the page, "medium" if from snippet
-- is_best_deal: true only for the cheapest option
-
-Also return 3 nearby shoe stores in ${cityName} with real addresses and phone numbers.`;
-
-    const result = await Promise.race([
-      base44.asServiceRole.integrations.Core.InvokeLLM({
-        prompt,
-        add_context_from_internet: true,
-        model: "gemini_3_flash",
-        response_json_schema: {
-          type: "object",
-          properties: {
-            web_picks: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  name:               { type: "string" },
-                  brand:              { type: "string" },
-                  price:              { type: "string" },
-                  original_price:     { type: "string" },
-                  currency:           { type: "string" },
-                  retailer:           { type: "string" },
-                  buy_link:           { type: "string" },
-                  ships_to_user:      { type: "boolean" },
-                  estimated_shipping: { type: "string" },
-                  in_stock:           { type: "boolean" },
-                  sizes_available:    { type: "array", items: { type: "number" } },
-                  colors_available:   { type: "array", items: { type: "string" } },
-                  is_best_deal:       { type: "boolean" },
-                  price_confidence:   { type: "string" },
-                  discount_percent:   { type: "number" },
-                  price_fetched_at:   { type: "string" },
-                },
-                required: ["name", "brand", "price", "currency", "retailer", "buy_link", "in_stock"],
+    const result = await base44.asServiceRole.integrations.Core.InvokeLLM({
+      prompt,
+      add_context_from_internet: true,
+      model: "gemini_3_flash",
+      response_json_schema: {
+        type: "object",
+        properties: {
+          web_picks: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                name:               { type: "string" },
+                brand:              { type: "string" },
+                price:              { type: "string" },
+                original_price:     { type: "string" },
+                currency:           { type: "string" },
+                retailer:           { type: "string" },
+                buy_link:           { type: "string" },
+                ships_to_user:      { type: "boolean" },
+                estimated_shipping: { type: "string" },
+                in_stock:           { type: "boolean" },
+                sizes_available:    { type: "array", items: { type: "number" } },
+                colors_available:   { type: "array", items: { type: "string" } },
+                is_best_deal:       { type: "boolean" },
+                price_confidence:   { type: "string" },
+                discount_percent:   { type: "number" },
               },
+              required: ["name", "brand", "price", "currency", "retailer", "buy_link", "in_stock"],
             },
-            nearby_stores: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  name:        { type: "string" },
-                  address:     { type: "string" },
-                  distance_km: { type: "number" },
-                  phone:       { type: "string" },
-                  maps_url:    { type: "string" },
-                },
+          },
+          nearby_stores: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                name:     { type: "string" },
+                address:  { type: "string" },
+                phone:    { type: "string" },
+                maps_url: { type: "string" },
               },
             },
           },
         },
-      }),
-      new Promise((_, reject) => setTimeout(() => reject(new Error("LLM timeout")), 55000))
-    ]);
+      },
+    });
 
     const rawPicks = result?.web_picks || [];
-
-    // Deduplicate by retailer
     const seen = new Set();
     const filteredPicks = rawPicks
       .filter(p => {
         if (!p.retailer || !p.price) return false;
-        const key = p.retailer.toLowerCase();
-        if (seen.has(key)) return false;
-        seen.add(key);
+        const k = p.retailer.toLowerCase();
+        if (seen.has(k)) return false;
+        seen.add(k);
         return true;
       })
       .map(p => ({ ...p, price_fetched_at: new Date().toISOString() }));
 
-    // Mark cheapest as best deal if none flagged
     if (filteredPicks.length > 0 && !filteredPicks.some(p => p.is_best_deal)) {
       const prices = filteredPicks.map(p => parseFloat((p.price || '0').replace(/[^0-9.]/g, '')) || Infinity);
       const minIdx = prices.indexOf(Math.min(...prices));
@@ -138,7 +105,7 @@ Also return 3 nearby shoe stores in ${cityName} with real addresses and phone nu
     }
 
     const filteredStores = (result?.nearby_stores || [])
-      .filter(s => s.name && s.address && s.address.length > 5)
+      .filter(s => s.name && s.address)
       .map(s => ({
         ...s,
         maps_url: s.maps_url || `https://www.google.com/maps/search/${encodeURIComponent(`${s.name} ${s.address}`)}`,
@@ -151,7 +118,7 @@ Also return 3 nearby shoe stores in ${cityName} with real addresses and phone nu
       fetched_at: new Date().toISOString(),
     };
 
-    cacheSet(cacheKey, response);
+    if (filteredPicks.length > 0) cacheSet(key, response);
     return Response.json(response);
 
   } catch (error) {
