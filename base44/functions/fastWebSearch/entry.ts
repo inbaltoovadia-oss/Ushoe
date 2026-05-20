@@ -54,19 +54,19 @@ Deno.serve(async (req) => {
     const retailers = getRetailerSearchUrls(q, cc);
     const retailerList = retailers.map(r => `- ${r.retailer}: ${r.searchUrl}`).join('\n');
 
-    // Use Gemini 3.1 Pro with live web search to get real prices directly from retailer pages
-    const prompt = `You are a shopping assistant. Search the web RIGHT NOW and visit each of these retailer websites to find the current price and stock of "${q}" in ${countryName}:
+    // Use Gemini Flash with live web search — search by shoe name only (no size/color = better results)
+    const prompt = `You are a shopping assistant. Search the web RIGHT NOW for "${q}" and visit each of these retailer websites to find the exact current price:
 
 ${retailerList}
 
 CRITICAL INSTRUCTIONS:
-1. Actually visit each retailer's website and find the product page for "${q}".
-2. Copy the price EXACTLY as shown on the page (e.g. ₪529.90, $89.99 — character for character, do NOT round).
-3. For buy_link: use the EXACT product page URL you visited. If you cannot find a product page, use the search URL listed above — it is guaranteed to work.
-4. Report in_stock as true/false based on what you see on the page.
-5. Copy the exact sizes available as shown on the page (EU or US numbers).
-6. If a retailer's page is unavailable or the product is not listed, still include that retailer using their search URL as buy_link and set price_confidence="low".
-7. Return AT LEAST 3 retailers.
+1. Search ONLY by the shoe name "${q}" — do NOT add size or color to your search, it causes "no results found" errors.
+2. Visit each retailer's product page and COPY the price character-for-character as shown (e.g. ₪529.90, $89.99 — do NOT round or estimate).
+3. For buy_link: COPY the EXACT URL from your browser address bar of the product page you visited. If no product page found, use the search URL above.
+4. ONLY include retailers that actually sell this specific shoe. If a retailer does not carry "${q}", skip them entirely — do NOT include them with a low confidence score.
+5. Report in_stock as true/false based on what you see.
+6. Copy exact sizes available from the page (EU or US numbers).
+7. Return ONLY retailers where you found the actual product listed for sale.
 8. Mark is_best_deal=true for the single cheapest verified price.`;
 
     const llmResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
@@ -126,19 +126,14 @@ CRITICAL INSTRUCTIONS:
       return p;
     });
 
-    // Pad to at least 3 results using guaranteed search URLs
-    for (const r of retailers) {
-      if (finalPicks.length >= 3) break;
-      const alreadyHave = finalPicks.some(p =>
-        p.retailer.toLowerCase().includes(r.retailer.toLowerCase().split(' ')[0]) ||
-        r.retailer.toLowerCase().includes(p.retailer.toLowerCase().split(' ')[0])
-      );
-      if (!alreadyHave) {
+    // Only pad if we have zero results — avoid force-adding stores that don't carry the shoe
+    if (finalPicks.length === 0) {
+      for (const r of retailers.slice(0, 3)) {
         finalPicks.push({
           name: q, brand: '', price: '', original_price: '',
           currency: cc === 'IL' ? 'ILS' : 'USD',
           retailer: r.retailer, buy_link: r.searchUrl,
-          in_stock: true, estimated_shipping: '',
+          in_stock: null, estimated_shipping: '',
           sizes_available: [], colors_available: [],
           is_best_deal: false, price_confidence: 'low', discount_percent: 0,
         });

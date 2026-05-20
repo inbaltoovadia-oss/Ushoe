@@ -14,9 +14,8 @@ export async function runDealAgent({ shoe, city, size = null, color = null, coun
   const country = shoe._country || "United States";
   const code = countryCode || shoe._countryCode || "US";
 
-  const sizeStr = size ? ` US size ${size}` : "";
-  const colorStr = (color || shoe.colorway) ? ` ${color || shoe.colorway}` : "";
-  const query = `${shoe.brand} ${shoe.name}${colorStr}${sizeStr} buy`;
+  // Search by shoe name only — adding size/color causes "no results found" on retailer sites
+  const query = `${shoe.brand} ${shoe.name} buy`;
 
   const res = await base44.functions.invoke('fastWebSearch', {
     query,
