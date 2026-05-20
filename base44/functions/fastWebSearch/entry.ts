@@ -93,11 +93,10 @@ RULES:
       },
     };
 
-    // gemini_3_1_pro for cent-accurate prices with live browsing — no timeout
     const llmResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
       prompt,
       add_context_from_internet: true,
-      model: "gemini_3_1_pro",
+      model: "gemini_3_flash",
       response_json_schema: schema,
     });
 
