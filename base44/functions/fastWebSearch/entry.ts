@@ -35,9 +35,17 @@ Deno.serve(async (req) => {
       ? 'nike.com/il, footlocker.co.il, terminalx.com, acsports.co.il, adidas.co.il'
       : 'nike.com, footlocker.com, adidas.com, jdsports.co.uk, zalando.com';
 
-    const prompt = `Search these retailers RIGHT NOW for "${q}" in ${countryName}: ${retailers}
-Return max 5 results with LIVE prices in ${isIsrael ? '₪ ILS' : '$ USD'}.
-For each: price (exact with ₪), original_price (sale was-price or same), buy_link (real product URL https://...), sizes_available (array of EU size numbers), colors_available (array of color strings), in_stock, estimated_shipping, price_confidence (high=seen on page/medium=estimated), is_best_deal (true for cheapest only), retailer name.`;
+    const prompt = `Go to each of these retailer websites NOW and find "${q}" for sale in ${countryName}: ${retailers}
+
+CRITICAL INSTRUCTIONS:
+- Visit each website and COPY the EXACT price shown on the product page. Do NOT estimate, round, or guess prices.
+- If the price on the page is ₪529, return "₪529". If it says ₪499.90, return "₪499.90". Copy it character for character.
+- Only return a result for a retailer if you actually saw the product page and confirmed the price.
+- Set price_confidence="high" ONLY if you saw the exact price on the page. Use "low" if you are guessing.
+- Return the real product URL (the direct product page URL, not homepage).
+- Return prices in ${isIsrael ? '₪ ILS (Israeli Shekel)' : '$ USD'}.
+
+For each result include: price (copied exactly from page), original_price (the crossed-out "was" price if on sale, otherwise same as price), buy_link (direct product URL), sizes_available (EU sizes shown on page), colors_available, in_stock, estimated_shipping, price_confidence, is_best_deal (true only for lowest price), retailer name, brand, name.`;
 
     const result = await base44.asServiceRole.integrations.Core.InvokeLLM({
       prompt,
