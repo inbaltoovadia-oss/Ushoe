@@ -20,21 +20,21 @@ function getRetailerSearchUrls(query, countryCode) {
   const q = encodeURIComponent(query);
   if (countryCode === 'IL') {
     return [
-      { retailer: 'Nike Israel',        searchUrl: `https://www.nike.com/il/w?q=${q}&vst=${q}` },
-      { retailer: 'Foot Locker Israel', searchUrl: `https://footlocker.co.il/search?q=${q}` },
       { retailer: 'Terminal X',         searchUrl: `https://www.terminalx.com/catalogsearch/result/?q=${q}` },
-      { retailer: 'AC Sports',          searchUrl: `https://www.acsports.co.il/search?q=${q}` },
-      { retailer: 'Shilav',             searchUrl: `https://www.shilav.co.il/search?q=${q}` },
+      { retailer: 'Foot Locker Israel', searchUrl: `https://footlocker.co.il/search?q=${q}` },
       { retailer: 'Fox Shoes',          searchUrl: `https://www.foxshoes.co.il/search?q=${q}` },
+      { retailer: 'Shilav',             searchUrl: `https://www.shilav.co.il/search?q=${q}` },
+      { retailer: 'Intisport',          searchUrl: `https://www.intisport.co.il/search?q=${q}` },
+      { retailer: 'Sport Depot',        searchUrl: `https://www.sport-depot.co.il/search?q=${q}` },
     ];
   }
   return [
-    { retailer: 'Nike',        searchUrl: `https://www.nike.com/w?q=${q}&vst=${q}` },
     { retailer: 'Foot Locker', searchUrl: `https://www.footlocker.com/search?query=${q}` },
-    { retailer: 'Adidas',      searchUrl: `https://www.adidas.com/us/search?q=${q}` },
     { retailer: 'JD Sports',   searchUrl: `https://www.jdsports.com/search/jdsports/${q}/` },
     { retailer: 'Zappos',      searchUrl: `https://www.zappos.com/search/term/${q}` },
     { retailer: 'Finish Line', searchUrl: `https://www.finishline.com/store/browse/search.jsp?query=${q}` },
+    { retailer: 'DSW',         searchUrl: `https://www.dsw.com/en/us/search?q=${q}` },
+    { retailer: 'Amazon',      searchUrl: `https://www.amazon.com/s?k=${q}` },
   ];
 }
 

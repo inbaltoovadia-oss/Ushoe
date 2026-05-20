@@ -6,14 +6,14 @@
  */
 
 const RETAILER_BY_REGION = {
-  // Israel — verified multi-brand resellers
+  // Israel — verified multi-brand resellers with physical stores
   IL: [
-    { name: "Fox Shoes",   domain: "https://www.foxshoes.co.il", searchPath: "/search?q={query}" },
-    { name: "Ace",         domain: "https://www.ace.co.il",      searchPath: "/catalogsearch/result/?q={query}" },
-    { name: "Shilav",      domain: "https://www.shilav.co.il",   searchPath: "/search?q={query}" },
-    { name: "Intisport",   domain: "https://www.intisport.co.il",searchPath: "/search?q={query}" },
-    { name: "Terminal X",  domain: "https://www.terminalx.com",  searchPath: "/search?q={query}" },
-    { name: "Sport Depot", domain: "https://www.sport-depot.co.il", searchPath: "/search?q={query}" },
+    { name: "Terminal X",      domain: "https://www.terminalx.com",        searchPath: "/catalogsearch/result/?q={query}" },
+    { name: "Foot Locker Israel", domain: "https://footlocker.co.il",      searchPath: "/search?q={query}" },
+    { name: "Fox Shoes",       domain: "https://www.foxshoes.co.il",       searchPath: "/search?q={query}" },
+    { name: "Shilav",          domain: "https://www.shilav.co.il",         searchPath: "/search?q={query}" },
+    { name: "Intisport",       domain: "https://www.intisport.co.il",      searchPath: "/search?q={query}" },
+    { name: "Sport Depot",     domain: "https://www.sport-depot.co.il",    searchPath: "/search?q={query}" },
   ],
   // United States — verified multi-brand resellers
   US: [

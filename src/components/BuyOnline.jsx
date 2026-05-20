@@ -172,8 +172,9 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
           <p className="text-xs text-muted-foreground mb-2">Or search directly:</p>
           <div className="flex flex-wrap gap-2">
             {[
-              { name: "Foot Locker IL", url: "https://www.footlocker.co.il" },
-              { name: "Farfetch IL", url: "https://www.farfetch.com/il" },
+              { name: "Terminal X", url: "https://www.terminalx.com" },
+              { name: "Foot Locker IL", url: "https://footlocker.co.il" },
+              { name: "Fox Shoes", url: "https://www.foxshoes.co.il" },
             ].map(r => (
               <a
                 key={r.name}
@@ -288,10 +289,10 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
           </button>
           <div className="flex flex-wrap gap-2 justify-center mt-1">
             {[
-              { name: "Nike IL", url: `https://www.nike.com/il/search?q=${encodeURIComponent(shoe?.name || "")}` },
-              { name: "Foot Locker IL", url: `https://www.footlocker.co.il/search?query=${encodeURIComponent(shoe?.name || "")}` },
-              { name: "Terminal X", url: `https://www.terminalx.com/search?q=${encodeURIComponent(shoe?.name || "")}` },
-              { name: "AC Sports", url: `https://www.acsports.co.il/search?q=${encodeURIComponent(shoe?.name || "")}` },
+              { name: "Terminal X", url: `https://www.terminalx.com/catalogsearch/result/?q=${encodeURIComponent(shoe?.name || "")}` },
+              { name: "Foot Locker IL", url: `https://footlocker.co.il/search?q=${encodeURIComponent(shoe?.name || "")}` },
+              { name: "Fox Shoes", url: `https://www.foxshoes.co.il/search?q=${encodeURIComponent(shoe?.name || "")}` },
+              { name: "Shilav", url: `https://www.shilav.co.il/search?q=${encodeURIComponent(shoe?.name || "")}` },
               { name: "Google", url: `https://www.google.com/search?q=${encodeURIComponent(`${shoe?.brand || ""} ${shoe?.name || ""} buy Israel`)}` },
             ].map(r => (
               <a key={r.name} href={r.url} target="_blank" rel="noopener noreferrer"
