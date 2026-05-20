@@ -15,14 +15,17 @@ function cacheSet(k, data) {
 }
 
 // Guaranteed working search page URLs — used as fallback buy_link (never 404)
+// Only trusted verified brands with real working URLs
 function getRetailerSearchUrls(query, countryCode) {
   const q = encodeURIComponent(query);
   if (countryCode === 'IL') {
     return [
       { retailer: 'Nike Israel',        searchUrl: `https://www.nike.com/il/w?q=${q}&vst=${q}` },
       { retailer: 'Foot Locker Israel', searchUrl: `https://footlocker.co.il/search?q=${q}` },
+      { retailer: 'Terminal X',         searchUrl: `https://www.terminalx.com/catalogsearch/result/?q=${q}` },
       { retailer: 'AC Sports',          searchUrl: `https://www.acsports.co.il/search?q=${q}` },
       { retailer: 'Shilav',             searchUrl: `https://www.shilav.co.il/search?q=${q}` },
+      { retailer: 'Fox Shoes',          searchUrl: `https://www.foxshoes.co.il/search?q=${q}` },
     ];
   }
   return [
@@ -30,7 +33,8 @@ function getRetailerSearchUrls(query, countryCode) {
     { retailer: 'Foot Locker', searchUrl: `https://www.footlocker.com/search?query=${q}` },
     { retailer: 'Adidas',      searchUrl: `https://www.adidas.com/us/search?q=${q}` },
     { retailer: 'JD Sports',   searchUrl: `https://www.jdsports.com/search/jdsports/${q}/` },
-    { retailer: 'Zappos',      searchUrl: `https://www.zappos.com/search?term=${q}` },
+    { retailer: 'Zappos',      searchUrl: `https://www.zappos.com/search/term/${q}` },
+    { retailer: 'Finish Line', searchUrl: `https://www.finishline.com/store/browse/search.jsp?query=${q}` },
   ];
 }
 
@@ -94,9 +98,12 @@ Return the top 3 results with a real price. For each: retailer name, exact price
 
     const rawPicks = llmResult?.web_picks || [];
 
-    // Filter out results with no real price (accuracy check)
+    // Filter out results with no real price or invalid retailer names (accuracy check)
     const validPicks = rawPicks.filter(p => {
       if (!p.retailer) return false;
+      // Filter out generic/invalid retailer names
+      const invalidRetailers = ['buy online', 'online store', 'shop now', 'buy now', 'retailer', 'store', 'website'];
+      if (invalidRetailers.includes(p.retailer.toLowerCase().trim())) return false;
       if (!p.price || p.price.trim() === '') return false;
       // Must have a numeric price extractable
       const num = parseFloat((p.price || '').replace(/[^0-9.]/g, ''));
