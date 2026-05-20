@@ -51,19 +51,21 @@ Deno.serve(async (req) => {
     if (cached) return Response.json({ ...cached, cached: true });
 
     const retailers = getRetailerSearchUrls(q, cc);
-    const retailerList = retailers.map(r => `- ${r.retailer}: ${r.searchUrl}`).join('\n');
 
-    const prompt = `You are a shopping price checker. For "${q}", check each retailer's search page below and return the price shown in the search results:
+    const locationHint = cc === 'IL' ? 'Israel' : countryName;
+    const prompt = `Search Google Shopping or Google Search for: "${q} buy ${locationHint}"
 
-${retailerList}
+Return the top 4 results that show a real price. For each result give:
+- retailer name
+- exact price as shown (e.g. ₪529.90, $89.99)  
+- the direct product URL (buy_link)
+- whether it's in stock
 
 RULES:
-- Use the search URLs provided — do NOT navigate to individual product pages.
-- Read the price directly from the search results listing.
-- Only return a retailer if a real price is visible. Skip if no results.
-- Copy prices exactly as shown (e.g. ₪529.90, $89.99). Never guess.
-- For buy_link use the search URL provided.
-- Set price_confidence="medium" for all results.`;
+- Only include results with a visible price. Skip ads or results without prices.
+- Copy prices exactly as shown. Never guess.
+- Use the real product page URL, not a redirect.
+- price_confidence: "high" if confirmed product page price.`;
 
     const schema = {
       type: "object",
