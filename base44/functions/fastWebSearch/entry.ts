@@ -54,20 +54,19 @@ Deno.serve(async (req) => {
     const retailers = getRetailerSearchUrls(q, cc);
     const retailerList = retailers.map(r => `- ${r.retailer}: ${r.searchUrl}`).join('\n');
 
-    const prompt = `You are a shopping price checker. I need you to find the current price of "${q}" at each of the following retailers. Visit ALL of them:
+    const prompt = `You are a shopping price checker. Find the current price of "${q}" at EVERY one of these retailers:
 
 ${retailerList}
 
-For EACH retailer above:
-- Go to their website and search for "${q}"
-- Find the product page and read the price shown
-- Return an entry even if the price seems high — I want all results
-- Only skip a retailer if the shoe is completely absent from their catalog
-
-Return ALL retailers where the product exists, even at full price with no discount.
-Copy prices exactly as shown (e.g. ₪529.90, $89.99). Do not round.
-For buy_link use the exact product page URL, or the search URL if no product page found.
-Set price_confidence to "high" if you read the price directly from a product page, "medium" if from a search results listing.`;
+RULES:
+- Visit EVERY retailer listed above — do not skip any.
+- For each one, search their site for "${q}" and return the price you find.
+- If you find the shoe on the search results page (not a dedicated product page), still return it with the price shown.
+- If the retailer's search returns no results, return the entry anyway with price="" and in_stock=false — I still want to know you checked.
+- Copy prices exactly as shown (e.g. ₪529.90, $89.99). Do not round or estimate.
+- For buy_link: use the product page URL if found, otherwise use the search URL provided above.
+- Set price_confidence="high" if from a product page, "medium" if from search results, "low" if not found.
+- I expect an entry for EVERY retailer above in your response.`;
 
     const schema = {
       type: "object",
