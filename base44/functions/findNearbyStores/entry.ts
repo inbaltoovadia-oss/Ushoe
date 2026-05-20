@@ -3,12 +3,24 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 const CACHE = new Map();
 const CACHE_TTL = 10 * 60 * 1000;
 
-function getCacheKey(shoeId, city, size) {
-  return `${shoeId}_${(city || '').toLowerCase().replace(/\s+/g, '_')}_${size || ''}`;
+function getCacheKey(shoeId, lat, lng, size) {
+  return `${shoeId}_${lat.toFixed(4)}_${lng.toFixed(4)}_${size || ''}`;
 }
 
 function mapsUrl(query) {
   return `https://www.google.com/maps/search/${encodeURIComponent(query)}`;
+}
+
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  // Haversine formula for distance between two GPS coordinates
+  const R = 6371; // Earth's radius in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
 }
 
 // Fallback stores with guaranteed-working URLs
@@ -61,44 +73,54 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { shoe, selectedSize = null, cityFallback = null, latitude = null, longitude = null } = body;
+    const { shoe, selectedSize = null, cityFallback = null, latitude = null, longitude = null, userLat = null, userLng = null } = body;
     if (!shoe) return Response.json({ error: 'Missing shoe data' }, { status: 400 });
 
-    const city = cityFallback || (latitude && longitude ? `${latitude},${longitude}` : 'Tel Aviv');
+    // Prioritize exact GPS coordinates over city fallback
+    const useExactGPS = userLat && userLng;
+    const searchLocation = useExactGPS 
+      ? `${userLat.toFixed(6)},${userLng.toFixed(6)}` 
+      : (cityFallback || (latitude && longitude ? `${latitude},${longitude}` : 'Tel Aviv'));
     const shoeFullName = `${shoe.brand} ${shoe.name}${shoe.colorway ? ' ' + shoe.colorway : ''}`;
     const sizeInfo = selectedSize ? `US size ${selectedSize}` : '';
     const brand = shoe.brand || 'Nike';
 
-    const cacheKey = getCacheKey(shoe.id || shoe.name, city, selectedSize);
+    const cacheKey = getCacheKey(shoe.id || shoe.name, userLat || latitude || 32.0853, userLng || longitude || 34.7818, selectedSize);
     const cached = CACHE.get(cacheKey);
     if (cached && Date.now() - cached.ts < CACHE_TTL) {
       return Response.json({ ...cached.data, cached: true });
     }
 
-    const prompt = `Search the web and find at least 5 real physical sneaker stores near ${city}, Israel that carry ${shoeFullName}.${sizeInfo ? ` Size needed: ${sizeInfo}.` : ''}
+    const locationPrompt = useExactGPS 
+      ? `User's EXACT GPS location: ${userLat.toFixed(6)},${userLng.toFixed(6)}. Find stores within 5km radius.`
+      : `Search near ${searchLocation}.`;
+    
+    const prompt = `Search the web and find at least 5 real physical sneaker stores near ${locationPrompt} that carry ${shoeFullName}.${sizeInfo ? ` Size needed: ${sizeInfo}.` : ''}
 
 Include official ${brand} stores, Foot Locker Israel branches, Terminal X, AC Sports, JD Sports Israel, and local sneaker boutiques.
 
 For EACH store you must provide:
 - name: exact real store name
-- address: full real street address in or near ${city} (copy exactly from Google Maps or the store's website)
+- address: full real street address (copy exactly from Google Maps or the store's website)
 - phone: real phone number if available
 - website: the store's own website URL — NOT Google Maps. Must be a real URL like footlocker.co.il, terminalx.com, nike.com/il etc.
-- maps_url: Google Maps search URL in format https://www.google.com/maps/search/StoreName+City (always works)
-- distance_km: real approximate distance from ${city} city center
+- maps_url: Google Maps URL in format https://www.google.com/maps/search/?api=1&query=LAT,LNG (use store's exact coordinates)
+- distance_km: EXACT distance in km from user's location (calculate precisely)
 - rating: real Google Maps rating
 - is_open: whether currently open (true/false or null if unknown)
 - stock_confidence: "high" if you confirmed stock, "medium" if likely, "low" if unknown
 - stock_status: "In stock", "Limited stock", or "Check in store"
 - why: one sentence why they'd have this shoe
+- store_lat: store's latitude coordinate
+- store_lng: store's longitude coordinate
 
-Return 5 stores minimum. All addresses must be real.`;
+Return 5 stores minimum. All addresses must be real. Prioritize stores closest to user's exact location.`;
 
     let aiResult = null;
     try {
       aiResult = await Promise.race([
         base44.asServiceRole.integrations.Core.InvokeLLM({
-          prompt: `Find 3-5 real sneaker stores near ${city}, Israel that sell ${shoeFullName}. Return: name, address, maps_url (Google Maps search format), distance_km, rating, stock_confidence (high/medium/low). Use only well-known chains: Nike, Adidas, Foot Locker, Terminal X, AC Sports, JD Sports.`,
+          prompt: `Find 3-5 real sneaker stores near ${useExactGPS ? `GPS ${userLat.toFixed(4)},${userLng.toFixed(4)}` : searchLocation}, Israel that sell ${shoeFullName}. Return: name, address, maps_url (Google Maps format with exact coordinates), distance_km (precise), rating, stock_confidence (high/medium/low), store_lat, store_lng. Use only well-known chains: Nike, Adidas, Foot Locker, Terminal X, AC Sports, JD Sports.`,
           add_context_from_internet: true,
           model: 'gemini_3_flash',
           response_json_schema: {
@@ -130,20 +152,28 @@ Return 5 stores minimum. All addresses must be real.`;
 
     let aiStores = (aiResult?.stores || []).filter(s => s.name && s.address);
 
-    // Enrich with missing fields
-    aiStores = aiStores.map(s => ({
-      ...s,
-      phone: s.phone || '',
-      website: `https://www.google.com/search?q=${encodeURIComponent(s.name + ' ' + city)}`,
-      maps_url: s.maps_url && s.maps_url.startsWith('http') ? s.maps_url : mapsUrl(`${s.name} ${s.address}`),
-      is_open: null,
-      stock_status: 'Check in store',
-      why: s.stock_confidence === 'high' ? 'Confirmed stock availability' : 'Likely to carry this brand',
-    }));
+    // Enrich with missing fields and calculate precise distances
+    aiStores = aiStores.map(s => {
+      let distance = s.distance_km;
+      // Calculate exact distance if we have GPS coordinates for both user and store
+      if (useExactGPS && s.store_lat && s.store_lng) {
+        distance = calculateDistance(userLat, userLng, s.store_lat, s.store_lng);
+      }
+      return {
+        ...s,
+        phone: s.phone || '',
+        website: `https://www.google.com/search?q=${encodeURIComponent(s.name + ' ' + (useExactGPS ? 'near me' : searchLocation))}`,
+        maps_url: s.maps_url && s.maps_url.startsWith('http') ? s.maps_url : mapsUrl(`${s.name} ${s.address}`),
+        is_open: null,
+        stock_status: 'Check in store',
+        why: s.stock_confidence === 'high' ? 'Confirmed stock availability' : 'Likely to carry this brand',
+        distance_km: distance,
+      };
+    });
 
     // Always use fallbacks for instant results if AI is slow/empty
     if (!aiResult || aiStores.length === 0) {
-      aiStores = getFallbackStores(city, shoeFullName, brand);
+      aiStores = getFallbackStores(useExactGPS ? 'near me' : searchLocation, shoeFullName, brand);
     }
 
     const finalStores = aiStores
@@ -157,9 +187,10 @@ Return 5 stores minimum. All addresses must be real.`;
 
     const result = {
       stores: finalStores,
-      summary: aiResult?.summary || `Found ${finalStores.length} stores near ${city} for ${shoeFullName}.`,
+      summary: aiResult?.summary || `Found ${finalStores.length} stores near your ${useExactGPS ? 'exact location' : 'area'} for ${shoeFullName}.`,
       shoe_searched: shoeFullName,
       source: 'gemini_web',
+      used_exact_gps: useExactGPS,
     };
 
     CACHE.set(cacheKey, { data: result, ts: Date.now() });

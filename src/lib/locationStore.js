@@ -20,6 +20,7 @@ let locationState = {
   detected: persisted?.detected || false,
   permission: "unknown", // "unknown" | "granted" | "denied" | "unavailable"
   loading: false,
+  accuracy: persisted?.accuracy || null, // GPS accuracy in meters
   listeners: new Set(),
 };
 
@@ -32,6 +33,7 @@ function persist() {
       lat: locationState.lat,
       lng: locationState.lng,
       detected: locationState.detected,
+      accuracy: locationState.accuracy,
     }));
   } catch {}
 }
@@ -50,15 +52,17 @@ export function getLocation() {
     detected: locationState.detected,
     permission: locationState.permission,
     loading: locationState.loading,
+    accuracy: locationState.accuracy,
   };
 }
 
-export function setLocation(city, lat, lng, country = "", countryCode = "") {
+export function setLocation(city, lat, lng, country = "", countryCode = "", accuracy = null) {
   locationState.city = city;
   locationState.lat = lat;
   locationState.lng = lng;
   locationState.country = country || locationState.country;
   locationState.countryCode = countryCode || locationState.countryCode;
+  locationState.accuracy = accuracy;
   locationState.detected = true;
   locationState.loading = false;
   locationState.permission = "granted";
@@ -85,7 +89,7 @@ export function detectLocation() {
     }
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
-        const { latitude, longitude } = pos.coords;
+        const { latitude, longitude, accuracy } = pos.coords;
         try {
           const resp = await fetch(
             `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`
@@ -94,14 +98,14 @@ export function detectLocation() {
           const city = data.address?.city || data.address?.town || data.address?.village || "Unknown";
           const country = data.address?.country || "";
           const countryCode = (data.address?.country_code || "").toUpperCase();
-          setLocation(city, latitude, longitude, country, countryCode);
+          setLocation(city, latitude, longitude, country, countryCode, accuracy);
         } catch {
-          setLocation("New York", latitude, longitude, "United States", "US");
+          setLocation("New York", latitude, longitude, "United States", "US", accuracy);
         }
         resolve(getLocation());
       },
       () => resolve(getLocation()),
-      { timeout: 5000, maximumAge: 300000 } // accept 5-min-old position
+      { timeout: 5000, maximumAge: 10000, enableHighAccuracy: true } // High accuracy GPS
     );
   });
 }
@@ -122,7 +126,7 @@ export async function requestLocation() {
   return new Promise((resolve) => {
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
-        const { latitude, longitude } = pos.coords;
+        const { latitude, longitude, accuracy } = pos.coords;
         try {
           const resp = await fetch(
             `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`
@@ -131,9 +135,9 @@ export async function requestLocation() {
           const city = data.address?.city || data.address?.town || data.address?.village || "Unknown";
           const country = data.address?.country || "";
           const countryCode = (data.address?.country_code || "").toUpperCase();
-          setLocation(city, latitude, longitude, country, countryCode);
+          setLocation(city, latitude, longitude, country, countryCode, accuracy);
         } catch {
-          setLocation("New York", latitude, longitude, "United States", "US");
+          setLocation("New York", latitude, longitude, "United States", "US", accuracy);
         }
         resolve(getLocation());
       },
@@ -143,7 +147,7 @@ export async function requestLocation() {
         notify();
         resolve(getLocation());
       },
-      { timeout: 10000, maximumAge: 60000 }
+      { timeout: 10000, maximumAge: 30000, enableHighAccuracy: true } // High accuracy GPS
     );
   });
 }
