@@ -94,10 +94,19 @@ Return the top 3 results with a real price. For each: retailer name, exact price
 
     const rawPicks = llmResult?.web_picks || [];
 
+    // Filter out results with no real price (accuracy check)
+    const validPicks = rawPicks.filter(p => {
+      if (!p.retailer) return false;
+      if (!p.price || p.price.trim() === '') return false;
+      // Must have a numeric price extractable
+      const num = parseFloat((p.price || '').replace(/[^0-9.]/g, ''));
+      if (!num || num <= 0) return false;
+      return true;
+    });
+
     // Deduplicate by retailer
     const seen = new Set();
-    const dedupedPicks = rawPicks.filter(p => {
-      if (!p.retailer) return false;
+    const dedupedPicks = validPicks.filter(p => {
       const k = p.retailer.toLowerCase().replace(/\s+/g, '');
       if (seen.has(k)) return false;
       seen.add(k);

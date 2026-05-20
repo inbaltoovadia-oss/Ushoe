@@ -422,17 +422,20 @@ function RetailerCard({ retailer: r, index, shoe, selectedSize, sizeStandard, ci
           {r.deal_price ? (
             <>
               <div className={`font-heading font-bold text-xl ${isBest ? "text-green-600 dark:text-green-400" : "text-foreground"}`}>
-                {r.price || `${displayCurrency === "ILS" ? "₪" : displayCurrency === "EUR" ? "€" : displayCurrency === "GBP" ? "£" : "$"}${r.deal_price}`}
+                {r.currency === "ILS" ? "₪" : r.currency === "EUR" ? "€" : r.currency === "GBP" ? "£" : "$"}{r.deal_price}
               </div>
               {r.original_price && r.original_price > r.deal_price && (
                 <div className="text-xs text-muted-foreground line-through">
-                  {r.original_price}
+                  {r.currency === "ILS" ? "₪" : r.currency === "EUR" ? "€" : r.currency === "GBP" ? "£" : "$"}{r.original_price}
                 </div>
               )}
-              {r.discount_value && r.discount_value > 0 && (
+              {r.discount_value > 0 && (
                 <div className="text-[10px] text-green-600 dark:text-green-400 font-semibold">
-                  Save {displayCurrency === "ILS" ? "₪" : displayCurrency === "EUR" ? "€" : displayCurrency === "GBP" ? "£" : "$"}{r.discount_value.toFixed(0)}
+                  Save {r.currency === "ILS" ? "₪" : r.currency === "EUR" ? "€" : r.currency === "GBP" ? "£" : "$"}{r.discount_value.toFixed(0)}
                 </div>
+              )}
+              {r.confidence === "low" && (
+                <div className="text-[10px] text-amber-500 font-medium">~est. price</div>
               )}
             </>
           ) : (

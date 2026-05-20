@@ -7,11 +7,11 @@ import { useState, useEffect } from "react";
 import { Globe, Loader2, Zap } from "lucide-react";
 
 const STEPS = [
-  { msg: "Connecting to live retailer feeds…", detail: "nike.com/il, footlocker.co.il, terminalx.com" },
-  { msg: "Fetching real-time prices…", detail: "Reading live product pages" },
-  { msg: "Checking sizes & availability…", detail: "Comparing stock across stores" },
-  { msg: "Sorting best deals for you…", detail: "Ranking by price & shipping" },
-  { msg: "Almost there…", detail: "Finalizing results" },
+  { msg: "Searching Google Shopping…", detail: "Finding live listings for your shoe" },
+  { msg: "Reading retailer prices…", detail: "Extracting real prices from search results" },
+  { msg: "Checking availability & sizes…", detail: "Confirming stock across stores" },
+  { msg: "Verifying prices for accuracy…", detail: "Cross-checking retailer data" },
+  { msg: "Almost there…", detail: "Ranking best deals for you" },
 ];
 
 export default function SearchingState({ city, shoe }) {
@@ -21,14 +21,14 @@ export default function SearchingState({ city, shoe }) {
   useEffect(() => {
     const stepInterval = setInterval(() => {
       setStep(s => Math.min(s + 1, STEPS.length - 1));
-    }, 10000);
+    }, 8000);
     const elapsedInterval = setInterval(() => {
       setElapsed(e => e + 1);
     }, 1000);
     return () => { clearInterval(stepInterval); clearInterval(elapsedInterval); };
   }, []);
 
-  const progressPct = Math.min(95, (elapsed / 60) * 100);
+  const progressPct = Math.min(95, (elapsed / 45) * 100);
 
   return (
     <div className="space-y-4 py-2">
@@ -70,7 +70,7 @@ export default function SearchingState({ city, shoe }) {
       </div>
 
       <p className="text-[10px] text-muted-foreground text-center">
-        Live web search — scanning retailers for real prices ({elapsed}s)… cached after first load
+        Scanning Google Shopping for real prices ({elapsed}s)… results are cached after first load
       </p>
     </div>
   );
