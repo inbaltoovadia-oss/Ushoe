@@ -194,8 +194,8 @@ Focus on what real sneaker communities are actually wearing and talking about ri
   const CatIcon = cat?.icon;
 
   return (
-    <div className="min-h-screen py-6 px-4 sm:px-6">
-      <div className="max-w-5xl mx-auto">
+    <div className="min-h-screen py-8 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto">
 
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
@@ -210,24 +210,26 @@ Focus on what real sneaker communities are actually wearing and talking about ri
           </div>
         </motion.div>
 
-        {/* Category tabs — scrollable */}
-        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide mb-6">
-          {CATEGORIES.map(c => {
-            const Icon = c.icon;
-            const isActive = activeCategory === c.id;
-            return (
-              <button
-                key={c.id}
-                onClick={() => { setActiveCategory(c.id); setActiveTier("all"); }}
-                className={`flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-semibold transition-all ${
-                  isActive ? c.active : `bg-secondary text-muted-foreground hover:text-foreground ${c.bg} border ${c.border}`
-                }`}
-              >
-                <Icon className="w-4 h-4" />
-                {c.label}
-              </button>
-            );
-          })}
+        {/* Category tabs — scrollable on mobile, grid on desktop */}
+        <div className="mb-6 overflow-x-auto pb-2 scrollbar-hide lg:overflow-visible lg:pb-0">
+          <div className="flex lg:flex-wrap gap-2 lg:gap-3">
+            {CATEGORIES.map(c => {
+              const Icon = c.icon;
+              const isActive = activeCategory === c.id;
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => { setActiveCategory(c.id); setActiveTier("all"); }}
+                  className={`flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-semibold transition-all ${
+                    isActive ? c.active : `bg-secondary text-muted-foreground hover:text-foreground ${c.bg} border ${c.border}`
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  {c.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Category hero banner */}
@@ -265,7 +267,7 @@ Focus on what real sneaker communities are actually wearing and talking about ri
 
         {/* Shoes grid */}
         {loading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-10">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-10">
             {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
           </div>
         ) : displayShoes.length === 0 ? (
@@ -285,9 +287,9 @@ Focus on what real sneaker communities are actually wearing and talking about ri
                     <div className="flex items-center gap-2 mb-3">
                       <span className="text-xs font-bold uppercase tracking-wider text-purple-600 bg-purple-50 dark:bg-purple-950/30 px-2.5 py-1 rounded-full">Premium · $180+</span>
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                      {premiumPicks.map((s, i) => <ShoeCard key={s.id} shoe={s} index={i} />)}
-                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                       {premiumPicks.map((s, i) => <ShoeCard key={s.id} shoe={s} index={i} />)}
+                     </div>
                   </div>
                 )}
                 {midPicks.length > 0 && (
@@ -295,9 +297,9 @@ Focus on what real sneaker communities are actually wearing and talking about ri
                     <div className="flex items-center gap-2 mb-3">
                       <span className="text-xs font-bold uppercase tracking-wider text-blue-600 bg-blue-50 dark:bg-blue-950/30 px-2.5 py-1 rounded-full">Mid Range · $100–$180</span>
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                      {midPicks.map((s, i) => <ShoeCard key={s.id} shoe={s} index={i} />)}
-                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                       {midPicks.map((s, i) => <ShoeCard key={s.id} shoe={s} index={i} />)}
+                     </div>
                   </div>
                 )}
                 {budgetPicks.length > 0 && (
@@ -307,14 +309,14 @@ Focus on what real sneaker communities are actually wearing and talking about ri
                         <Tag className="w-3 h-3 inline mr-1" />Budget · Under $100
                       </span>
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                      {budgetPicks.map((s, i) => <ShoeCard key={s.id} shoe={s} index={i} />)}
-                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                       {budgetPicks.map((s, i) => <ShoeCard key={s.id} shoe={s} index={i} />)}
+                     </div>
                   </div>
                 )}
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-10">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-10">
                 {displayShoes.map((s, i) => <ShoeCard key={s.id} shoe={s} index={i} />)}
               </div>
             )}
@@ -376,7 +378,7 @@ Focus on what real sneaker communities are actually wearing and talking about ri
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="grid grid-cols-1 sm:grid-cols-2 gap-3"
+                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
               >
                 {communityPicks.map((pick, i) => (
                   <motion.div
