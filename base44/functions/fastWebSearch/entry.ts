@@ -98,28 +98,13 @@ CRITICAL INSTRUCTIONS:
       },
     };
 
-    // gemini_3_1_pro for cent-accurate prices with live browsing; fallback to gemini_3_flash on timeout
-    let llmResult = null;
-    try {
-      llmResult = await Promise.race([
-        base44.asServiceRole.integrations.Core.InvokeLLM({
-          prompt,
-          add_context_from_internet: true,
-          model: "gemini_3_1_pro",
-          response_json_schema: schema,
-        }),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 110000)),
-      ]);
-    } catch {
-      // Fallback to flash if pro times out
-      llmResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
-        prompt,
-        add_context_from_internet: true,
-        model: "gemini_3_flash",
-        response_json_schema: schema,
-      });
-    }
-    llmResult = llmResult;
+    // gemini_3_1_pro for cent-accurate prices with live browsing — no timeout
+    const llmResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
+      prompt,
+      add_context_from_internet: true,
+      model: "gemini_3_1_pro",
+      response_json_schema: schema,
+    });
 
     const rawPicks = llmResult?.web_picks || [];
 
