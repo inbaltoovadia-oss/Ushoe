@@ -80,6 +80,9 @@ export async function runDealAgent({ shoe, city, size = null, color = null, coun
     : "";
 
   const result = { summary, best_price_found: bestPrice, has_active_deals: hasDeal, retailers, nearby_stores };
-  setCachedDeals(shoe.id, city, result, size, color);
+  // Only cache if we actually got results — don't cache empty/timeout responses
+  if (retailers.length > 0) {
+    setCachedDeals(shoe.id, city, result, size, color);
+  }
   return result;
 }

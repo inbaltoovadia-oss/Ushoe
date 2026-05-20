@@ -246,14 +246,23 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
       </p>
 
       {retailers.length === 0 && !loading && (
-        <div className="text-center py-8">
-          <Globe className="w-8 h-8 text-muted-foreground/30 mx-auto mb-3" />
-          <p className="text-sm font-medium">No retailers found near {loc.city}</p>
-          <p className="text-xs text-muted-foreground mt-1 mb-3">Try adjusting your location or search again.</p>
-          <div className="flex flex-wrap gap-2 justify-center">
+        <div className="flex flex-col gap-3 py-4">
+          <div className="text-center">
+            <Globe className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
+            <p className="text-sm font-medium">Search timed out — try again or use direct links</p>
+            <p className="text-xs text-muted-foreground mt-1">The AI search sometimes takes longer. You can retry or shop directly:</p>
+          </div>
+          <button onClick={load} className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:opacity-80 transition-opacity mx-auto border border-primary/30 px-4 py-2 rounded-xl">
+            <RefreshCw className="w-3.5 h-3.5" />
+            Try Again
+          </button>
+          <div className="flex flex-wrap gap-2 justify-center mt-1">
             {[
-              { name: "Foot Locker IL", url: "https://www.footlocker.co.il" },
-              { name: "Farfetch IL", url: "https://www.farfetch.com/il" },
+              { name: "Nike IL", url: `https://www.nike.com/il/search?q=${encodeURIComponent(shoe?.name || "")}` },
+              { name: "Foot Locker IL", url: `https://www.footlocker.co.il/search?query=${encodeURIComponent(shoe?.name || "")}` },
+              { name: "Terminal X", url: `https://www.terminalx.com/search?q=${encodeURIComponent(shoe?.name || "")}` },
+              { name: "AC Sports", url: `https://www.acsports.co.il/search?q=${encodeURIComponent(shoe?.name || "")}` },
+              { name: "Google", url: `https://www.google.com/search?q=${encodeURIComponent(`${shoe?.brand || ""} ${shoe?.name || ""} buy Israel`)}` },
             ].map(r => (
               <a key={r.name} href={r.url} target="_blank" rel="noopener noreferrer"
                 className="text-xs px-3 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors flex items-center gap-1">
