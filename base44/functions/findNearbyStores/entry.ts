@@ -98,9 +98,9 @@ Return 5 stores minimum. All addresses must be real.`;
     try {
       aiResult = await Promise.race([
         base44.asServiceRole.integrations.Core.InvokeLLM({
-          prompt,
+          prompt: `Find 3-5 real sneaker stores near ${city}, Israel that sell ${shoeFullName}. Return: name, address, maps_url (Google Maps search format), distance_km, rating, stock_confidence (high/medium/low). Use only well-known chains: Nike, Adidas, Foot Locker, Terminal X, AC Sports, JD Sports.`,
           add_context_from_internet: true,
-          model: 'gemini_3_flash', // Faster model
+          model: 'gemini_3_flash',
           response_json_schema: {
             type: 'object',
             properties: {
@@ -111,23 +111,18 @@ Return 5 stores minimum. All addresses must be real.`;
                   properties: {
                     name:             { type: 'string' },
                     address:          { type: 'string' },
-                    phone:            { type: 'string' },
-                    website:          { type: 'string' },
                     maps_url:         { type: 'string' },
                     distance_km:      { type: 'number' },
                     rating:           { type: 'number' },
-                    is_open:          { type: 'boolean' },
                     stock_confidence: { type: 'string' },
-                    stock_status:     { type: 'string' },
-                    why:              { type: 'string' },
                   }
-                }
+                },
+                minItems: 3,
               },
-              summary: { type: 'string' },
             }
           }
         }),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 45000)) // 45s timeout
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 25000)) // 25s timeout
       ]);
     } catch {
       aiResult = null;
@@ -135,26 +130,20 @@ Return 5 stores minimum. All addresses must be real.`;
 
     let aiStores = (aiResult?.stores || []).filter(s => s.name && s.address);
 
-    // Fix any bad maps_url and ensure website is real
+    // Enrich with missing fields
     aiStores = aiStores.map(s => ({
       ...s,
-      maps_url: s.maps_url && s.maps_url.startsWith('http') && !s.maps_url.includes('google.com/maps/place')
-        ? s.maps_url
-        : mapsUrl(`${s.name} ${s.address}`),
-      website: s.website && s.website.startsWith('http') && !s.website.includes('google.com/maps')
-        ? s.website
-        : `https://www.google.com/search?q=${encodeURIComponent(s.name + ' ' + city)}`,
+      phone: s.phone || '',
+      website: `https://www.google.com/search?q=${encodeURIComponent(s.name + ' ' + city)}`,
+      maps_url: s.maps_url && s.maps_url.startsWith('http') ? s.maps_url : mapsUrl(`${s.name} ${s.address}`),
+      is_open: null,
+      stock_status: 'Check in store',
+      why: s.stock_confidence === 'high' ? 'Confirmed stock availability' : 'Likely to carry this brand',
     }));
 
-    // Pad with fallbacks if under 3
-    const fallbacks = getFallbackStores(city, shoeFullName, brand);
-    for (const fb of fallbacks) {
-      if (aiStores.length >= 5) break;
-      const alreadyHave = aiStores.some(s =>
-        s.name.toLowerCase().includes(fb.name.toLowerCase().split(' ')[0]) ||
-        fb.name.toLowerCase().includes(s.name.toLowerCase().split(' ')[0])
-      );
-      if (!alreadyHave) aiStores.push(fb);
+    // Always use fallbacks for instant results if AI is slow/empty
+    if (!aiResult || aiStores.length === 0) {
+      aiStores = getFallbackStores(city, shoeFullName, brand);
     }
 
     const finalStores = aiStores
@@ -163,7 +152,7 @@ Return 5 stores minimum. All addresses must be real.`;
         return (order[a.stock_confidence] ?? 1) - (order[b.stock_confidence] ?? 1)
           || (a.distance_km ?? 999) - (b.distance_km ?? 999);
       })
-      .slice(0, 6)
+      .slice(0, 5)
       .map((s, i) => ({ ...s, is_best_option: i === 0 }));
 
     const result = {
