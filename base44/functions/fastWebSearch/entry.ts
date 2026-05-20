@@ -23,10 +23,6 @@ function getRetailerSearchUrls(query, countryCode) {
       { retailer: 'Foot Locker Israel', searchUrl: `https://footlocker.co.il/search?q=${q}` },
       { retailer: 'AC Sports',          searchUrl: `https://www.acsports.co.il/search?q=${q}` },
       { retailer: 'Shilav',             searchUrl: `https://www.shilav.co.il/search?q=${q}` },
-      { retailer: 'JD Sports Israel',   searchUrl: `https://www.jdsports.co.il/search?q=${q}` },
-      { retailer: 'Fox Shoes',          searchUrl: `https://www.fox.co.il/search?q=${q}` },
-      { retailer: 'Castro Sport',       searchUrl: `https://www.castro.com/search?q=${q}` },
-      { retailer: 'Sport Depot',        searchUrl: `https://www.sport-depot.co.il/search?q=${q}` },
     ];
   }
   return [
@@ -57,19 +53,17 @@ Deno.serve(async (req) => {
     const retailers = getRetailerSearchUrls(q, cc);
     const retailerList = retailers.map(r => `- ${r.retailer}: ${r.searchUrl}`).join('\n');
 
-    const prompt = `You are a shopping price checker. Find the current price of "${q}" at EVERY one of these retailers:
+    const prompt = `You are a shopping price checker. Search each of these retailer websites for "${q}" and return ONLY the ones where you can confirm a real price:
 
 ${retailerList}
 
 RULES:
-- Visit EVERY retailer listed above — do not skip any.
-- For each one, search their site for "${q}" and return the price you find.
-- If you find the shoe on the search results page (not a dedicated product page), still return it with the price shown.
-- If the retailer's search returns no results, return the entry anyway with price="" and in_stock=false — I still want to know you checked.
-- Copy prices exactly as shown (e.g. ₪529.90, $89.99). Do not round or estimate.
-- For buy_link: use the product page URL if found, otherwise use the search URL provided above.
-- Set price_confidence="high" if from a product page, "medium" if from search results, "low" if not found.
-- I expect an entry for EVERY retailer above in your response.`;
+- Visit each retailer and find the actual product page for "${q}".
+- Only return a retailer if you found a real price on their site. Skip it if the shoe is not listed.
+- Copy the exact price as shown (e.g. ₪529.90, $89.99). Never estimate or guess.
+- For buy_link use the direct product page URL.
+- Set price_confidence="high" if from a product page, "medium" if from search results listing.
+- Do NOT return entries with empty or made-up prices.`;
 
     const schema = {
       type: "object",
