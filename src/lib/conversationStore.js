@@ -89,22 +89,33 @@ export async function syncConversationToEntity(conversation) {
     
     if (existing.length > 0) {
       await base44.entities.Conversation.update(existing[0].id, {
-        title: conversation.title,
-        messages: conversation.messages,
-        updated_at: conversation.updated_at,
+        title: conversation.title || "Untitled Conversation",
+        messages: conversation.messages || [],
+        description: (conversation.messages?.[conversation.messages.length - 1]?.content || "").slice(0, 1000),
+        updated_at: conversation.updated_at || new Date().toISOString(),
       });
     } else {
       await base44.entities.Conversation.create({
         conversation_id: conversation.id,
-        title: conversation.title,
-        messages: conversation.messages,
-        created_at: conversation.created_at,
-        updated_at: conversation.updated_at,
+        title: conversation.title || "Untitled Conversation",
+        messages: conversation.messages || [],
+        description: (conversation.messages?.[0]?.content || "").slice(0, 1000),
+        created_at: conversation.created_at || new Date().toISOString(),
+        updated_at: conversation.updated_at || new Date().toISOString(),
       });
     }
   } catch (error) {
     console.error("Failed to sync conversation:", error);
   }
+}
+
+// Auto-save with debounce to prevent excessive API calls
+let saveTimeout = null;
+export function autoSyncConversation(conversation) {
+  if (saveTimeout) clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(() => {
+    syncConversationToEntity(conversation);
+  }, 1000); // Save 1 second after last message
 }
 
 export async function loadConversationsFromEntity() {

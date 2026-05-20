@@ -65,11 +65,29 @@ Deno.serve(async (req) => {
       ? "Prioritize retailers with physical stores closest to the user location."
       : "Prioritize the best prices and biggest discounts.";
     
-    const prompt = `Search Google Shopping for: "${q} ${locationHint}"
+    const prompt = `Search Google Shopping for EXACT PRODUCT: "${q} ${locationHint}"
 
 ${optimizeInstructions}
 
-Return the top 3 results with a real price. For each: retailer name, exact price (e.g. ₪529.90), direct product URL, in_stock true/false, shipping speed if available. Only include results with a visible price. Never guess prices. price_confidence="high".`;
+CRITICAL RULES:
+1. Search for the EXACT shoe model name - match it precisely
+2. Copy the EXACT price shown on retailer websites (e.g. "₪529.90" or "$129.99") - do NOT estimate or guess
+3. Only return results where you can see the actual price on the page
+4. Return the direct product page URL, not the retailer homepage
+5. Verify the product name matches the search query exactly
+
+For each result provide:
+- name: EXACT product name as shown on retailer site (copy-paste)
+- brand: brand name
+- price: EXACT price string with currency symbol (copy-paste from site)
+- original_price: original price if on sale (copy-paste)
+- currency: USD, ILS, EUR, or GBP
+- retailer: retailer name
+- buy_link: direct product page URL (must be working URL)
+- in_stock: true/false based on what's shown
+- price_confidence: "high" only if you see the actual price
+
+Return ONLY results with verified real prices. Never fabricate prices.`;
 
     const schema = {
       type: "object",

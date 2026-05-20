@@ -12,7 +12,8 @@ import {
   createNewConversation, 
   setActiveConversation,
   getActiveConversation,
-  syncConversationToEntity 
+  syncConversationToEntity,
+  loadConversationsFromEntity
 } from "../lib/conversationStore";
 import ShoeCard from "../components/ShoeCard";
 import ReactMarkdown from "react-markdown";
@@ -173,13 +174,26 @@ export default function Assistant() {
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
 
-  // Load or create conversation on mount
+  // Load or create conversation on mount - load from database for persistence
   useEffect(() => {
-    const conv = getActiveConversation() || createNewConversation();
-    setCurrentConv(conv);
-    setMessages(conv.messages || []);
-    
-    init();
+    const loadConv = async () => {
+      // Try to load from entity first (database persistence)
+      const entityConvs = await loadConversationsFromEntity();
+      if (entityConvs.length > 0) {
+        // Use most recent conversation from database
+        const latest = entityConvs[0];
+        setActiveConversation(latest.id);
+        setCurrentConv(latest);
+        setMessages(latest.messages || []);
+      } else {
+        // Create new if none exist
+        const conv = getActiveConversation() || createNewConversation();
+        setCurrentConv(conv);
+        setMessages(conv.messages || []);
+      }
+      init();
+    };
+    loadConv();
     const unsubProfile = subscribeUserProfile(async () => {
       const [shoes, profile] = await Promise.all([getShoesCatalog(80), getUserProfile()]);
       const ranked = rankShoes(shoes, profile, { limit: 50 });
@@ -190,12 +204,17 @@ export default function Assistant() {
     return () => { unsubProfile(); unsubLoc(); };
   }, []);
 
-  // Auto-save conversation on message change
+  // Auto-save conversation on message change - like ChatGPT
   useEffect(() => {
-    if (!currentConv) return;
-    const updated = { ...currentConv, messages, updated_at: new Date().toISOString() };
+    if (!currentConv || messages.length === 0) return;
+    const updated = { 
+      ...currentConv, 
+      messages, 
+      title: messages[0]?.content?.slice(0, 50) || "New Conversation",
+      updated_at: new Date().toISOString() 
+    };
     saveConversation(updated);
-    // Sync to entity in background (non-blocking)
+    // Sync to entity immediately for persistent storage
     syncConversationToEntity(updated);
   }, [messages, currentConv]);
 
