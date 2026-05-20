@@ -22,8 +22,11 @@ function getRetailerSearchUrls(query, countryCode) {
       { retailer: 'Nike Israel',        searchUrl: `https://www.nike.com/il/w?q=${q}&vst=${q}` },
       { retailer: 'Foot Locker Israel', searchUrl: `https://footlocker.co.il/search?q=${q}` },
       { retailer: 'AC Sports',          searchUrl: `https://www.acsports.co.il/search?q=${q}` },
-      { retailer: 'Adidas Israel',      searchUrl: `https://www.adidas.co.il/search?q=${q}` },
       { retailer: 'Shilav',             searchUrl: `https://www.shilav.co.il/search?q=${q}` },
+      { retailer: 'JD Sports Israel',   searchUrl: `https://www.jdsports.co.il/search?q=${q}` },
+      { retailer: 'Fox Shoes',          searchUrl: `https://www.fox.co.il/search?q=${q}` },
+      { retailer: 'Castro Sport',       searchUrl: `https://www.castro.com/search?q=${q}` },
+      { retailer: 'Sport Depot',        searchUrl: `https://www.sport-depot.co.il/search?q=${q}` },
     ];
   }
   return [
