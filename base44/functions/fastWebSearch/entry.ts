@@ -2,7 +2,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
 // In-memory cache: key → { data, ts }
 const CACHE = new Map();
-const CACHE_TTL = 3 * 60 * 60 * 1000; // 3 hours — match client TTL
+const CACHE_TTL = 20 * 60 * 1000; // 20 minutes — fresh prices
 
 function cacheGet(key) {
   const entry = CACHE.get(key);
@@ -15,32 +15,6 @@ function cacheSet(key, data) {
   if (CACHE.size > 200) {
     const oldest = CACHE.keys().next().value;
     CACHE.delete(oldest);
-  }
-}
-
-/**
- * Try to fetch a URL and confirm it resolves (HEAD request, 5s timeout).
- * Returns true if the URL is reachable, false otherwise.
- */
-async function verifyUrl(url) {
-  if (!url || !url.startsWith("https://")) return false;
-  try {
-    const ctrl = new AbortController();
-    const timeout = setTimeout(() => ctrl.abort(), 6000);
-    const resp = await fetch(url, {
-      method: "GET",
-      signal: ctrl.signal,
-      redirect: "follow",
-      headers: {
-        "User-Agent": "Mozilla/5.0 (compatible; PriceBot/1.0)",
-        "Accept": "text/html,*/*",
-      },
-    });
-    clearTimeout(timeout);
-    // Accept any non-server-error response — 200, 301, 302, 403, 405 all mean the URL exists
-    return resp.status < 500;
-  } catch {
-    return false;
   }
 }
 
@@ -65,117 +39,96 @@ Deno.serve(async (req) => {
       return Response.json({ ...cached, cached: true });
     }
 
-    // Step 1: Ask the LLM with web search — hard 38s timeout so it always returns
-    const llmPromise = base44.asServiceRole.integrations.Core.InvokeLLM({
-      prompt: `CRITICAL: You are a real-time price search agent. Search the web NOW for: "${q}" available in ${countryName} (${cityName}).
+    const retailerList = isIsrael
+      ? 'Nike Israel (nike.com/il), Adidas Israel (adidas.co.il), Foot Locker Israel (footlocker.co.il), Terminal X (terminalx.com), Dynamica (dynamica.co.il), AC Sports (acsports.co.il), Sport Active'
+      : `Nike, Adidas, Foot Locker, JD Sports, Size?, Offspring, Zalando, ASOS`;
 
-YOUR JOB: Visit ACTUAL product pages RIGHT NOW and copy the EXACT prices, sizes, colors, and shipping info.
+    const currencyNote = isIsrael ? 'ILS (₪)' : 'local currency';
 
-STRICT RULES — MUST FOLLOW:
-1. Visit each product page and COPY the exact price shown — do NOT estimate or guess
-2. buy_link MUST be the real URL from your search — copy verbatim from results
-3. Check sizes_available on the product page — list what's actually in stock
-4. Check colors_available — list colorways shown on the page
-5. Verify shipping to ${countryName} — look for shipping policy or delivery info
-6. ${isIsrael ? 'ISRAEL USER — search these retailers: Foot Locker Israel, Nike IL, Adidas IL, Terminal X, Renuar, Dynamica, AC Sports. Prices in ILS (₪).' : `Search major retailers shipping to ${countryName}: Foot Locker, Nike, Adidas, JD Sports, Size?, Offspring, Sneaker District, Farfetch. Prices in local currency.`}
-7. MUST return at least 5 retailers — search multiple stores
-8. NO Amazon, eBay, or marketplaces
+    const prompt = `You are a REAL-TIME price search agent. Search the web RIGHT NOW for: "${q}" in ${countryName} (${cityName}).
 
-For EACH retailer, provide:
-- name: exact product name from page
-- brand: brand name
-- price: EXACT price as string with currency (e.g. "₪549", "$120", "€95") — copy from page
-- original_price: was price if on sale (e.g. "₪699") or null
-- currency: "ILS", "USD", "EUR", "GBP", etc.
-- retailer: store name (e.g. "Foot Locker", "Nike", "Adidas")
-- buy_link: EXACT product URL — copy from search results
-- ships_to_user: true if they ship to ${countryName}
-- estimated_shipping: shipping cost/delivery time from page (e.g. "Free shipping", "₪20 - 3-5 days")
-- in_stock: true if available now
-- sizes_available: array of sizes shown as in stock (e.g. [40, 40.5, 41, 42])
-- colors_available: array of color names available (e.g. ["Black/White", "Triple White"])
-- is_best_deal: true for cheapest
-- price_confidence: "high" (you saw it on page), "medium" (snippet), "low" (guess)
-- discount_percent: percentage off if on sale
-- price_fetched_at: current ISO timestamp
+Search these retailers: ${retailerList}
 
-Also find 3 real shoe stores near ${cityName} with addresses.`,
-      add_context_from_internet: true,
-      model: "gemini_3_flash",
-      response_json_schema: {
-        type: "object",
-        properties: {
-          web_picks: {
-            type: "array",
-            minItems: 5,
-            items: {
-              type: "object",
-              properties: {
-                name:               { type: "string" },
-                brand:              { type: "string" },
-                price:              { type: "string" },
-                original_price:     { type: "string" },
-                currency:           { type: "string" },
-                retailer:           { type: "string" },
-                buy_link:           { type: "string" },
-                ships_to_user:      { type: "boolean" },
-                estimated_shipping: { type: "string" },
-                in_stock:           { type: "boolean" },
-                sizes_available:    { type: "array", items: { type: "number" } },
-                colors_available:   { type: "array", items: { type: "string" } },
-                is_best_deal:       { type: "boolean" },
-                price_confidence:   { type: "string" },
-                discount_percent:   { type: "number" },
-                price_fetched_at:   { type: "string" },
+For each retailer, go to their website and find the ACTUAL CURRENT price. Return 5-7 results.
+
+ACCURACY RULES:
+- price: copy the EXACT number from the page with currency symbol (e.g. "₪529", "$120", "€95") in ${currencyNote}
+- original_price: the crossed-out/was-price if on sale, else same as price
+- buy_link: the real product page URL — must start with https://
+- in_stock: only true if actually available now
+- sizes_available: list of numeric sizes shown as available (e.g. [40, 41, 42, 43])
+- colors_available: color names on the page (e.g. ["White/White", "Black"])
+- estimated_shipping: exact shipping info (e.g. "Free shipping", "₪25 - 3-5 days")
+- price_confidence: "high" if you saw the price on the page, "medium" if from snippet
+- is_best_deal: true only for the cheapest option
+
+Also return 3 nearby shoe stores in ${cityName} with real addresses and phone numbers.`;
+
+    const result = await Promise.race([
+      base44.asServiceRole.integrations.Core.InvokeLLM({
+        prompt,
+        add_context_from_internet: true,
+        model: "gemini_3_flash",
+        response_json_schema: {
+          type: "object",
+          properties: {
+            web_picks: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  name:               { type: "string" },
+                  brand:              { type: "string" },
+                  price:              { type: "string" },
+                  original_price:     { type: "string" },
+                  currency:           { type: "string" },
+                  retailer:           { type: "string" },
+                  buy_link:           { type: "string" },
+                  ships_to_user:      { type: "boolean" },
+                  estimated_shipping: { type: "string" },
+                  in_stock:           { type: "boolean" },
+                  sizes_available:    { type: "array", items: { type: "number" } },
+                  colors_available:   { type: "array", items: { type: "string" } },
+                  is_best_deal:       { type: "boolean" },
+                  price_confidence:   { type: "string" },
+                  discount_percent:   { type: "number" },
+                  price_fetched_at:   { type: "string" },
+                },
+                required: ["name", "brand", "price", "currency", "retailer", "buy_link", "in_stock"],
               },
-              required: ["name", "brand", "price", "currency", "retailer", "buy_link", "ships_to_user", "in_stock"],
             },
-          },
-          nearby_stores: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                name:        { type: "string" },
-                address:     { type: "string" },
-                distance_km: { type: "number" },
-                phone:       { type: "string" },
-                maps_url:    { type: "string" },
+            nearby_stores: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  name:        { type: "string" },
+                  address:     { type: "string" },
+                  distance_km: { type: "number" },
+                  phone:       { type: "string" },
+                  maps_url:    { type: "string" },
+                },
               },
             },
           },
         },
-      },
-    });
+      }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("LLM timeout")), 55000))
+    ]);
 
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("LLM timeout")), 38000)
-    );
-
-    const result = await Promise.race([llmPromise, timeoutPromise]);
-
-    // Step 2: Verify URLs in parallel with a short timeout each
     const rawPicks = result?.web_picks || [];
 
-    const verificationResults = await Promise.all(
-      rawPicks.map(async (p) => {
-        if (!p.buy_link || !p.buy_link.startsWith("https://")) return true; // keep if no URL to verify
-        return verifyUrl(p.buy_link);
-      })
-    );
-
+    // Deduplicate by retailer
     const seen = new Set();
     const filteredPicks = rawPicks
-      .filter((p, idx) => {
-        if (!p.retailer) return false;
-        // Only drop if URL is present but unreachable — keep entries with no URL
-        if (p.buy_link && !verificationResults[idx]) return false;
-        const key = (p.retailer + (p.name || '')).toLowerCase();
+      .filter(p => {
+        if (!p.retailer || !p.price) return false;
+        const key = p.retailer.toLowerCase();
         if (seen.has(key)) return false;
         seen.add(key);
         return true;
       })
-      .map(p => ({ ...p, price_fetched_at: p.price_fetched_at || new Date().toISOString() }));
+      .map(p => ({ ...p, price_fetched_at: new Date().toISOString() }));
 
     // Mark cheapest as best deal if none flagged
     if (filteredPicks.length > 0 && !filteredPicks.some(p => p.is_best_deal)) {
@@ -184,7 +137,6 @@ Also find 3 real shoe stores near ${cityName} with addresses.`,
       if (minIdx >= 0) filteredPicks[minIdx] = { ...filteredPicks[minIdx], is_best_deal: true };
     }
 
-    // Process stores
     const filteredStores = (result?.nearby_stores || [])
       .filter(s => s.name && s.address && s.address.length > 5)
       .map(s => ({
