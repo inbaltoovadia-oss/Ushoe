@@ -14,7 +14,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { getLocation, subscribeLocation } from "../lib/locationStore";
 import { runDealAgent } from "../lib/dealAgent";
 import { formatLocalPrice, getCurrencyForCountry } from "../lib/currencyConverter";
-import { clearAllAgentCache } from "../lib/agentCache";
 import SearchingState from "./SearchingState";
 import { getRetailersForCountry } from "../lib/retailerDirectory";
 import SizeStandardToggle, { DisplaySize } from "./SizeStandardToggle";
@@ -83,8 +82,7 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
     setCopied(false);
   }, [shoe?.id]);
 
-  const load = async (clearCache = false) => {
-    if (clearCache) clearAllAgentCache();
+  const load = async () => {
     setLoading(true);
     setRetailers([]);
     setDealsDone(false);
@@ -146,7 +144,7 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
         </div>
 
         <button
-          onClick={() => { setStarted(true); load(true); }}
+          onClick={() => { setStarted(true); load(); }}
           className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
         >
           <Globe className="w-4 h-4" />
@@ -177,9 +175,9 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
     );
   }
 
-  const agentsReady = dealsDone && stockDone;
+  const agentsReady = dealsDone || stockDone;
 
-  if (loading && !agentsReady) {
+  if (!agentsReady && loading) {
     return <SearchingState city={loc.city} shoe={shoe} />;
   }
 
@@ -285,7 +283,7 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
       </AnimatePresence>
 
       {!loading && (
-        <button onClick={() => { clearAllAgentCache(); load(); }} className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mx-auto">
+        <button onClick={load} className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mx-auto">
           <RefreshCw className="w-3.5 h-3.5" />
           Re-run search
         </button>
@@ -412,14 +410,19 @@ function RetailerCard({ retailer: r, index, shoe, selectedSize, sizeStandard, ci
 
         {/* Price block */}
         <div className="text-right flex-shrink-0">
-          {r.price ? (
+          {r.deal_price ? (
             <>
               <div className={`font-heading font-bold text-xl ${isBest ? "text-green-600 dark:text-green-400" : "text-foreground"}`}>
-                {r.price}
+                {r.price || `${displayCurrency === "ILS" ? "₪" : displayCurrency === "EUR" ? "€" : displayCurrency === "GBP" ? "£" : "$"}${r.deal_price}`}
               </div>
-              {r.original_price && (
+              {r.original_price && r.original_price > r.deal_price && (
                 <div className="text-xs text-muted-foreground line-through">
                   {r.original_price}
+                </div>
+              )}
+              {r.discount_value && r.discount_value > 0 && (
+                <div className="text-[10px] text-green-600 dark:text-green-400 font-semibold">
+                  Save {displayCurrency === "ILS" ? "₪" : displayCurrency === "EUR" ? "€" : displayCurrency === "GBP" ? "£" : "$"}{r.discount_value.toFixed(0)}
                 </div>
               )}
             </>

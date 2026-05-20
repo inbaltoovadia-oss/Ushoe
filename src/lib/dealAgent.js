@@ -32,15 +32,14 @@ export async function runDealAgent({ shoe, city, size = null, color = null, coun
 
   const retailers = picks.map(p => {
     const priceNum = parseFloat((p.price || "0").replace(/[^0-9.]/g, "")) || null;
-    const origNum = p.original_price ? parseFloat((p.original_price || "0").replace(/[^0-9.]/g, "")) || null : null;
+    const origNum = parseFloat((p.original_price || "0").replace(/[^0-9.]/g, "")) || null;
     const discount = origNum && priceNum && origNum > priceNum
       ? Math.round(((origNum - priceNum) / origNum) * 100)
       : (p.discount_percent || 0);
     return {
       retailer_name:     p.retailer || p.name,
-      price:             p.price, // EXACT price string from website (e.g. "₪659.90")
       deal_price:        priceNum,
-      original_price:    p.original_price || null, // EXACT string from website
+      original_price:    origNum || null,
       currency:          p.currency || "USD",
       discount_pct:      discount,
       discount_value:    origNum && priceNum ? Math.max(0, origNum - priceNum) : 0,
@@ -66,17 +65,16 @@ export async function runDealAgent({ shoe, city, size = null, color = null, coun
       maps_url: s.maps_url || `https://www.google.com/maps/search/${encodeURIComponent(`${s.name} ${s.address}`)}`,
     }));
 
-  // Find best price retailer and return the formatted price string
-  const bestRetailer = retailers.find(r => r.is_best_deal) || retailers.reduce((min, r) => {
-    if (r.deal_price && (!min || r.deal_price < min.deal_price)) return r;
+  const bestPrice = retailers.reduce((min, r) => {
+    if (r.deal_price && (min === null || r.deal_price < min)) return r.deal_price;
     return min;
   }, null);
-  const bestPrice = bestRetailer?.price || null;
 
   const hasDeal = retailers.some(r => r.discount_pct > 0);
+  const bestRetailer = retailers.find(r => r.is_best_deal);
 
   const summary = bestRetailer
-    ? `Best price: ${bestRetailer.price || bestRetailer.deal_price} at ${bestRetailer.retailer_name}${bestRetailer.discount_pct > 0 ? ` (${bestRetailer.discount_pct}% off)` : ""}`
+    ? `Best price: ${bestRetailer.deal_price} at ${bestRetailer.retailer_name}${bestRetailer.discount_pct > 0 ? ` (${bestRetailer.discount_pct}% off)` : ""}`
     : retailers.length > 0
     ? `Found ${retailers.length} retailer${retailers.length > 1 ? "s" : ""} carrying this shoe`
     : "";
