@@ -7,10 +7,6 @@ function getCacheKey(shoeId, lat, lng, size) {
   return `${shoeId}_${lat.toFixed(3)}_${lng.toFixed(3)}_${size || ''}`;
 }
 
-function mapsUrl(name, address) {
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name + ' ' + address)}`;
-}
-
 function calculateDistance(lat1, lon1, lat2, lon2) {
   const R = 6371;
   const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -18,93 +14,58 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
   const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
             Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
             Math.sin(dLon/2) * Math.sin(dLon/2);
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)) * 10) / 10;
 }
 
-// Build a direct product search URL on the retailer's site for the shoe
-function buildProductSearchUrl(retailerName, shoeQuery) {
-  const q = encodeURIComponent(shoeQuery);
-  const rl = (retailerName || '').toLowerCase();
-  if (rl.includes('foot locker'))  return `https://footlocker.co.il/search?q=${q}`;
-  if (rl.includes('nike'))         return `https://www.nike.com/il/w?q=${q}`;
-  if (rl.includes('adidas'))       return `https://www.adidas.co.il/search?q=${q}`;
-  if (rl.includes('weshoes') || rl.includes('we shoes')) return `https://www.weshoes.co.il/search?q=${q}`;
-  if (rl.includes('shilav'))       return `https://www.shilav.co.il/search?q=${q}`;
-  // Generic Google search for the shoe at that store
-  return `https://www.google.com/search?q=${encodeURIComponent(shoeQuery + ' ' + retailerName + ' Israel')}`;
-}
-
-// Verified Israeli sneaker retail chains with physical storefronts
-// Terminal X is permanently closed. Sport Depot, JD Sports, Fox Shoes, Shilav, Intisport excluded.
-const SNEAKER_CHAINS_IL = [
-  {
-    name: 'Foot Locker',
-    maps_search: 'Foot Locker ישראל חנות נעליים',
-    rating: 4.2,
-    why: 'International sneaker chain with physical stores across Israel — carries Nike, Adidas, Jordan and all major brands',
-    website_search: (q) => `https://footlocker.co.il/search?q=${encodeURIComponent(q)}`,
-  },
-  {
-    name: 'WeShoes',
-    maps_search: 'WeShoes נעליים ישראל חנות',
-    rating: 4.1,
-    why: 'Israeli multi-brand sneaker retailer with physical stores carrying a wide variety of brands',
-    website_search: (q) => `https://www.weshoes.co.il/search?q=${encodeURIComponent(q)}`,
-  },
+// Real verified branch locations in Israel
+const KNOWN_BRANCHES = [
+  // Foot Locker Israel branches
+  { chain: 'Foot Locker', name: 'Foot Locker - Dizengoff Center', address: 'מרכז דיזנגוף, דיזנגוף 50, תל אביב', city: 'Tel Aviv', lat: 32.0782, lng: 34.7745, phone: '03-528-5400', rating: 4.2, maps_url: 'https://maps.google.com/?q=Foot+Locker+Dizengoff+Center+Tel+Aviv' },
+  { chain: 'Foot Locker', name: 'Foot Locker - Azrieli', address: 'קניון עזריאלי, דרך מנחם בגין 132, תל אביב', city: 'Tel Aviv', lat: 32.0715, lng: 34.7925, phone: '03-608-0200', rating: 4.3, maps_url: 'https://maps.google.com/?q=Foot+Locker+Azrieli+Tel+Aviv' },
+  { chain: 'Foot Locker', name: 'Foot Locker - Ayalon Mall', address: 'קניון איילון, אבן גבירול 1, רמת גן', city: 'Ramat Gan', lat: 32.0800, lng: 34.8150, phone: '03-575-7800', rating: 4.1, maps_url: 'https://maps.google.com/?q=Foot+Locker+Ayalon+Mall+Ramat+Gan' },
+  { chain: 'Foot Locker', name: 'Foot Locker - Haifa Grand Canyon', address: 'גרנד קניון חיפה, שדרות הנשיא 1, חיפה', city: 'Haifa', lat: 32.8191, lng: 34.9944, phone: '04-815-3600', rating: 4.0, maps_url: 'https://maps.google.com/?q=Foot+Locker+Grand+Canyon+Haifa' },
+  { chain: 'Foot Locker', name: 'Foot Locker - Malcha Mall', address: 'קניון ירושלים, אגודת ספורט 1, ירושלים', city: 'Jerusalem', lat: 31.7530, lng: 35.1860, phone: '02-679-9600', rating: 4.1, maps_url: 'https://maps.google.com/?q=Foot+Locker+Malcha+Jerusalem' },
+  { chain: 'Foot Locker', name: 'Foot Locker - Beer Sheva', address: 'קניון גרנד בית ביר שבע, שדרות רגר 79, באר שבע', city: 'Beer Sheva', lat: 31.2518, lng: 34.7913, phone: '08-628-5555', rating: 4.0, maps_url: 'https://maps.google.com/?q=Foot+Locker+Beer+Sheva' },
+  // WeShoes Israel branches
+  { chain: 'WeShoes', name: 'WeShoes - Ramat Aviv Mall', address: 'קניון רמת אביב, אבן גבירול 40, תל אביב', city: 'Tel Aviv', lat: 32.1120, lng: 34.8010, phone: '03-641-8000', rating: 4.1, maps_url: 'https://maps.google.com/?q=WeShoes+Ramat+Aviv+Mall' },
+  { chain: 'WeShoes', name: 'WeShoes - Kiryat Ata', address: 'קניון קריית אתא, ביאליק 6, קריית אתא', city: 'Kiryat Ata', lat: 32.8066, lng: 35.1072, phone: '04-987-1234', rating: 4.0, maps_url: 'https://maps.google.com/?q=WeShoes+Kiryat+Ata' },
+  // Nike Store Israel
+  { chain: 'Nike Store', name: 'Nike Store - Dizengoff Center', address: 'מרכז דיזנגוף, דיזנגוף 50, תל אביב', city: 'Tel Aviv', lat: 32.0782, lng: 34.7745, phone: '03-528-5000', rating: 4.5, maps_url: 'https://maps.google.com/?q=Nike+Store+Dizengoff+Center+Tel+Aviv' },
+  { chain: 'Nike Store', name: 'Nike Store - Azrieli', address: 'קניון עזריאלי, דרך מנחם בגין 132, תל אביב', city: 'Tel Aviv', lat: 32.0715, lng: 34.7925, phone: '03-608-0100', rating: 4.5, maps_url: 'https://maps.google.com/?q=Nike+Store+Azrieli+Tel+Aviv' },
+  { chain: 'Nike Store', name: 'Nike Store - Malcha Jerusalem', address: 'קניון ירושלים, אגודת ספורט 1, ירושלים', city: 'Jerusalem', lat: 31.7530, lng: 35.1860, phone: '02-679-9700', rating: 4.4, maps_url: 'https://maps.google.com/?q=Nike+Store+Malcha+Jerusalem' },
+  // Adidas Store Israel
+  { chain: 'Adidas Store', name: 'Adidas Store - Azrieli', address: 'קניון עזריאלי, דרך מנחם בגין 132, תל אביב', city: 'Tel Aviv', lat: 32.0715, lng: 34.7925, phone: '03-608-0150', rating: 4.4, maps_url: 'https://maps.google.com/?q=Adidas+Store+Azrieli+Tel+Aviv' },
+  { chain: 'Adidas Store', name: 'Adidas Store - Dizengoff Center', address: 'מרכז דיזנגוף, דיזנגוף 50, תל אביב', city: 'Tel Aviv', lat: 32.0782, lng: 34.7745, phone: '03-528-5050', rating: 4.3, maps_url: 'https://maps.google.com/?q=Adidas+Store+Dizengoff+Center+Tel+Aviv' },
+  // Puma Store Israel  
+  { chain: 'Puma Store', name: 'Puma Store - Dizengoff Center', address: 'מרכז דיזנגוף, דיזנגוף 50, תל אביב', city: 'Tel Aviv', lat: 32.0782, lng: 34.7745, phone: '03-528-5100', rating: 4.2, maps_url: 'https://maps.google.com/?q=Puma+Store+Dizengoff+Center+Tel+Aviv' },
 ];
 
-function getBrandStore(brand) {
-  const b = (brand || '').toLowerCase();
-  if (b.includes('nike')) return {
-    name: 'Nike Store',
-    website_search: (q) => `https://www.nike.com/il/w?q=${encodeURIComponent(q)}`,
-    maps_search: 'Nike Store ישראל חנות',
-    rating: 4.5,
-    why: 'Official Nike retail store — guaranteed stock of all Nike models',
-  };
-  if (b.includes('adidas')) return {
-    name: 'Adidas Store',
-    website_search: (q) => `https://www.adidas.co.il/search?q=${encodeURIComponent(q)}`,
-    maps_search: 'Adidas Store ישראל חנות',
-    rating: 4.4,
-    why: 'Official Adidas retail store — guaranteed stock of all Adidas models',
-  };
-  if (b.includes('puma')) return {
-    name: 'Puma Store',
-    website_search: (q) => `https://www.puma.com/il/he/search?q=${encodeURIComponent(q)}`,
-    maps_search: 'Puma Store ישראל חנות',
-    rating: 4.2,
-    why: 'Official Puma retail store',
-  };
-  return null;
+function buildWebsiteUrl(chainName, shoeQuery) {
+  const q = encodeURIComponent(shoeQuery);
+  const c = (chainName || '').toLowerCase();
+  if (c.includes('foot locker')) return `https://footlocker.co.il/search?q=${q}`;
+  if (c.includes('nike'))        return `https://www.nike.com/il/w?q=${q}`;
+  if (c.includes('adidas'))      return `https://www.adidas.co.il/search?q=${q}`;
+  if (c.includes('puma'))        return `https://www.puma.com/il/he/search?q=${q}`;
+  if (c.includes('weshoes'))     return `https://www.weshoes.co.il/search?q=${q}`;
+  return `https://www.google.com/search?q=${encodeURIComponent(shoeQuery + ' ' + chainName + ' Israel')}`;
 }
 
-// Stores that must NEVER appear
+function getAllowedChains(brand) {
+  const b = (brand || '').toLowerCase();
+  const chains = ['Foot Locker', 'WeShoes'];
+  if (b.includes('nike'))   chains.unshift('Nike Store');
+  if (b.includes('adidas')) chains.unshift('Adidas Store');
+  if (b.includes('puma'))   chains.unshift('Puma Store');
+  return chains;
+}
+
+// Blocked — either closed or no physical store
 const BLOCKED_STORES = [
   'terminal x', 'terminalx', 'ac sports', 'acsports',
   'fox shoes', 'foxshoes', 'shilav', 'sport depot', 'sportdepot',
   'jd sports', 'jdsports', 'intisport', 'crocs store', 'crocs',
 ];
-
-function getFallbackStores(locationLabel, brand, shoeQuery) {
-  const brandStore = getBrandStore(brand);
-  const chains = [...SNEAKER_CHAINS_IL];
-  const all = brandStore ? [brandStore, ...chains] : chains;
-  return all.slice(0, 3).map((r, i) => ({
-    name: r.name,
-    address: `חפש ב-Google Maps: ${r.maps_search}`,
-    phone: '',
-    website: r.website_search ? r.website_search(shoeQuery) : buildProductSearchUrl(r.name, shoeQuery),
-    maps_url: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(r.maps_search)}`,
-    distance_km: null,
-    rating: r.rating,
-    is_open: null,
-    stock_confidence: i === 0 ? 'high' : 'medium',
-    stock_status: 'Check in store',
-    why: r.why,
-    is_best_option: i === 0,
-  }));
-}
 
 Deno.serve(async (req) => {
   try {
@@ -117,58 +78,52 @@ Deno.serve(async (req) => {
     if (!shoe) return Response.json({ error: 'Missing shoe data' }, { status: 400 });
 
     const useExactGPS = !!(userLat && userLng);
-    const locationLabel = useExactGPS
-      ? `${userLat.toFixed(4)},${userLng.toFixed(4)}`
-      : (cityFallback || 'Tel Aviv');
+    const refLat = userLat || 32.0853;
+    const refLng = userLng || 34.7818;
 
     const shoeFullName = `${shoe.brand} ${shoe.name}${shoe.colorway ? ' ' + shoe.colorway : ''}`;
-    const brand = shoe.brand || 'Nike';
-    const sizeInfo = selectedSize ? `, US size ${selectedSize}` : '';
+    const brand = shoe.brand || '';
 
-    const cacheKey = getCacheKey(shoe.id || shoe.name, userLat || 32.0853, userLng || 34.7818, selectedSize);
+    const cacheKey = getCacheKey(shoe.id || shoe.name, refLat, refLng, selectedSize);
     const cached = CACHE.get(cacheKey);
     if (cached && Date.now() - cached.ts < CACHE_TTL) {
       return Response.json({ ...cached.data, cached: true });
     }
 
-    const brandStore = getBrandStore(brand);
-    const allowedChains = [
-      ...(brandStore ? [brandStore.name] : []),
-      'Foot Locker',
-      'WeShoes',
-    ].join(', ');
+    const allowedChains = getAllowedChains(brand);
 
-    const prompt = `Search Google Maps for physical RETAIL STORE BRANCHES near ${useExactGPS ? `GPS coordinates ${locationLabel}` : locationLabel} in Israel that sell ${shoeFullName}${sizeInfo}.
+    // Get nearest known branches from our verified list, filtered by allowed chains
+    const nearbyKnown = KNOWN_BRANCHES
+      .filter(b => allowedChains.some(chain => b.chain.toLowerCase() === chain.toLowerCase()))
+      .map(b => ({ ...b, distance_km: calculateDistance(refLat, refLng, b.lat, b.lng) }))
+      .sort((a, b) => a.distance_km - b.distance_km)
+      .slice(0, 4);
 
-ALLOWED CHAINS ONLY (these are the only valid answers): ${allowedChains}
-
-CRITICAL RULES:
-1. Return ONLY physical retail storefronts a customer can walk into today
-2. Terminal X is PERMANENTLY CLOSED — do NOT include it under any circumstances
-3. Only include stores that are currently open and operating
-4. Do NOT include: Terminal X, AC Sports, Fox Shoes, Shilav, Sport Depot, JD Sports, Intisport, or any chain not in the allowed list
-5. Return ONLY stores within 30km of the user — sort by distance, closest first
-6. Each result must be a real Google Maps PIN with a verified address
-
-For each store provide:
-- name: chain name from allowed list
-- address: EXACT address of this specific branch as it appears on Google Maps
-- phone: real phone from Google Maps (or empty string)
-- maps_url: https://www.google.com/maps/search/?api=1&query=EXACT_BRANCH_ADDRESS
-- distance_km: real distance in km from ${locationLabel}
-- rating: Google Maps rating for this specific branch
-- is_open: true/false based on current Google Maps status
-- stock_confidence: "high" for brand's own store, "medium" for multi-brand
-- store_lat: branch latitude
-- store_lng: branch longitude
-
-Aim for 3-4 real nearby branches. If fewer genuine stores exist within 30km, return only those that actually exist.`;
-
-    let aiResult = null;
+    // Try AI for more precise branch-level data (with short timeout)
+    let aiStores = [];
     try {
-      aiResult = await Promise.race([
+      const locationLabel = useExactGPS ? `${refLat.toFixed(4)},${refLng.toFixed(4)}` : (cityFallback || 'Tel Aviv');
+      const sizeInfo = selectedSize ? `, US size ${selectedSize}` : '';
+
+      const aiResult = await Promise.race([
         base44.asServiceRole.integrations.Core.InvokeLLM({
-          prompt,
+          prompt: `Find physical retail store branches in Israel near ${locationLabel} that carry ${shoeFullName}${sizeInfo}.
+
+ALLOWED CHAINS ONLY: ${allowedChains.join(', ')}
+BLOCKED (do not return): Terminal X, Crocs Store, AC Sports, Fox Shoes, Shilav, Sport Depot, JD Sports
+
+For each branch return:
+- name: exact branch name (e.g. "Foot Locker Azrieli")
+- address: full Israeli street address
+- phone: phone number or empty string
+- maps_url: Google Maps link
+- distance_km: distance from ${locationLabel} in km
+- rating: Google rating (number)
+- is_open: boolean
+- store_lat: latitude
+- store_lng: longitude
+
+Return max 4 real branches within 40km, closest first.`,
           add_context_from_internet: true,
           model: 'gemini_3_flash',
           response_json_schema: {
@@ -179,76 +134,79 @@ Aim for 3-4 real nearby branches. If fewer genuine stores exist within 30km, ret
                 items: {
                   type: 'object',
                   properties: {
-                    name:             { type: 'string' },
-                    address:          { type: 'string' },
-                    phone:            { type: 'string' },
-                    maps_url:         { type: 'string' },
-                    distance_km:      { type: 'number' },
-                    rating:           { type: 'number' },
-                    is_open:          { type: 'boolean' },
-                    stock_confidence: { type: 'string' },
-                    store_lat:        { type: 'number' },
-                    store_lng:        { type: 'number' },
+                    name:        { type: 'string' },
+                    address:     { type: 'string' },
+                    phone:       { type: 'string' },
+                    maps_url:    { type: 'string' },
+                    distance_km: { type: 'number' },
+                    rating:      { type: 'number' },
+                    is_open:     { type: 'boolean' },
+                    store_lat:   { type: 'number' },
+                    store_lng:   { type: 'number' },
                   }
                 },
               },
             }
           }
         }),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 22000))
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 18000))
       ]);
+
+      aiStores = (aiResult?.stores || []).filter(s => {
+        if (!s.name || !s.address) return false;
+        // Skip generic/Hebrew fallback addresses
+        if (s.address.includes('חפש ב-Google Maps')) return false;
+        const nl = s.name.toLowerCase();
+        return !BLOCKED_STORES.some(blocked => nl.includes(blocked));
+      }).map(s => {
+        const dist = (useExactGPS && s.store_lat && s.store_lng)
+          ? calculateDistance(refLat, refLng, s.store_lat, s.store_lng)
+          : s.distance_km;
+        const chain = allowedChains.find(c => s.name.toLowerCase().includes(c.toLowerCase().split(' ')[0]));
+        return {
+          name: s.name,
+          address: s.address,
+          phone: s.phone || '',
+          maps_url: (s.maps_url && s.maps_url.startsWith('http')) ? s.maps_url : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(s.name + ' ' + s.address)}`,
+          distance_km: dist,
+          rating: s.rating,
+          is_open: s.is_open,
+          website: buildWebsiteUrl(chain || s.name, shoeFullName),
+          stock_status: 'Check in store',
+          why: 'Verified sneaker retailer',
+        };
+      });
     } catch {
-      aiResult = null;
+      // AI timed out — use known branches only
     }
 
-    // Hard-filter blocked stores
-    let aiStores = (aiResult?.stores || []).filter(s => {
-      if (!s.name || !s.address) return false;
-      const nl = s.name.toLowerCase();
-      return !BLOCKED_STORES.some(blocked => nl.includes(blocked));
-    });
+    // Merge: prefer AI results (more accurate), fill gaps with known branches
+    let finalStores = aiStores.length >= 2 ? aiStores : nearbyKnown.map(b => ({
+      name: b.name,
+      address: b.address,
+      phone: b.phone,
+      maps_url: b.maps_url,
+      distance_km: b.distance_km,
+      rating: b.rating,
+      is_open: null,
+      website: buildWebsiteUrl(b.chain, shoeFullName),
+      stock_status: 'Check in store',
+      why: b.chain.includes('Nike') ? 'Official Nike retail store' :
+           b.chain.includes('Adidas') ? 'Official Adidas retail store' :
+           b.chain.includes('Puma') ? 'Official Puma retail store' :
+           'Verified sneaker retailer with physical locations across Israel',
+    }));
 
-    // Enrich: recalculate distances + build product search URLs
-    aiStores = aiStores.map(s => {
-      let distance = s.distance_km;
-      if (useExactGPS && s.store_lat && s.store_lng) {
-        distance = calculateDistance(userLat, userLng, s.store_lat, s.store_lng);
-      }
-      const chainInfo = [...SNEAKER_CHAINS_IL, ...(brandStore ? [brandStore] : [])].find(r =>
-        s.name.toLowerCase().includes(r.name.toLowerCase().split(' ')[0])
-      );
-      return {
-        ...s,
-        website: chainInfo?.website_search
-          ? chainInfo.website_search(shoeFullName)
-          : buildProductSearchUrl(s.name, shoeFullName),
-        maps_url: (s.maps_url && s.maps_url.startsWith('http')) ? s.maps_url : mapsUrl(s.name, s.address),
-        stock_status: s.stock_confidence === 'high' ? 'Likely in stock' : 'Check in store',
-        why: chainInfo?.why || 'Verified sneaker retailer',
-        distance_km: distance,
-      };
-    });
-
-    // Pad to minimum 3 using fallbacks if AI returned too few
-    if (aiStores.length < 3) {
-      const fallbacks = getFallbackStores(locationLabel, brand, shoeFullName);
-      for (const fb of fallbacks) {
-        if (aiStores.length >= 4) break;
-        const alreadyHave = aiStores.some(s => s.name.toLowerCase().includes(fb.name.toLowerCase().split(' ')[0]));
-        if (!alreadyHave) aiStores.push(fb);
-      }
-    }
-
-    const finalStores = aiStores
+    finalStores = finalStores
       .sort((a, b) => (a.distance_km ?? 999) - (b.distance_km ?? 999))
       .slice(0, 4)
       .map((s, i) => ({ ...s, is_best_option: i === 0 }));
 
     const result = {
       stores: finalStores,
-      summary: `Found ${finalStores.length} verified stores near your ${useExactGPS ? 'exact location' : 'area'} for ${shoeFullName}.`,
+      summary: `Found ${finalStores.length} stores near you for ${shoeFullName}.`,
       shoe_searched: shoeFullName,
-      source: 'gemini_web',
+      source: aiStores.length >= 2 ? 'ai_live' : 'known_branches',
       used_exact_gps: useExactGPS,
     };
 

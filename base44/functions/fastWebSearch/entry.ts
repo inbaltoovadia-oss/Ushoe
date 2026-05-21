@@ -126,12 +126,15 @@ Return ONLY retailers where you confirmed a real price.`;
       },
     };
 
-    const llmResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
-      prompt,
-      add_context_from_internet: true,
-      model: "gemini_3_flash",
-      response_json_schema: schema,
-    });
+    const llmResult = await Promise.race([
+      base44.asServiceRole.integrations.Core.InvokeLLM({
+        prompt,
+        add_context_from_internet: true,
+        model: "gemini_3_flash",
+        response_json_schema: schema,
+      }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 90000))
+    ]);
 
     const rawPicks = llmResult?.web_picks || [];
 
@@ -187,6 +190,7 @@ Return ONLY retailers where you confirmed a real price.`;
     return Response.json(response);
 
   } catch (error) {
-    return Response.json({ web_picks: [], nearby_stores: [], error: error.message });
+    // Return empty gracefully on timeout or error — frontend handles this with a retry prompt
+    return Response.json({ web_picks: [], nearby_stores: [], timed_out: true, error: error.message });
   }
 });
