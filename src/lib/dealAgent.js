@@ -14,11 +14,11 @@ export async function runDealAgent({ shoe, city, size = null, color = null, coun
   const country = shoe._country || "United States";
   const code = countryCode || shoe._countryCode || "US";
 
-  // Search by shoe name only — adding size/color causes "no results found" on retailer sites
-  const query = `${shoe.brand} ${shoe.name} buy`;
+  const query = `${shoe.brand} ${shoe.name}`;
 
   const res = await base44.functions.invoke('fastWebSearch', {
     query,
+    brand: shoe.brand || '',
     category: shoe.category,
     city,
     country,

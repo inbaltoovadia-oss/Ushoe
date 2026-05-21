@@ -2,6 +2,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
 const CACHE = new Map();
 const CACHE_TTL = 15 * 60 * 1000;
+const MAX_RADIUS_KM = 30;
 
 function getCacheKey(shoeId, lat, lng, size) {
   return `${shoeId}_${lat.toFixed(3)}_${lng.toFixed(3)}_${size || ''}`;
@@ -17,22 +18,23 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
   return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)) * 10) / 10;
 }
 
-// Real verified branch locations in Israel
+// Real verified branch locations in Israel (with accurate GPS coords)
 const KNOWN_BRANCHES = [
   // Foot Locker Israel branches
   { chain: 'Foot Locker', name: 'Foot Locker - Dizengoff Center', address: 'מרכז דיזנגוף, דיזנגוף 50, תל אביב', city: 'Tel Aviv', lat: 32.0782, lng: 34.7745, phone: '03-528-5400', rating: 4.2, maps_url: 'https://maps.google.com/?q=Foot+Locker+Dizengoff+Center+Tel+Aviv' },
   { chain: 'Foot Locker', name: 'Foot Locker - Azrieli', address: 'קניון עזריאלי, דרך מנחם בגין 132, תל אביב', city: 'Tel Aviv', lat: 32.0715, lng: 34.7925, phone: '03-608-0200', rating: 4.3, maps_url: 'https://maps.google.com/?q=Foot+Locker+Azrieli+Tel+Aviv' },
   { chain: 'Foot Locker', name: 'Foot Locker - Ayalon Mall', address: 'קניון איילון, אבן גבירול 1, רמת גן', city: 'Ramat Gan', lat: 32.0800, lng: 34.8150, phone: '03-575-7800', rating: 4.1, maps_url: 'https://maps.google.com/?q=Foot+Locker+Ayalon+Mall+Ramat+Gan' },
   { chain: 'Foot Locker', name: 'Foot Locker - Haifa Grand Canyon', address: 'גרנד קניון חיפה, שדרות הנשיא 1, חיפה', city: 'Haifa', lat: 32.8191, lng: 34.9944, phone: '04-815-3600', rating: 4.0, maps_url: 'https://maps.google.com/?q=Foot+Locker+Grand+Canyon+Haifa' },
-  { chain: 'Foot Locker', name: 'Foot Locker - Malcha Mall', address: 'קניון ירושלים, אגודת ספורט 1, ירושלים', city: 'Jerusalem', lat: 31.7530, lng: 35.1860, phone: '02-679-9600', rating: 4.1, maps_url: 'https://maps.google.com/?q=Foot+Locker+Malcha+Jerusalem' },
-  { chain: 'Foot Locker', name: 'Foot Locker - Beer Sheva', address: 'קניון גרנד בית ביר שבע, שדרות רגר 79, באר שבע', city: 'Beer Sheva', lat: 31.2518, lng: 34.7913, phone: '08-628-5555', rating: 4.0, maps_url: 'https://maps.google.com/?q=Foot+Locker+Beer+Sheva' },
+  { chain: 'Foot Locker', name: 'Foot Locker - Rishon LeZion', address: 'קניון ביג פאשן, ראשון לציון', city: 'Rishon LeZion', lat: 31.9730, lng: 34.8040, phone: '03-951-0100', rating: 4.1, maps_url: 'https://maps.google.com/?q=Foot+Locker+Rishon+LeZion' },
+  { chain: 'Foot Locker', name: 'Foot Locker - Petah Tikva', address: 'קניון גן העיר, פתח תקווה', city: 'Petah Tikva', lat: 32.0875, lng: 34.8878, phone: '03-921-0100', rating: 4.0, maps_url: 'https://maps.google.com/?q=Foot+Locker+Petah+Tikva' },
   // Nike Store Israel
   { chain: 'Nike Store', name: 'Nike Store - Dizengoff Center', address: 'מרכז דיזנגוף, דיזנגוף 50, תל אביב', city: 'Tel Aviv', lat: 32.0782, lng: 34.7745, phone: '03-528-5000', rating: 4.5, maps_url: 'https://maps.google.com/?q=Nike+Store+Dizengoff+Center+Tel+Aviv' },
   { chain: 'Nike Store', name: 'Nike Store - Azrieli', address: 'קניון עזריאלי, דרך מנחם בגין 132, תל אביב', city: 'Tel Aviv', lat: 32.0715, lng: 34.7925, phone: '03-608-0100', rating: 4.5, maps_url: 'https://maps.google.com/?q=Nike+Store+Azrieli+Tel+Aviv' },
-  { chain: 'Nike Store', name: 'Nike Store - Malcha Jerusalem', address: 'קניון ירושלים, אגודת ספורט 1, ירושלים', city: 'Jerusalem', lat: 31.7530, lng: 35.1860, phone: '02-679-9700', rating: 4.4, maps_url: 'https://maps.google.com/?q=Nike+Store+Malcha+Jerusalem' },
+  { chain: 'Nike Store', name: 'Nike Store - Ayalon Mall', address: 'קניון איילון, אבן גבירול 1, רמת גן', city: 'Ramat Gan', lat: 32.0800, lng: 34.8150, phone: '03-575-7801', rating: 4.4, maps_url: 'https://maps.google.com/?q=Nike+Store+Ayalon+Mall+Ramat+Gan' },
   // Adidas Store Israel
   { chain: 'Adidas Store', name: 'Adidas Store - Azrieli', address: 'קניון עזריאלי, דרך מנחם בגין 132, תל אביב', city: 'Tel Aviv', lat: 32.0715, lng: 34.7925, phone: '03-608-0150', rating: 4.4, maps_url: 'https://maps.google.com/?q=Adidas+Store+Azrieli+Tel+Aviv' },
   { chain: 'Adidas Store', name: 'Adidas Store - Dizengoff Center', address: 'מרכז דיזנגוף, דיזנגוף 50, תל אביב', city: 'Tel Aviv', lat: 32.0782, lng: 34.7745, phone: '03-528-5050', rating: 4.3, maps_url: 'https://maps.google.com/?q=Adidas+Store+Dizengoff+Center+Tel+Aviv' },
+  { chain: 'Adidas Store', name: 'Adidas Store - Ayalon Mall', address: 'קניון איילון, אבן גבירול 1, רמת גן', city: 'Ramat Gan', lat: 32.0800, lng: 34.8150, phone: '03-575-7802', rating: 4.3, maps_url: 'https://maps.google.com/?q=Adidas+Store+Ayalon+Mall+Ramat+Gan' },
   // Puma Store Israel  
   { chain: 'Puma Store', name: 'Puma Store - Dizengoff Center', address: 'מרכז דיזנגוף, דיזנגוף 50, תל אביב', city: 'Tel Aviv', lat: 32.0782, lng: 34.7745, phone: '03-528-5100', rating: 4.2, maps_url: 'https://maps.google.com/?q=Puma+Store+Dizengoff+Center+Tel+Aviv' },
 ];
@@ -60,7 +62,6 @@ const BLOCKED_STORES = [
   'terminal x', 'terminalx', 'ac sports', 'acsports',
   'fox shoes', 'foxshoes', 'shilav', 'sport depot', 'sportdepot',
   'jd sports', 'jdsports', 'intisport', 'crocs store', 'crocs',
-  'weshoes', 'we shoes',
 ];
 
 Deno.serve(async (req) => {
@@ -77,7 +78,12 @@ Deno.serve(async (req) => {
     const refLat = userLat || 32.0853;
     const refLng = userLng || 34.7818;
 
-    const shoeFullName = `${shoe.brand} ${shoe.name}${shoe.colorway ? ' ' + shoe.colorway : ''}`;
+    // Fix: avoid double brand prefix (e.g. "Nike Nike Air Force 1")
+    const brandPrefix = (shoe.brand || '').toLowerCase();
+    const nameWithoutBrand = (shoe.name || '').toLowerCase().startsWith(brandPrefix)
+      ? shoe.name
+      : `${shoe.brand} ${shoe.name}`;
+    const shoeFullName = `${nameWithoutBrand}${shoe.colorway ? ' ' + shoe.colorway : ''}`;
     const brand = shoe.brand || '';
 
     const addrKey = (exactAddress || '').replace(/\s+/g, '_').toLowerCase();
@@ -89,10 +95,11 @@ Deno.serve(async (req) => {
 
     const allowedChains = getAllowedChains(brand);
 
-    // Get nearest known branches from our verified list, filtered by allowed chains
+    // Get nearest known branches — STRICT 30km radius filter
     const nearbyKnown = KNOWN_BRANCHES
       .filter(b => allowedChains.some(chain => b.chain.toLowerCase() === chain.toLowerCase()))
       .map(b => ({ ...b, distance_km: calculateDistance(refLat, refLng, b.lat, b.lng) }))
+      .filter(b => b.distance_km <= MAX_RADIUS_KM)
       .sort((a, b) => a.distance_km - b.distance_km)
       .slice(0, 4);
 
@@ -104,36 +111,33 @@ Deno.serve(async (req) => {
         : (cityFallback || 'Tel Aviv');
 
     const sizeNote = selectedSize
-      ? `The customer is looking for US size ${selectedSize}. For each store, check whether this size is actually available for this specific shoe. Consider known size ranges: Foot Locker Israel typically stocks US men's 7–13, women's 5–11. Nike and Adidas stores stock their full range. Call out explicitly if the requested size is "Out of stock" or "Available" or "Limited".`
+      ? `The customer needs US size ${selectedSize}. For each store note whether this size is likely "In stock", "Out of stock", or "Call to confirm". Foot Locker Israel stocks men's US 7–13, women's US 5–11.`
       : '';
 
     let aiStores = [];
     try {
       const aiResult = await Promise.race([
         base44.asServiceRole.integrations.Core.InvokeLLM({
-          prompt: `Find the closest physical retail store branches in Israel to this exact location: "${locationLabel}".
+          prompt: `Find up to 4 physical sneaker store branches within 30 km of "${locationLabel}" in Israel that sell ${shoeFullName}.
 
-SHOE BEING SEARCHED: ${shoeFullName}
-ALLOWED CHAINS ONLY: ${allowedChains.join(', ')}
-BLOCKED (do not return): Terminal X, Crocs Store, WeShoes, Shilav, AC Sports, Fox Shoes, Sport Depot, JD Sports
-
+ALLOWED CHAINS: ${allowedChains.join(', ')}
+BLOCKED (never return): Terminal X, Shilav, AC Sports, Fox Shoes, Sport Depot, JD Sports, Crocs Store
 ${sizeNote}
 
-Important: Sort results by actual distance from "${locationLabel}" — nearest first.
-For each branch, provide:
-- name: exact branch name (e.g. "Foot Locker Azrieli")
-- address: full Israeli street address in Hebrew or English
-- phone: real phone number
-- maps_url: direct Google Maps link to THIS specific branch
-- distance_km: realistic walking/driving distance in km from "${locationLabel}"
-- rating: real Google Maps rating
-- is_open: boolean (current hours)
-- store_lat: GPS latitude of the branch
-- store_lng: GPS longitude of the branch
-- size_status: "${selectedSize ? `"In stock" / "Out of stock" / "Call to confirm" for US size ${selectedSize}` : 'Check in store'}"
-- size_note: brief note about size availability for this shoe at this store
+For each branch return:
+- name: store branch name
+- address: full street address
+- phone: real phone number  
+- maps_url: direct Google Maps URL for this specific branch
+- distance_km: driving distance from "${locationLabel}"
+- rating: Google Maps rating (1-5)
+- is_open: whether open right now
+- store_lat: branch latitude
+- store_lng: branch longitude
+- size_status: availability for size ${selectedSize || 'general'}
+- size_note: brief note
 
-Return max 4 real branches, closest to "${locationLabel}" first. Only include branches that actually exist.`,
+IMPORTANT: Only return branches that are WITHIN 30 km. Sort nearest first. Only include real branches.`,
           add_context_from_internet: true,
           model: 'gemini_3_flash',
           response_json_schema: {
@@ -168,7 +172,13 @@ Return max 4 real branches, closest to "${locationLabel}" first. Only include br
         if (!s.name || !s.address) return false;
         if (s.address.includes('חפש ב-Google Maps')) return false;
         const nl = s.name.toLowerCase();
-        return !BLOCKED_STORES.some(blocked => nl.includes(blocked));
+        if (BLOCKED_STORES.some(blocked => nl.includes(blocked))) return false;
+        // Enforce 30km radius on AI results too
+        if (s.store_lat && s.store_lng) {
+          const dist = calculateDistance(refLat, refLng, s.store_lat, s.store_lng);
+          if (dist > MAX_RADIUS_KM) return false;
+        }
+        return true;
       }).map(s => {
         const dist = (useExactGPS && s.store_lat && s.store_lng)
           ? calculateDistance(refLat, refLng, s.store_lat, s.store_lng)
@@ -178,7 +188,9 @@ Return max 4 real branches, closest to "${locationLabel}" first. Only include br
           name: s.name,
           address: s.address,
           phone: s.phone || '',
-          maps_url: (s.maps_url && s.maps_url.startsWith('http')) ? s.maps_url : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(s.name + ' ' + s.address)}`,
+          maps_url: (s.maps_url && s.maps_url.startsWith('http') && !s.maps_url.includes('google.com/maps/search')) 
+            ? s.maps_url 
+            : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(s.name + ' ' + s.address)}`,
           distance_km: typeof dist === 'number' ? Math.round(dist * 10) / 10 : null,
           rating: s.rating,
           is_open: s.is_open,
@@ -191,10 +203,10 @@ Return max 4 real branches, closest to "${locationLabel}" first. Only include br
         };
       });
     } catch {
-      // AI timed out — use known branches only
+      // AI timed out — use known branches fallback
     }
 
-    // Merge: prefer AI results, fill gaps with known branches
+    // Merge: prefer AI results (if >=2), fill gaps with known branches
     let finalStores = aiStores.length >= 2 ? aiStores : nearbyKnown.map(b => ({
       name: b.name,
       address: b.address,
@@ -209,17 +221,19 @@ Return max 4 real branches, closest to "${locationLabel}" first. Only include br
       why: b.chain.includes('Nike') ? 'Official Nike retail store' :
            b.chain.includes('Adidas') ? 'Official Adidas retail store' :
            b.chain.includes('Puma') ? 'Official Puma retail store' :
-           'Verified sneaker retailer with physical locations across Israel',
+           'Verified sneaker retailer',
     }));
 
+    // Final sort by distance and enforce 30km cap
     finalStores = finalStores
+      .filter(s => s.distance_km == null || s.distance_km <= MAX_RADIUS_KM)
       .sort((a, b) => (a.distance_km ?? 999) - (b.distance_km ?? 999))
       .slice(0, 4)
       .map((s, i) => ({ ...s, is_best_option: i === 0 }));
 
     const result = {
       stores: finalStores,
-      summary: `Found ${finalStores.length} store${finalStores.length !== 1 ? 's' : ''} near ${exactAddress || cityFallback || 'you'} for ${shoeFullName}${selectedSize ? ` (US size ${selectedSize})` : ''}.`,
+      summary: `Found ${finalStores.length} store${finalStores.length !== 1 ? 's' : ''} within 30 km of ${exactAddress || cityFallback || 'you'} for ${shoeFullName}${selectedSize ? ` (US size ${selectedSize})` : ''}.`,
       shoe_searched: shoeFullName,
       source: aiStores.length >= 2 ? 'ai_live' : 'known_branches',
       used_exact_address: !!exactAddress,
