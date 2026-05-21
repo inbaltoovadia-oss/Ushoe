@@ -109,9 +109,8 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
     const verifiedResult = {
       ...dealResult,
       retailers: (dealResult.retailers || []).filter(r =>
-        r.confidence !== 'low' &&
-        r.deal_price &&
-        r.buy_link
+        r.is_fallback_search_link ||
+        (r.confidence !== 'low' && r.deal_price && r.buy_link)
       ),
     };
     setRetailers(mergeRetailers(verifiedResult, null));
@@ -181,9 +180,9 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
           <p className="text-xs text-muted-foreground mb-2">Or search directly:</p>
           <div className="flex flex-wrap gap-2">
             {[
-              { name: "Terminal X", url: "https://www.terminalx.com" },
-              { name: "Foot Locker IL", url: "https://footlocker.co.il" },
-              { name: "Fox Shoes", url: "https://www.foxshoes.co.il" },
+              { name: "Foot Locker IL", url: `https://footlocker.co.il/search?q=${encodeURIComponent(shoe?.name || "")}` },
+              { name: "WeShoes", url: `https://www.weshoes.co.il/search?q=${encodeURIComponent(shoe?.name || "")}` },
+              { name: "Shilav", url: `https://www.shilav.co.il/search?q=${encodeURIComponent(shoe?.name || "")}` },
             ].map(r => (
               <a
                 key={r.name}
@@ -298,9 +297,8 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
           </button>
           <div className="flex flex-wrap gap-2 justify-center mt-1">
             {[
-              { name: "Terminal X", url: `https://www.terminalx.com/catalogsearch/result/?q=${encodeURIComponent(shoe?.name || "")}` },
               { name: "Foot Locker IL", url: `https://footlocker.co.il/search?q=${encodeURIComponent(shoe?.name || "")}` },
-              { name: "Fox Shoes", url: `https://www.foxshoes.co.il/search?q=${encodeURIComponent(shoe?.name || "")}` },
+              { name: "WeShoes", url: `https://www.weshoes.co.il/search?q=${encodeURIComponent(shoe?.name || "")}` },
               { name: "Shilav", url: `https://www.shilav.co.il/search?q=${encodeURIComponent(shoe?.name || "")}` },
               { name: "Google", url: `https://www.google.com/search?q=${encodeURIComponent(`${shoe?.brand || ""} ${shoe?.name || ""} buy Israel`)}` },
             ].map(r => (
@@ -342,6 +340,32 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
 }
 
 function RetailerCard({ retailer: r, index, shoe, selectedSize, sizeStandard, city, countryCode, directRetailers }) {
+  // Fallback search-link card — no price confirmed, just a search link
+  if (r.is_fallback_search_link) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: index * 0.05 }}
+        className="bg-card border border-border/50 rounded-2xl p-4"
+      >
+        <div className="flex items-center justify-between gap-3">
+          <p className="font-heading font-semibold text-sm">{r.retailer_name}</p>
+          <span className="text-xs text-muted-foreground italic">Price not confirmed</span>
+        </div>
+        <a
+          href={r.buy_link}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold bg-secondary text-foreground hover:opacity-80 transition-all active:scale-[0.98]"
+        >
+          <Search className="w-3.5 h-3.5" />
+          Search at {r.retailer_name}
+        </a>
+      </motion.div>
+    );
+  }
+
   const isBest = r.is_best_deal;
   const hasDeal = r.discount_pct > 0;
   const shipsOk = r.ships_to_location !== false;

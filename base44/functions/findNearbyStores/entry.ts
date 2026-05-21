@@ -198,9 +198,25 @@ Return max 4 real branches within 40km, closest first.`,
     }));
 
     finalStores = finalStores
+      .filter(s => s.distance_km == null || s.distance_km <= 30)
       .sort((a, b) => (a.distance_km ?? 999) - (b.distance_km ?? 999))
       .slice(0, 4)
       .map((s, i) => ({ ...s, is_best_option: i === 0 }));
+
+    // If nothing within 30km, fall back to closest 3 regardless of distance
+    if (finalStores.length === 0) {
+      finalStores = nearbyKnown
+        .map(b => ({
+          name: b.name, address: b.address, phone: b.phone,
+          maps_url: b.maps_url, distance_km: b.distance_km,
+          rating: b.rating, is_open: null,
+          website: buildWebsiteUrl(b.chain, shoeFullName),
+          stock_status: 'Check in store',
+          why: 'Verified sneaker retailer',
+        }))
+        .slice(0, 3)
+        .map((s, i) => ({ ...s, is_best_option: i === 0 }));
+    }
 
     const result = {
       stores: finalStores,

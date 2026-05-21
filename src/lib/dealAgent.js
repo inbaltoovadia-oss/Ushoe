@@ -32,6 +32,19 @@ export async function runDealAgent({ shoe, city, size = null, color = null, coun
   const nearbyRaw = data.nearby_stores || [];
 
   const retailers = picks.map(p => {
+    // Pass through fallback search links as-is (no price confirmed)
+    if (p.is_fallback_search_link) {
+      return {
+        retailer_name: p.retailer,
+        deal_price: null,
+        buy_link: p.buy_link,
+        confidence: 'low',
+        deal_confirmed: false,
+        is_best_deal: p.is_best_deal || false,
+        ships_to_location: true,
+        is_fallback_search_link: true,
+      };
+    }
     const priceNum = parseFloat((p.price || "0").replace(/[^0-9.]/g, "")) || null;
     const origNum = parseFloat((p.original_price || "0").replace(/[^0-9.]/g, "")) || null;
     const discount = origNum && priceNum && origNum > priceNum

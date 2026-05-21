@@ -41,16 +41,21 @@ function buildSearchUrl(retailerName, query, countryCode) {
 }
 
 Deno.serve(async (req) => {
+  // Parse body once at the top so it's available in both try and catch
+  let parsedBody = {};
+  try { parsedBody = await req.json(); } catch {}
+
+  const { query, city, country, countryCode, optimizeBy = 'best_deal', selectedSize = null } = parsedBody;
+
+  const q = (query || '').trim();
+  const cc = (countryCode || 'US').toUpperCase();
+  const countryName = country || 'United States';
+  const cityName = city || countryName;
+
   try {
     const base44 = createClientFromRequest(req);
-    const { query, city, country, countryCode, optimizeBy = 'best_deal', selectedSize = null } = await req.json();
 
-    if (!query || !query.trim()) return Response.json({ web_picks: [], nearby_stores: [] });
-
-    const q = query.trim();
-    const cc = (countryCode || 'US').toUpperCase();
-    const countryName = country || 'United States';
-    const cityName = city || countryName;
+    if (!q) return Response.json({ web_picks: [], nearby_stores: [] });
 
     const cacheKey = `${q}::${cc}::${cityName}::${selectedSize || 'any'}`.toLowerCase().replace(/\s+/g, '_');
     const cached = cacheGet(cacheKey);
@@ -133,17 +138,28 @@ Return ONLY retailers where you confirmed a real price.`;
         model: "gemini_3_flash",
         response_json_schema: schema,
       }),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 90000))
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 60000))
     ]);
 
     const rawPicks = llmResult?.web_picks || [];
 
     const invalidRetailerNames = ['buy online', 'online store', 'shop now', 'buy now', 'retailer', 'store', 'website'];
+    // Blocked retailer names and domains — Terminal X is closed, Crocs has no IL store
+    const BLOCKED_RETAILER_KEYWORDS = ['terminal x', 'terminalx', 'crocs store'];
+    const BLOCKED_DOMAINS = ['terminalx.com', 'crocs.com'];
+
     const validPicks = rawPicks.filter(p => {
       if (!p.retailer || invalidRetailerNames.includes(p.retailer.toLowerCase().trim())) return false;
       if (!p.price || p.price.trim() === '') return false;
       const num = parseFloat((p.price || '').replace(/[^0-9.]/g, ''));
-      return num > 0;
+      if (num <= 0) return false;
+      // Block by retailer name (catches "Terminal X (Fox Shoes)" etc.)
+      const rl = p.retailer.toLowerCase();
+      if (BLOCKED_RETAILER_KEYWORDS.some(k => rl.includes(k))) return false;
+      // Block by buy_link domain
+      const link = (p.buy_link || '').toLowerCase();
+      if (BLOCKED_DOMAINS.some(d => link.includes(d))) return false;
+      return true;
     });
 
     // Deduplicate by retailer
@@ -179,18 +195,53 @@ Return ONLY retailers where you confirmed a real price.`;
       if (minIdx >= 0 && prices[minIdx] < Infinity) finalPicks[minIdx] = { ...finalPicks[minIdx], is_best_deal: true };
     }
 
+    // If AI returned nothing (timeout or no results), provide verified retailer search links as fallback
+    let fallbackPicks = [];
+    if (finalPicks.length === 0 && cc === 'IL') {
+      const cleanQ = q.replace(/\s*buy\s*$/i, '').trim();
+      const fq = encodeURIComponent(cleanQ);
+      const fallbackRetailers = [
+        { retailer: 'Foot Locker Israel', buy_link: `https://footlocker.co.il/search?q=${fq}`, price: null },
+        { retailer: 'WeShoes Israel',    buy_link: `https://www.weshoes.co.il/search?q=${fq}`, price: null },
+        { retailer: 'Shilav',            buy_link: `https://www.shilav.co.il/search?q=${fq}`, price: null },
+      ];
+      fallbackPicks = fallbackRetailers.map((r, i) => ({
+        ...r,
+        name: q,
+        brand: '',
+        currency: 'ILS',
+        in_stock: null,
+        ships_to_user: true,
+        is_best_deal: i === 0,
+        price_confidence: 'low',
+        discount_percent: 0,
+        is_fallback_search_link: true,
+      }));
+    }
+
     const response = {
-      web_picks: finalPicks,
+      web_picks: finalPicks.length > 0 ? finalPicks : fallbackPicks,
       nearby_stores: [],
       location_used: `${cityName}, ${countryName}`,
       fetched_at: new Date().toISOString(),
+      used_fallback: finalPicks.length === 0,
     };
 
     if (finalPicks.length > 0) cacheSet(cacheKey, response);
     return Response.json(response);
 
   } catch (error) {
-    // Return empty gracefully on timeout or error — frontend handles this with a retry prompt
-    return Response.json({ web_picks: [], nearby_stores: [], timed_out: true, error: error.message });
+    // On timeout/error, return fallback search links for IL so user still sees actionable options
+    let fallback = [];
+    if (cc === 'IL' && q) {
+      const cleanQ = q.replace(/\s*buy\s*$/i, '').trim();
+      const fq = encodeURIComponent(cleanQ);
+      fallback = [
+      { retailer: 'Foot Locker Israel', buy_link: `https://footlocker.co.il/search?q=${fq}`, price: null, name: cleanQ, brand: '', currency: 'ILS', in_stock: null, ships_to_user: true, is_best_deal: true,  price_confidence: 'low', discount_percent: 0, is_fallback_search_link: true },
+      { retailer: 'WeShoes Israel',     buy_link: `https://www.weshoes.co.il/search?q=${fq}`, price: null, name: cleanQ, brand: '', currency: 'ILS', in_stock: null, ships_to_user: true, is_best_deal: false, price_confidence: 'low', discount_percent: 0, is_fallback_search_link: true },
+      { retailer: 'Shilav',             buy_link: `https://www.shilav.co.il/search?q=${fq}`, price: null, name: cleanQ, brand: '', currency: 'ILS', in_stock: null, ships_to_user: true, is_best_deal: false, price_confidence: 'low', discount_percent: 0, is_fallback_search_link: true },
+      ];
+    }
+    return Response.json({ web_picks: fallback, nearby_stores: [], timed_out: true, used_fallback: fallback.length > 0, error: error.message });
   }
 });
