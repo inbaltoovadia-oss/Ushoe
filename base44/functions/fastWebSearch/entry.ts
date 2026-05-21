@@ -14,18 +14,16 @@ function cacheSet(k, data) {
   if (CACHE.size > 200) CACHE.delete(CACHE.keys().next().value);
 }
 
-// Guaranteed working search page URLs — used as fallback buy_link (never 404)
-// Only trusted verified brands with real working URLs
 function getRetailerSearchUrls(query, countryCode) {
   const q = encodeURIComponent(query);
   if (countryCode === 'IL') {
     return [
-      { retailer: 'Terminal X',         searchUrl: `https://www.terminalx.com/catalogsearch/result/?q=${q}` },
       { retailer: 'Foot Locker Israel', searchUrl: `https://footlocker.co.il/search?q=${q}` },
       { retailer: 'Fox Shoes',          searchUrl: `https://www.foxshoes.co.il/search?q=${q}` },
       { retailer: 'Shilav',             searchUrl: `https://www.shilav.co.il/search?q=${q}` },
       { retailer: 'Intisport',          searchUrl: `https://www.intisport.co.il/search?q=${q}` },
       { retailer: 'Sport Depot',        searchUrl: `https://www.sport-depot.co.il/search?q=${q}` },
+      { retailer: 'Adidas Israel',      searchUrl: `https://www.adidas.co.il/search?q=${q}` },
     ];
   }
   return [
@@ -41,7 +39,7 @@ function getRetailerSearchUrls(query, countryCode) {
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-    const { query, city, country, countryCode, optimizeBy = 'best_deal' } = await req.json();
+    const { query, city, country, countryCode, optimizeBy = 'best_deal', selectedSize = null } = await req.json();
 
     if (!query || !query.trim()) return Response.json({ web_picks: [], nearby_stores: [] });
 
@@ -51,43 +49,46 @@ Deno.serve(async (req) => {
     const cityName = city || countryName;
     const optimizeMode = optimizeBy || 'best_deal';
 
-    const cacheKey = `${q}::${cc}::${cityName}`.toLowerCase().replace(/\s+/g, '_');
+    // Include size in cache key so different sizes don't share results
+    const cacheKey = `${q}::${cc}::${cityName}::${selectedSize || 'any'}`.toLowerCase().replace(/\s+/g, '_');
     const cached = cacheGet(cacheKey);
     if (cached) return Response.json({ ...cached, cached: true });
 
     const retailers = getRetailerSearchUrls(q, cc);
-
     const locationHint = cc === 'IL' ? 'Israel' : countryName;
-    
-    const optimizeInstructions = optimizeMode === 'fastest_shipping' 
-      ? "Prioritize retailers with fastest shipping times. Include shipping speed info for each."
+    const sizeHint = selectedSize ? ` in US size ${selectedSize}` : '';
+
+    const optimizeInstructions = optimizeMode === 'fastest_shipping'
+      ? "Prioritize retailers with fastest shipping times."
       : optimizeMode === 'closest'
-      ? "Prioritize retailers with physical stores closest to the user location."
+      ? "Prioritize retailers with physical stores closest to user."
       : "Prioritize the best prices and biggest discounts.";
-    
-    const prompt = `Search Google Shopping for EXACT PRODUCT: "${q} ${locationHint}"
+
+    const prompt = `Search Google Shopping for EXACT PRODUCT: "${q}"${sizeHint} in ${locationHint}
 
 ${optimizeInstructions}
 
 CRITICAL RULES:
-1. Search for the EXACT shoe model name - match it precisely
-2. Copy the EXACT price shown on retailer websites (e.g. "₪529.90" or "$129.99") - do NOT estimate or guess
-3. Only return results where you can see the actual price on the page
-4. Return the direct product page URL, not the retailer homepage
-5. Verify the product name matches the search query exactly
+1. Search for the EXACT shoe model name — match it precisely, do NOT substitute a different model
+2. If a size is specified (${selectedSize ? `US size ${selectedSize}` : 'no size specified'}), return the price FOR THAT EXACT SIZE — different sizes may have different prices
+3. Copy the EXACT price shown on the retailer website (e.g. "₪529.90" or "$129.99") — do NOT estimate or invent prices
+4. Only return results where you can see the real price on the page right now
+5. Return the direct product page URL (not homepage)
+6. price_confidence must be "high" only if price is directly visible on the page
 
-For each result provide:
-- name: EXACT product name as shown on retailer site (copy-paste)
+For each result return:
+- name: EXACT product name as shown on site
 - brand: brand name
-- price: EXACT price string with currency symbol (copy-paste from site)
-- original_price: original price if on sale (copy-paste)
-- currency: USD, ILS, EUR, or GBP
+- price: EXACT price string with currency symbol (copy from site)
+- original_price: crossed-out/original price if on sale
+- currency: ILS, USD, EUR, or GBP
 - retailer: retailer name
-- buy_link: direct product page URL (must be working URL)
-- in_stock: true/false based on what's shown
-- price_confidence: "high" only if you see the actual price
+- buy_link: direct product page URL
+- in_stock: true/false
+- ships_to_user: true if ships to ${locationHint}
+- price_confidence: "high" only if price is confirmed visible on page
 
-Return ONLY results with verified real prices. Never fabricate prices.`;
+Return ONLY results with verified real prices. Never fabricate. Max 4 results.`;
 
     const schema = {
       type: "object",
@@ -105,9 +106,8 @@ Return ONLY results with verified real prices. Never fabricate prices.`;
               retailer:           { type: "string" },
               buy_link:           { type: "string" },
               in_stock:           { type: "boolean" },
+              ships_to_user:      { type: "boolean" },
               estimated_shipping: { type: "string" },
-              sizes_available:    { type: "array", items: { type: "number" } },
-              colors_available:   { type: "array", items: { type: "string" } },
               is_best_deal:       { type: "boolean" },
               price_confidence:   { type: "string" },
               discount_percent:   { type: "number" },
@@ -126,20 +126,16 @@ Return ONLY results with verified real prices. Never fabricate prices.`;
 
     const rawPicks = llmResult?.web_picks || [];
 
-    // Filter out results with no real price or invalid retailer names (accuracy check)
+    const invalidRetailers = ['buy online', 'online store', 'shop now', 'buy now', 'retailer', 'store', 'website'];
     const validPicks = rawPicks.filter(p => {
       if (!p.retailer) return false;
-      // Filter out generic/invalid retailer names
-      const invalidRetailers = ['buy online', 'online store', 'shop now', 'buy now', 'retailer', 'store', 'website'];
       if (invalidRetailers.includes(p.retailer.toLowerCase().trim())) return false;
       if (!p.price || p.price.trim() === '') return false;
-      // Must have a numeric price extractable
       const num = parseFloat((p.price || '').replace(/[^0-9.]/g, ''));
       if (!num || num <= 0) return false;
       return true;
     });
 
-    // Deduplicate by retailer
     const seen = new Set();
     const dedupedPicks = validPicks.filter(p => {
       const k = p.retailer.toLowerCase().replace(/\s+/g, '');
@@ -148,7 +144,6 @@ Return ONLY results with verified real prices. Never fabricate prices.`;
       return true;
     });
 
-    // Ensure every pick has a valid buy_link — fallback to search URL
     const finalPicks = dedupedPicks.map(p => {
       if (!p.buy_link || p.buy_link.trim() === '') {
         const match = retailers.find(r =>
@@ -160,21 +155,18 @@ Return ONLY results with verified real prices. Never fabricate prices.`;
       return p;
     });
 
-    // Only pad if we have zero results — avoid force-adding stores that don't carry the shoe
     if (finalPicks.length === 0) {
       for (const r of retailers.slice(0, 3)) {
         finalPicks.push({
           name: q, brand: '', price: '', original_price: '',
           currency: cc === 'IL' ? 'ILS' : 'USD',
           retailer: r.retailer, buy_link: r.searchUrl,
-          in_stock: null, estimated_shipping: '',
-          sizes_available: [], colors_available: [],
+          in_stock: null, ships_to_user: true, estimated_shipping: '',
           is_best_deal: false, price_confidence: 'low', discount_percent: 0,
         });
       }
     }
 
-    // Mark best deal
     if (!finalPicks.some(p => p.is_best_deal)) {
       const prices = finalPicks.map(p => parseFloat((p.price || '0').replace(/[^0-9.]/g, '')) || Infinity);
       const minIdx = prices.indexOf(Math.min(...prices));

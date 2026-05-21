@@ -24,6 +24,7 @@ export async function runDealAgent({ shoe, city, size = null, color = null, coun
     country,
     countryCode: code,
     optimizeBy,
+    selectedSize: size || null,
   });
 
   const data = res?.data || res || {};
