@@ -475,7 +475,7 @@ function RetailerCard({ retailer: r, index, shoe, selectedSize, sizeStandard, ci
         </div>
       </div>
 
-      {buyLink ? (
+      {buyLink && (
         <a
           href={buyLink}
           target="_blank"
@@ -484,18 +484,8 @@ function RetailerCard({ retailer: r, index, shoe, selectedSize, sizeStandard, ci
             isBest ? "bg-green-500 text-white" : "bg-primary text-primary-foreground"
           }`}
         >
-          <ExternalLink className="w-3.5 h-3.5" />
-          {isBest ? `Best Deal at ${r.retailer_name}` : `Buy at ${r.retailer_name}`}
-        </a>
-      ) : (
-        <a
-          href={`https://www.google.com/search?q=${encodeURIComponent((shoe?.brand || "") + " " + (shoe?.name || "") + " " + r.retailer_name + " buy")}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold bg-secondary text-foreground hover:bg-secondary/70 transition-all active:scale-[0.98]"
-        >
-          <ExternalLink className="w-3.5 h-3.5" />
-          Search at {r.retailer_name}
+          <Search className="w-3.5 h-3.5" />
+          {isBest ? `Best Price — Shop at ${r.retailer_name}` : `Shop at ${r.retailer_name}`}
         </a>
       )}
     </motion.div>

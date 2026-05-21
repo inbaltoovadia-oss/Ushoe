@@ -14,26 +14,33 @@ function cacheSet(k, data) {
   if (CACHE.size > 200) CACHE.delete(CACHE.keys().next().value);
 }
 
-function getRetailerSearchUrls(query, countryCode) {
+// Build guaranteed-working SEARCH page URLs for each retailer.
+// These never 404 — they land on the retailer's own search results for the shoe.
+function buildSearchUrl(retailerName, query, countryCode) {
   const q = encodeURIComponent(query);
+  const rl = (retailerName || '').toLowerCase();
+
   if (countryCode === 'IL') {
-    return [
-      { retailer: 'Foot Locker Israel', searchUrl: `https://footlocker.co.il/search?q=${q}` },
-      { retailer: 'Fox Shoes',          searchUrl: `https://www.foxshoes.co.il/search?q=${q}` },
-      { retailer: 'Shilav',             searchUrl: `https://www.shilav.co.il/search?q=${q}` },
-      { retailer: 'Intisport',          searchUrl: `https://www.intisport.co.il/search?q=${q}` },
-      { retailer: 'Sport Depot',        searchUrl: `https://www.sport-depot.co.il/search?q=${q}` },
-      { retailer: 'Adidas Israel',      searchUrl: `https://www.adidas.co.il/search?q=${q}` },
-    ];
+    if (rl.includes('foot locker') || rl.includes('footlocker')) return `https://footlocker.co.il/search?q=${q}`;
+    if (rl.includes('shilav'))      return `https://www.shilav.co.il/search?q=${q}`;
+    if (rl.includes('fox'))         return `https://www.foxshoes.co.il/search?q=${q}`;
+    if (rl.includes('adidas'))      return `https://www.adidas.co.il/search?q=${q}`;
+    if (rl.includes('nike'))        return `https://www.nike.com/il/w?q=${q}`;
+    if (rl.includes('sport depot')) return `https://www.sport-depot.co.il/search?q=${q}`;
+    if (rl.includes('intisport'))   return `https://www.intisport.co.il/search?q=${q}`;
+    if (rl.includes('terminal'))    return `https://www.terminalx.com/catalogsearch/result/?q=${q}`;
+  } else {
+    if (rl.includes('foot locker') || rl.includes('footlocker')) return `https://www.footlocker.com/search?query=${q}`;
+    if (rl.includes('jd sports') || rl.includes('jdsports'))     return `https://www.jdsports.com/search/jdsports/${q}/`;
+    if (rl.includes('zappos'))      return `https://www.zappos.com/search/term/${q}`;
+    if (rl.includes('finish line')) return `https://www.finishline.com/store/browse/search.jsp?query=${q}`;
+    if (rl.includes('dsw'))         return `https://www.dsw.com/en/us/search?q=${q}`;
+    if (rl.includes('amazon'))      return `https://www.amazon.com/s?k=${q}`;
+    if (rl.includes('nike'))        return `https://www.nike.com/w?q=${q}`;
+    if (rl.includes('adidas'))      return `https://www.adidas.com/us/search?q=${q}`;
   }
-  return [
-    { retailer: 'Foot Locker', searchUrl: `https://www.footlocker.com/search?query=${q}` },
-    { retailer: 'JD Sports',   searchUrl: `https://www.jdsports.com/search/jdsports/${q}/` },
-    { retailer: 'Zappos',      searchUrl: `https://www.zappos.com/search/term/${q}` },
-    { retailer: 'Finish Line', searchUrl: `https://www.finishline.com/store/browse/search.jsp?query=${q}` },
-    { retailer: 'DSW',         searchUrl: `https://www.dsw.com/en/us/search?q=${q}` },
-    { retailer: 'Amazon',      searchUrl: `https://www.amazon.com/s?k=${q}` },
-  ];
+  // Universal fallback: Google Shopping for this retailer
+  return `https://www.google.com/search?q=${encodeURIComponent(query + ' ' + retailerName + ' buy')}`;
 }
 
 Deno.serve(async (req) => {
@@ -47,48 +54,40 @@ Deno.serve(async (req) => {
     const cc = (countryCode || 'US').toUpperCase();
     const countryName = country || 'United States';
     const cityName = city || countryName;
-    const optimizeMode = optimizeBy || 'best_deal';
 
-    // Include size in cache key so different sizes don't share results
+    // Size is part of cache key — different sizes may have different prices
     const cacheKey = `${q}::${cc}::${cityName}::${selectedSize || 'any'}`.toLowerCase().replace(/\s+/g, '_');
     const cached = cacheGet(cacheKey);
     if (cached) return Response.json({ ...cached, cached: true });
 
-    const retailers = getRetailerSearchUrls(q, cc);
     const locationHint = cc === 'IL' ? 'Israel' : countryName;
-    const sizeHint = selectedSize ? ` in US size ${selectedSize}` : '';
+    const sizeClause = selectedSize
+      ? `The user specifically wants US size ${selectedSize}. Only report pricing for that size if the retailer shows size-specific pricing. If no size-specific price is shown, report the general price.`
+      : '';
 
-    const optimizeInstructions = optimizeMode === 'fastest_shipping'
-      ? "Prioritize retailers with fastest shipping times."
-      : optimizeMode === 'closest'
-      ? "Prioritize retailers with physical stores closest to user."
-      : "Prioritize the best prices and biggest discounts.";
+    const retailerList = cc === 'IL'
+      ? 'Nike Israel (nike.com/il), Foot Locker Israel (footlocker.co.il), Shilav (shilav.co.il), Fox Shoes (foxshoes.co.il), Adidas Israel (adidas.co.il), Sport Depot (sport-depot.co.il), Terminal X (terminalx.com)'
+      : 'Nike (nike.com), Foot Locker (footlocker.com), JD Sports (jdsports.com), Zappos (zappos.com), Finish Line (finishline.com), DSW (dsw.com), Adidas (adidas.com)';
 
-    const prompt = `Search Google Shopping for EXACT PRODUCT: "${q}"${sizeHint} in ${locationHint}
+    const prompt = `Search Google Shopping right now for: "${q}" in ${locationHint}.
 
-${optimizeInstructions}
+Target retailers: ${retailerList}
 
-CRITICAL RULES:
-1. Search for the EXACT shoe model name — match it precisely, do NOT substitute a different model
-2. If a size is specified (${selectedSize ? `US size ${selectedSize}` : 'no size specified'}), return the price FOR THAT EXACT SIZE — different sizes may have different prices
-3. Copy the EXACT price shown on the retailer website (e.g. "₪529.90" or "$129.99") — do NOT estimate or invent prices
-4. Only return results where you can see the real price on the page right now
-5. Return the direct product page URL (not homepage)
-6. price_confidence must be "high" only if price is directly visible on the page
+${sizeClause}
 
-For each result return:
-- name: EXACT product name as shown on site
-- brand: brand name
-- price: EXACT price string with currency symbol (copy from site)
-- original_price: crossed-out/original price if on sale
-- currency: ILS, USD, EUR, or GBP
-- retailer: retailer name
-- buy_link: direct product page URL
-- in_stock: true/false
-- ships_to_user: true if ships to ${locationHint}
-- price_confidence: "high" only if price is confirmed visible on page
+YOUR ONLY JOB IS TO REPORT PRICES YOU CAN SEE IN THE SEARCH RESULTS.
 
-Return ONLY results with verified real prices. Never fabricate. Max 4 results.`;
+Rules you MUST follow:
+1. READ the price directly from what appears in the Google search results snippet — do NOT guess or invent
+2. If you cannot see a real price for a retailer, OMIT that retailer entirely — do not fabricate a number
+3. Report "price" as the EXACT string you see (e.g. "₪529.90" or "$115.00") — copy it verbatim
+4. Report "original_price" only if you see a crossed-out/strikethrough price shown alongside the deal price
+5. For "retailer" use the retailer's common name (e.g. "Foot Locker Israel", "Nike Israel")
+6. Do NOT generate a product URL — leave buy_link as empty string "" — we will build the correct search URL ourselves
+7. "price_confidence": set to "high" only if the price number is clearly visible in search results right now
+8. "in_stock": set true only if search results explicitly say "In stock" or similar
+
+Focus only on results where the price is 100% visible. Quality over quantity — 2 real results beat 5 guesses.`;
 
     const schema = {
       type: "object",
@@ -98,19 +97,18 @@ Return ONLY results with verified real prices. Never fabricate. Max 4 results.`;
           items: {
             type: "object",
             properties: {
-              name:               { type: "string" },
-              brand:              { type: "string" },
-              price:              { type: "string" },
-              original_price:     { type: "string" },
-              currency:           { type: "string" },
-              retailer:           { type: "string" },
-              buy_link:           { type: "string" },
-              in_stock:           { type: "boolean" },
-              ships_to_user:      { type: "boolean" },
-              estimated_shipping: { type: "string" },
-              is_best_deal:       { type: "boolean" },
-              price_confidence:   { type: "string" },
-              discount_percent:   { type: "number" },
+              name:             { type: "string" },
+              brand:            { type: "string" },
+              price:            { type: "string" },
+              original_price:   { type: "string" },
+              currency:         { type: "string" },
+              retailer:         { type: "string" },
+              buy_link:         { type: "string" },
+              in_stock:         { type: "boolean" },
+              ships_to_user:    { type: "boolean" },
+              is_best_deal:     { type: "boolean" },
+              price_confidence: { type: "string" },
+              discount_percent: { type: "number" },
             },
           },
         },
@@ -126,16 +124,16 @@ Return ONLY results with verified real prices. Never fabricate. Max 4 results.`;
 
     const rawPicks = llmResult?.web_picks || [];
 
-    const invalidRetailers = ['buy online', 'online store', 'shop now', 'buy now', 'retailer', 'store', 'website'];
+    // Strict validation — only keep results with a real numeric price
+    const invalidRetailerNames = ['buy online', 'online store', 'shop now', 'buy now', 'retailer', 'store', 'website'];
     const validPicks = rawPicks.filter(p => {
-      if (!p.retailer) return false;
-      if (invalidRetailers.includes(p.retailer.toLowerCase().trim())) return false;
+      if (!p.retailer || invalidRetailerNames.includes(p.retailer.toLowerCase().trim())) return false;
       if (!p.price || p.price.trim() === '') return false;
       const num = parseFloat((p.price || '').replace(/[^0-9.]/g, ''));
-      if (!num || num <= 0) return false;
-      return true;
+      return num > 0;
     });
 
+    // Deduplicate by retailer
     const seen = new Set();
     const dedupedPicks = validPicks.filter(p => {
       const k = p.retailer.toLowerCase().replace(/\s+/g, '');
@@ -144,29 +142,27 @@ Return ONLY results with verified real prices. Never fabricate. Max 4 results.`;
       return true;
     });
 
-    const finalPicks = dedupedPicks.map(p => {
-      if (!p.buy_link || p.buy_link.trim() === '') {
-        const match = retailers.find(r =>
-          r.retailer.toLowerCase().includes(p.retailer.toLowerCase().split(' ')[0]) ||
-          p.retailer.toLowerCase().includes(r.retailer.toLowerCase().split(' ')[0])
-        );
-        return { ...p, buy_link: match ? match.searchUrl : `https://www.google.com/search?q=${encodeURIComponent(q + ' ' + p.retailer + ' buy')}` };
-      }
-      return p;
-    });
+    // ALWAYS replace buy_link with a guaranteed-working search URL — never trust AI-generated URLs
+    const finalPicks = dedupedPicks.map(p => ({
+      ...p,
+      buy_link: buildSearchUrl(p.retailer, q, cc),
+    }));
 
+    // If zero results, pad with search links (no fake prices)
     if (finalPicks.length === 0) {
-      for (const r of retailers.slice(0, 3)) {
+      const fallbackRetailers = cc === 'IL'
+        ? ['Foot Locker Israel', 'Shilav', 'Nike Israel']
+        : ['Foot Locker', 'JD Sports', 'Zappos'];
+      for (const retailerName of fallbackRetailers) {
         finalPicks.push({
-          name: q, brand: '', price: '', original_price: '',
-          currency: cc === 'IL' ? 'ILS' : 'USD',
-          retailer: r.retailer, buy_link: r.searchUrl,
-          in_stock: null, ships_to_user: true, estimated_shipping: '',
-          is_best_deal: false, price_confidence: 'low', discount_percent: 0,
+          name: q, brand: '', price: '', original_price: '', currency: cc === 'IL' ? 'ILS' : 'USD',
+          retailer: retailerName, buy_link: buildSearchUrl(retailerName, q, cc),
+          in_stock: null, ships_to_user: true, is_best_deal: false, price_confidence: 'low', discount_percent: 0,
         });
       }
     }
 
+    // Mark the lowest-priced result as best deal
     if (!finalPicks.some(p => p.is_best_deal)) {
       const prices = finalPicks.map(p => parseFloat((p.price || '0').replace(/[^0-9.]/g, '')) || Infinity);
       const minIdx = prices.indexOf(Math.min(...prices));
