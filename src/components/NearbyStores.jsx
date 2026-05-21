@@ -246,17 +246,15 @@ export default function NearbyStores({ title = "Nearby Stores", maxCount = 6, sh
   };
 
   const handleStart = async () => {
-    let locationToUse = loc;
-
-    // If exact address entered, geocode it first for precise coords
+    // If exact address entered, geocode it and use ONLY those coords (ignore GPS)
     if (exactAddress.trim()) {
       setResolving(true);
       const coords = await geocodeAddress(exactAddress.trim());
       setResolving(false);
-      if (coords) {
-        locationToUse = { ...loc, lat: coords.lat, lng: coords.lng };
-        setLoc(locationToUse);
-      }
+      // Use geocoded coords if found, otherwise pass null lat/lng so backend uses the address string
+      const locationToUse = coords
+        ? { city: exactAddress.trim(), lat: coords.lat, lng: coords.lng }
+        : { city: exactAddress.trim(), lat: null, lng: null };
       setStarted(true);
       loadStores(locationToUse, exactAddress.trim());
       return;
