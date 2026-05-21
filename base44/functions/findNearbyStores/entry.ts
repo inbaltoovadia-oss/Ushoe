@@ -76,13 +76,6 @@ function getBrandStore(brand) {
     rating: 4.2,
     why: 'Official Puma retail store',
   };
-  if (b.includes('crocs')) return {
-    name: 'Crocs Store',
-    website_search: (q) => `https://www.crocs.co.il/search?q=${encodeURIComponent(q)}`,
-    maps_search: 'Crocs ישראל חנות',
-    rating: 4.1,
-    why: 'Official Crocs retailer in Israel',
-  };
   return null;
 }
 
@@ -90,7 +83,7 @@ function getBrandStore(brand) {
 const BLOCKED_STORES = [
   'terminal x', 'terminalx', 'ac sports', 'acsports',
   'fox shoes', 'foxshoes', 'shilav', 'sport depot', 'sportdepot',
-  'jd sports', 'jdsports', 'intisport',
+  'jd sports', 'jdsports', 'intisport', 'crocs store', 'crocs',
 ];
 
 function getFallbackStores(locationLabel, brand, shoeQuery) {
