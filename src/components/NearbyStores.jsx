@@ -4,7 +4,7 @@
  * then Gemini reasons about which ones likely carry the specific shoe.
  */
 import { useState, useEffect } from "react";
-import { MapPin, Loader2, Navigation, Sparkles, RefreshCw, ShieldCheck, Phone, Star, CheckCircle2, AlertCircle, HelpCircle, ExternalLink } from "lucide-react";
+import { MapPin, Loader2, Navigation, Sparkles, RefreshCw, ShieldCheck, Phone, Star, CheckCircle2, AlertCircle, HelpCircle, ExternalLink, Home } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getLocation, subscribeLocation } from "../lib/locationStore";
 import LocationInput from "./LocationInput";
@@ -131,8 +131,14 @@ function StoreCard({ store, index, shoe, selectedSize }) {
         </p>
       )}
 
-      {selectedSize && (
-        <p className="text-[10px] text-muted-foreground mt-1">Searching for: US size {selectedSize}</p>
+      {selectedSize && store.stock_status && store.stock_status !== 'Check in store' && (
+        <div className={`mt-2 text-[10px] font-semibold px-2 py-1 rounded-lg w-fit flex items-center gap-1 ${conf.bg} ${conf.text}`}>
+          <Icon className="w-3 h-3" />
+          Size US {selectedSize}: {store.stock_status}
+        </div>
+      )}
+      {selectedSize && (!store.stock_status || store.stock_status === 'Check in store') && (
+        <p className="text-[10px] text-muted-foreground mt-1">Call ahead to check US size {selectedSize}</p>
       )}
 
       {/* Confidence bar */}
@@ -178,12 +184,14 @@ function StoreCard({ store, index, shoe, selectedSize }) {
 }
 
 export default function NearbyStores({ title = "Nearby Stores", maxCount = 6, shoe = null, selectedSize = null, selectedColor = null }) {
-  const [stores, setStores]     = useState([]);
-  const [summary, setSummary]   = useState("");
-  const [loading, setLoading]   = useState(false);
-  const [started, setStarted]   = useState(false);
-  const [error, setError]       = useState(null);
-  const [loc, setLoc]           = useState(getLocation());
+  const [stores, setStores]         = useState([]);
+  const [summary, setSummary]       = useState("");
+  const [loading, setLoading]       = useState(false);
+  const [started, setStarted]       = useState(false);
+  const [error, setError]           = useState(null);
+  const [loc, setLoc]               = useState(getLocation());
+  const [exactAddress, setExactAddress] = useState("");
+  const [resolving, setResolving]   = useState(false);
 
   useEffect(() => {
     setStarted(false);
@@ -192,7 +200,18 @@ export default function NearbyStores({ title = "Nearby Stores", maxCount = 6, sh
     return unsub;
   }, [shoe?.id]);
 
-  const loadStores = async (location) => {
+  // Geocode an exact address string → {lat, lng}
+  const geocodeAddress = async (addr) => {
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(addr)}&format=json&limit=1`;
+      const res = await fetch(url, { headers: { "Accept-Language": "en" } });
+      const data = await res.json();
+      if (!data.length) return null;
+      return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+    } catch { return null; }
+  };
+
+  const loadStores = async (location, addressOverride = null) => {
     if (!shoe) return;
     setLoading(true);
     setError(null);
@@ -208,16 +227,17 @@ export default function NearbyStores({ title = "Nearby Stores", maxCount = 6, sh
         category: shoe.category,
         sizes_available: shoe.sizes_available || [],
       },
-      userLat: location.latitude || location.lat || null,
-      userLng: location.longitude || location.lng || null,
+      userLat: location.lat || location.latitude || null,
+      userLng: location.lng || location.longitude || null,
       cityFallback: location.city || null,
+      exactAddress: addressOverride || null,
       selectedSize: selectedSize || null,
       selectedColor: selectedColor || null,
     });
 
     const data = res?.data || {};
     if (!data.stores?.length && !data.summary) {
-      setError("No stores found near " + (location.city || "your location") + ". Try a different city.");
+      setError("No stores found near " + (location.city || "your location") + ". Try a different address.");
     } else {
       setStores((data.stores || []).slice(0, maxCount));
       setSummary(data.summary || "");
@@ -225,27 +245,33 @@ export default function NearbyStores({ title = "Nearby Stores", maxCount = 6, sh
     setLoading(false);
   };
 
-  const handleStart = () => {
-    // Try to get GPS first
+  const handleStart = async () => {
+    let locationToUse = loc;
+
+    // If exact address entered, geocode it first for precise coords
+    if (exactAddress.trim()) {
+      setResolving(true);
+      const coords = await geocodeAddress(exactAddress.trim());
+      setResolving(false);
+      if (coords) {
+        locationToUse = { ...loc, lat: coords.lat, lng: coords.lng };
+        setLoc(locationToUse);
+      }
+      setStarted(true);
+      loadStores(locationToUse, exactAddress.trim());
+      return;
+    }
+
+    // Otherwise try GPS
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          const updatedLoc = {
-            ...loc,
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude,
-            latitude: pos.coords.latitude,
-            longitude: pos.coords.longitude,
-          };
+          const updatedLoc = { ...loc, lat: pos.coords.latitude, lng: pos.coords.longitude };
           setLoc(updatedLoc);
           setStarted(true);
           loadStores(updatedLoc);
         },
-        () => {
-          // GPS denied — use stored location
-          setStarted(true);
-          loadStores(loc);
-        },
+        () => { setStarted(true); loadStores(loc); },
         { timeout: 5000 }
       );
     } else {
@@ -263,19 +289,31 @@ export default function NearbyStores({ title = "Nearby Stores", maxCount = 6, sh
             Find stores carrying <strong>{shoe?.name}</strong>
             {selectedSize ? ` in size US ${selectedSize}` : ""} near you
           </p>
-          <p className="text-[10px] text-muted-foreground text-center">
-            Uses Google Maps + AI to find stores likely carrying this exact shoe
-          </p>
         </div>
 
         <LocationInput onLocated={(newLoc) => setLoc(newLoc)} compact />
 
+        {/* Exact address for higher accuracy */}
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+            <MapPin className="w-3 h-3" /> Exact address (optional — for higher accuracy)
+          </label>
+          <input
+            type="text"
+            value={exactAddress}
+            onChange={e => setExactAddress(e.target.value)}
+            placeholder="e.g. 50 Dizengoff St, Tel Aviv"
+            className="w-full px-3 py-2 text-sm rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 placeholder:text-muted-foreground/50"
+          />
+        </div>
+
         <button
           onClick={handleStart}
-          className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+          disabled={resolving}
+          className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-60"
         >
-          <MapPin className="w-4 h-4" />
-          Find Nearby in {loc.city}
+          {resolving ? <Loader2 className="w-4 h-4 animate-spin" /> : <MapPin className="w-4 h-4" />}
+          {resolving ? "Finding location…" : `Find Nearby Stores`}
         </button>
       </div>
     );
@@ -287,9 +325,14 @@ export default function NearbyStores({ title = "Nearby Stores", maxCount = 6, sh
         <div className="flex items-center gap-2">
           <MapPin className="w-4 h-4 text-primary" />
           <h3 className="font-heading font-semibold text-base">{title}</h3>
-          <span className="text-xs text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">near {loc.city}</span>
+          <span className="text-xs text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">near {exactAddress || loc.city}</span>
         </div>
-        <LocationInput onLocated={(newLoc) => { setLoc(newLoc); setStarted(false); }} compact />
+        <button
+          onClick={() => { setStarted(false); setStores([]); }}
+          className="text-xs text-primary hover:underline flex items-center gap-1"
+        >
+          <MapPin className="w-3 h-3" /> Change location
+        </button>
       </div>
 
       {loading ? (

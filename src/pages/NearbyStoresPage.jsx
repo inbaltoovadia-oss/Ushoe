@@ -225,23 +225,27 @@ Also return a short 1-sentence summary about the shoe store scene in that area.`
 
         {/* Search Bar */}
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="mb-8">
-          <form onSubmit={e => { e.preventDefault(); searchStores(); }} className="flex flex-col sm:flex-row gap-3">
+          <form onSubmit={e => { e.preventDefault(); searchStores(); }} className="flex flex-col gap-3">
             <div className="flex items-center flex-1 bg-card border-2 border-border rounded-2xl px-4 py-3.5 gap-3 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all shadow-lg">
               <MapPin className="w-5 h-5 text-primary flex-shrink-0" />
               <input
                 value={locationInput}
                 onChange={e => setLocationInput(e.target.value)}
-                placeholder="City, zip code, or address…"
+                placeholder="Exact address, city, or zip code (e.g. 50 Dizengoff St, Tel Aviv)…"
                 className="flex-1 bg-transparent border-none outline-none text-base placeholder:text-muted-foreground/50"
               />
               {locationInput && (
                 <button type="button" onClick={() => setLocationInput("")} className="text-muted-foreground hover:text-foreground transition-colors text-lg leading-none">×</button>
               )}
             </div>
+            <p className="text-xs text-muted-foreground flex items-center gap-1">
+              <MapPin className="w-3 h-3" />
+              Enter your exact address for most accurate nearby results, or just a city name
+            </p>
             <button
               type="submit"
               disabled={loading || !locationInput.trim()}
-              className="flex items-center justify-center gap-2 bg-primary text-white px-7 py-3.5 rounded-2xl text-base font-bold hover:opacity-90 disabled:opacity-50 transition-all shadow-lg shadow-primary/25 min-h-[52px] min-w-[160px]"
+              className="flex items-center justify-center gap-2 bg-primary text-white px-7 py-3.5 rounded-2xl text-base font-bold hover:opacity-90 disabled:opacity-50 transition-all shadow-lg shadow-primary/25 min-h-[52px]"
             >
               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Search className="w-5 h-5" />}
               {loading ? "Searching…" : "Find Stores"}
