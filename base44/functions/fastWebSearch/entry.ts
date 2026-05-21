@@ -14,7 +14,7 @@ function cacheSet(k, data) {
   if (CACHE.size > 200) CACHE.delete(CACHE.keys().next().value);
 }
 
-// Guaranteed-working retailer search URLs
+// Fallback search URL only used when AI couldn't find a direct product link
 function buildSearchUrl(retailerName, query, countryCode) {
   const q = encodeURIComponent(query);
   const rl = (retailerName || '').toLowerCase();
@@ -23,12 +23,11 @@ function buildSearchUrl(retailerName, query, countryCode) {
     if (rl.includes('foot locker') || rl.includes('footlocker')) return `https://footlocker.co.il/search?q=${q}`;
     if (rl.includes('adidas'))      return `https://www.adidas.co.il/search?q=${q}`;
     if (rl.includes('nike'))        return `https://www.nike.com/il/w?q=${q}`;
-    if (rl.includes('terminal'))    return null; // Terminal X is permanently closed
+    if (rl.includes('terminal'))    return null; // permanently closed
     if (rl.includes('weshoes') || rl.includes('we shoes')) return `https://www.weshoes.co.il/search?q=${q}`;
     if (rl.includes('shilav'))      return `https://www.shilav.co.il/search?q=${q}`;
     if (rl.includes('fox'))         return `https://www.foxshoes.co.il/search?q=${q}`;
-    if (rl.includes('crocs'))       return `https://www.crocs.co.il/search?q=${q}`;
-    if (rl.includes('shufersal') || rl.includes('super-pharm') || rl.includes('ace')) return null;
+    if (rl.includes('crocs'))       return null; // no physical/dedicated store in Israel — handled by multi-brand retailers
   } else {
     if (rl.includes('foot locker') || rl.includes('footlocker')) return `https://www.footlocker.com/search?query=${q}`;
     if (rl.includes('zappos'))      return `https://www.zappos.com/search/term/${q}`;
@@ -61,7 +60,6 @@ Deno.serve(async (req) => {
     const currency = cc === 'IL' ? 'ILS (₪)' : 'USD ($)';
     const sizeNote = selectedSize ? ` in US size ${selectedSize}` : '';
 
-    // IL retailers — broad multi-brand stores that could carry ANY shoe brand
     const ilRetailers = cc === 'IL' ? [
       'Foot Locker Israel (footlocker.co.il)',
       'WeShoes Israel (weshoes.co.il)',
@@ -69,7 +67,6 @@ Deno.serve(async (req) => {
       'Fox Shoes (foxshoes.co.il)',
       'Nike Israel (nike.com/il) — ONLY if the shoe is a Nike brand product',
       'Adidas Israel (adidas.co.il) — ONLY if the shoe is an Adidas brand product',
-      'Crocs Israel (crocs.co.il) — ONLY if the shoe is a Crocs brand product',
       'Puma Israel (puma.com/il) — ONLY if the shoe is a Puma brand product',
     ] : [
       'Foot Locker (footlocker.com)',
@@ -80,21 +77,28 @@ Deno.serve(async (req) => {
       'Adidas (adidas.com) — ONLY if the shoe is an Adidas brand product',
     ];
 
-    const prompt = `You are a live price checker. Search the web right now to find the current selling price of "${q}"${sizeNote} in ${locationHint}.
+    const prompt = `You are a live price checker. Search the web RIGHT NOW to find the current selling price of "${q}"${sizeNote} in ${locationHint}.
 
-Retailers to check (visit each website):
+Retailers to check (visit each website and find the product):
 ${ilRetailers.map(r => `- ${r}`).join('\n')}
 
-INSTRUCTIONS:
-1. For each retailer, go to their website and search for "${q}"
-2. Only report a retailer if: (a) the shoe is actually listed on their site AND (b) you can see the exact price on the page
-3. The price must be the actual current price in ${currency} — copy it exactly as shown (e.g. "₪649.90" or "$129.99")
-4. If the shoe is not found on a retailer's site, or is out of stock, skip that retailer entirely
-5. Brand-specific stores (Nike, Adidas, Crocs, Puma) should ONLY be included if the shoe brand matches — e.g. do NOT show Nike Israel for Crocs or Adidas shoes
-6. Leave buy_link as empty string "" — it will be filled automatically
-7. Report in_stock as true only if the shoe is currently available to purchase
+STEP-BY-STEP FOR EACH RETAILER:
+1. Go to their website
+2. Search for "${q}"
+3. Click on the exact product listing
+4. Copy the EXACT price shown on the product page (e.g. "₪649.90")
+5. Copy the FULL URL of that specific product page (e.g. "https://footlocker.co.il/products/some-shoe-slug")
 
-Return ONLY retailers where you verified a real price from their website.`;
+STRICT RULES:
+- ONLY report a retailer if you actually found this exact shoe listed on their site with a visible price
+- The price must be what you see on the page right now — NEVER guess or estimate
+- buy_link MUST be the direct URL of the specific product page you found — NOT a search page URL
+- If you only found a search results page but no specific product, still report the search URL
+- Skip any retailer where the shoe is not found or out of stock
+- Brand stores (Nike, Adidas, Puma) ONLY if the shoe brand matches exactly
+- price_confidence: "high" = you opened the product page; "medium" = search results snippet only
+
+Return ONLY retailers where you confirmed a real price.`;
 
     const schema = {
       type: "object",
@@ -134,11 +138,9 @@ Return ONLY retailers where you verified a real price from their website.`;
     const invalidRetailerNames = ['buy online', 'online store', 'shop now', 'buy now', 'retailer', 'store', 'website'];
     const validPicks = rawPicks.filter(p => {
       if (!p.retailer || invalidRetailerNames.includes(p.retailer.toLowerCase().trim())) return false;
-      // Must have a real price
       if (!p.price || p.price.trim() === '') return false;
       const num = parseFloat((p.price || '').replace(/[^0-9.]/g, ''));
-      if (num <= 0) return false;
-      return true;
+      return num > 0;
     });
 
     // Deduplicate by retailer
@@ -150,11 +152,19 @@ Return ONLY retailers where you verified a real price from their website.`;
       return true;
     });
 
-    // Replace AI buy_link with guaranteed search URL — drop picks with no valid URL
+    // Use AI-provided direct product URL if it looks valid, otherwise fall back to search URL
     const finalPicks = dedupedPicks
       .map(p => {
-        const url = buildSearchUrl(p.retailer, q, cc);
-        if (!url) return null; // drop retailers with no valid URL
+        const aiLink = (p.buy_link || '').trim();
+        // Use AI link if it's a real product URL (not a search page, not empty)
+        const isDirectProductUrl = aiLink.startsWith('http') &&
+          !aiLink.includes('/search') &&
+          !aiLink.includes('?q=') &&
+          !aiLink.includes('?query=') &&
+          !aiLink.includes('google.com');
+
+        const url = isDirectProductUrl ? aiLink : buildSearchUrl(p.retailer, q, cc);
+        if (!url) return null; // drop blocked retailers (Terminal X, Crocs store, etc.)
         return { ...p, buy_link: url };
       })
       .filter(Boolean);
