@@ -27,7 +27,6 @@ function buildSearchUrl(retailerName, query, countryCode) {
     if (rl.includes('intisport'))   return `https://www.intisport.co.il/search?q=${q}`;
     if (rl.includes('terminal'))    return `https://www.terminalx.com/catalogsearch/result/?q=${q}`;
     if (rl.includes('intisport'))   return `https://www.intisport.co.il/search?q=${q}`;
-    if (rl.includes('sport depot')) return `https://www.sport-depot.co.il/search?q=${q}`;
   } else {
     if (rl.includes('foot locker') || rl.includes('footlocker')) return `https://www.footlocker.com/search?query=${q}`;
 
@@ -46,7 +45,7 @@ const IL_FALLBACK_RETAILERS = [
   { name: 'Nike Israel',         url: (q) => `https://www.nike.com/il/w?q=${q}` },
   { name: 'Foot Locker Israel',  url: (q) => `https://footlocker.co.il/search?q=${q}` },
   { name: 'Adidas Israel',       url: (q) => `https://www.adidas.co.il/search?q=${q}` },
-  { name: 'Sport Depot',         url: (q) => `https://www.sport-depot.co.il/search?q=${q}` },
+  { name: 'Intisport',           url: (q) => `https://www.intisport.co.il/search?q=${q}` },
 ];
 
 const US_FALLBACK_RETAILERS = [
@@ -80,7 +79,7 @@ Deno.serve(async (req) => {
           { name: 'Nike Israel',        url: 'nike.com/il' },
           { name: 'Adidas Israel',      url: 'adidas.co.il' },
           { name: 'Foot Locker Israel', url: 'footlocker.co.il' },
-          { name: 'Sport Depot',        url: 'sport-depot.co.il' },
+          { name: 'Intisport',          url: 'intisport.co.il' },
           { name: 'Terminal X',         url: 'terminalx.com' },
           { name: 'Intisport',          url: 'intisport.co.il' },
         ]
