@@ -80,7 +80,6 @@ Deno.serve(async (req) => {
           { name: 'Adidas Israel',      url: 'adidas.co.il' },
           { name: 'Foot Locker Israel', url: 'footlocker.co.il' },
           { name: 'Intisport',          url: 'intisport.co.il' },
-          { name: 'Terminal X',         url: 'terminalx.com' },
           { name: 'Intisport',          url: 'intisport.co.il' },
         ]
       : [
@@ -171,27 +170,6 @@ Return only retailers where you confirmed a real price by visiting their site.`;
       ...p,
       buy_link: buildSearchUrl(p.retailer, q, cc),
     }));
-
-    // Pad with search-only entries (no fake prices) if fewer than 3 results came back
-    const fallbacks = cc === 'IL' ? IL_FALLBACK_RETAILERS : US_FALLBACK_RETAILERS;
-    const enc = encodeURIComponent(q);
-    const qLower = q.toLowerCase();
-    for (const fb of fallbacks) {
-      if (finalPicks.length >= 4) break;
-      // Skip brand-specific stores that wouldn't carry a competitor's shoe
-      // e.g. don't show Adidas Israel for Nike shoes or Nike for Adidas shoes
-      const fbLower = fb.name.toLowerCase();
-      if (fbLower.includes('adidas') && (qLower.includes('nike') || qLower.includes('jordan') || qLower.includes('puma'))) continue;
-      if (fbLower.includes('nike') && (qLower.includes('adidas') || qLower.includes('puma') || qLower.includes('reebok'))) continue;
-      const alreadyHave = finalPicks.some(p => p.retailer.toLowerCase().includes(fb.name.toLowerCase().split(' ')[0]));
-      if (!alreadyHave) {
-        finalPicks.push({
-          name: q, brand: '', price: '', original_price: '', currency: cc === 'IL' ? 'ILS' : 'USD',
-          retailer: fb.name, buy_link: fb.url(enc),
-          in_stock: null, ships_to_user: true, is_best_deal: false, price_confidence: 'low', discount_percent: 0,
-        });
-      }
-    }
 
     // Mark best deal (lowest confirmed price)
     if (!finalPicks.some(p => p.is_best_deal)) {
