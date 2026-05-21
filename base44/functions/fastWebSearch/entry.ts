@@ -56,13 +56,16 @@ async function fetchRetailerPrice(base44, query, retailer, sizeNote) {
   try {
     const result = await Promise.race([
       base44.asServiceRole.integrations.Core.InvokeLLM({
-        prompt: `Go to ${retailer.domain} right now and search for "${query}"${sizeNote ? ` size ${sizeNote}` : ''}.
-Find the product and report:
-- The EXACT price shown on the page (e.g. "₪649.90") — do NOT estimate
-- The direct product URL (or search URL if no product page)
-- Whether it is in stock
+        prompt: `Search the web right now for the current price of "${query}"${sizeNote ? ` ${sizeNote}` : ''} on ${retailer.domain}.
 
-If the product is not found on this site, return price as null.`,
+Look at the actual product listing page on ${retailer.domain} and return:
+- price: the exact price shown (e.g. "₪649.90", "$120.00") — must be a real number from the page
+- original_price: original/crossed-out price if there is a discount, otherwise same as price
+- buy_link: direct URL to the product or search results page on ${retailer.domain}
+- in_stock: true if available to buy, false if sold out
+- discount_percent: integer discount percentage if on sale, else 0
+
+If you cannot find the product on this specific site, return price as null.`,
         add_context_from_internet: true,
         model: "gemini_3_1_pro",
         response_json_schema: {
@@ -77,7 +80,7 @@ If the product is not found on this site, return price as null.`,
           }
         }
       }),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 45000))
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 55000))
     ]);
 
     const price = result?.price;
