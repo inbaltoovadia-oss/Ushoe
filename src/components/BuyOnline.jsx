@@ -97,6 +97,8 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
       color: selectedColor,
       countryCode: loc.countryCode,
       optimizeBy,
+      userLat: loc.lat || null,
+      userLng: loc.lng || null,
     };
 
     // Run only ONE search — deal agent gets all retailer data including stock

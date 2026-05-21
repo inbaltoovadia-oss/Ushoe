@@ -16,7 +16,9 @@ function cacheSet(k, data) {
 
 // Fallback search URL only used when AI couldn't find a direct product link
 function buildSearchUrl(retailerName, query, countryCode) {
-  const q = encodeURIComponent(query);
+  // Strip trailing " buy" so search URLs are clean
+  const cleanQuery = query.replace(/\s+buy\s*$/i, '').trim();
+  const q = encodeURIComponent(cleanQuery);
   const rl = (retailerName || '').toLowerCase();
 
   if (countryCode === 'IL') {
@@ -45,12 +47,16 @@ Deno.serve(async (req) => {
   let parsedBody = {};
   try { parsedBody = await req.json(); } catch {}
 
-  const { query, city, country, countryCode, optimizeBy = 'best_deal', selectedSize = null } = parsedBody;
+  const { query, city, country, countryCode, optimizeBy = 'best_deal', selectedSize = null, userLat = null, userLng = null } = parsedBody;
 
   const q = (query || '').trim();
   const cc = (countryCode || 'US').toUpperCase();
   const countryName = country || 'United States';
   const cityName = city || countryName;
+  // Use precise GPS coordinate as location hint when available — much more accurate for the LLM
+  const preciseLocation = (userLat && userLng)
+    ? `${userLat.toFixed(5)},${userLng.toFixed(5)} (${cityName}, ${countryName})`
+    : cityName;
 
   try {
     const base44 = createClientFromRequest(req);
@@ -61,18 +67,17 @@ Deno.serve(async (req) => {
     const cached = cacheGet(cacheKey);
     if (cached) return Response.json({ ...cached, cached: true });
 
-    const locationHint = cc === 'IL' ? 'Israel' : countryName;
+    const locationHint = cc === 'IL' ? `Israel (near ${preciseLocation})` : `${preciseLocation}`;
     const currency = cc === 'IL' ? 'ILS (₪)' : 'USD ($)';
     const sizeNote = selectedSize ? ` in US size ${selectedSize}` : '';
 
     const ilRetailers = cc === 'IL' ? [
-      'Foot Locker Israel (footlocker.co.il)',
-      'WeShoes Israel (weshoes.co.il)',
-      'Shilav (shilav.co.il)',
-      'Fox Shoes (foxshoes.co.il)',
-      'Nike Israel (nike.com/il) — ONLY if the shoe is a Nike brand product',
-      'Adidas Israel (adidas.co.il) — ONLY if the shoe is an Adidas brand product',
-      'Puma Israel (puma.com/il) — ONLY if the shoe is a Puma brand product',
+      'Foot Locker Israel (footlocker.co.il) — use search URL format: https://footlocker.co.il/search?q=QUERY (do NOT use /products/ URLs — they are unreliable)',
+      'WeShoes Israel (weshoes.co.il) — use search URL format: https://www.weshoes.co.il/search?q=QUERY',
+      'Shilav (shilav.co.il) — use search URL: https://www.shilav.co.il/search?q=QUERY',
+      'Nike Israel (nike.com/il) — ONLY if the shoe is a Nike brand product; use real product page URL',
+      'Adidas Israel (adidas.co.il) — ONLY if the shoe is an Adidas brand product; use real product page URL',
+      'Puma Israel (puma.com/il) — ONLY if the shoe is a Puma brand product; use real product page URL',
     ] : [
       'Foot Locker (footlocker.com)',
       'Zappos (zappos.com)',
@@ -175,14 +180,15 @@ Return ONLY retailers where you confirmed a real price.`;
     const finalPicks = dedupedPicks
       .map(p => {
         const aiLink = (p.buy_link || '').trim();
-        // Use AI link if it's a real product URL (not a search page, not empty)
-        const isDirectProductUrl = aiLink.startsWith('http') &&
-          !aiLink.includes('/search') &&
-          !aiLink.includes('?q=') &&
-          !aiLink.includes('?query=') &&
-          !aiLink.includes('google.com');
+        // Accept: real product URLs AND search URLs from known retailers
+        // Reject: google.com links and empty strings
+        const isUsableUrl = aiLink.startsWith('http') && !aiLink.includes('google.com');
+        // For Foot Locker IL, always use search URL (product slugs are unreliable / 404)
+        const isFootLockerIL = (p.retailer || '').toLowerCase().includes('foot locker') && cc === 'IL';
 
-        const url = isDirectProductUrl ? aiLink : buildSearchUrl(p.retailer, q, cc);
+        const url = (isUsableUrl && !isFootLockerIL)
+          ? aiLink
+          : buildSearchUrl(p.retailer, q, cc);
         if (!url) return null; // drop blocked retailers (Terminal X, Crocs store, etc.)
         return { ...p, buy_link: url };
       })

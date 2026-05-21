@@ -7,7 +7,7 @@
 import { base44 } from "@/api/base44Client";
 import { getCachedDeals, setCachedDeals } from "./agentCache";
 
-export async function runDealAgent({ shoe, city, size = null, color = null, countryCode = "", optimizeBy = "best_deal" }) {
+export async function runDealAgent({ shoe, city, size = null, color = null, countryCode = "", optimizeBy = "best_deal", userLat = null, userLng = null }) {
   const cached = getCachedDeals(shoe.id, city, size, color);
   if (cached) return cached;
 
@@ -25,6 +25,8 @@ export async function runDealAgent({ shoe, city, size = null, color = null, coun
     countryCode: code,
     optimizeBy,
     selectedSize: size || null,
+    userLat: userLat || null,
+    userLng: userLng || null,
   });
 
   const data = res?.data || res || {};
@@ -79,10 +81,14 @@ export async function runDealAgent({ shoe, city, size = null, color = null, coun
       maps_url: s.maps_url || `https://www.google.com/maps/search/${encodeURIComponent(`${s.name} ${s.address}`)}`,
     }));
 
-  const bestPrice = retailers.reduce((min, r) => {
+  const bestPriceNum = retailers.reduce((min, r) => {
     if (r.deal_price && (min === null || r.deal_price < min)) return r.deal_price;
     return min;
   }, null);
+  const bestPriceRetailer = retailers.find(r => r.deal_price === bestPriceNum);
+  const bestPriceCurrency = bestPriceRetailer?.currency || "USD";
+  const bestPriceSymbol = bestPriceCurrency === "ILS" ? "₪" : bestPriceCurrency === "EUR" ? "€" : bestPriceCurrency === "GBP" ? "£" : "$";
+  const bestPrice = bestPriceNum ? `${bestPriceSymbol}${bestPriceNum}` : null;
 
   const hasDeal = retailers.some(r => r.discount_pct > 0);
   const bestRetailer = retailers.find(r => r.is_best_deal);

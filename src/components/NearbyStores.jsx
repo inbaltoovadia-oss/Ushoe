@@ -208,12 +208,11 @@ export default function NearbyStores({ title = "Nearby Stores", maxCount = 6, sh
         category: shoe.category,
         sizes_available: shoe.sizes_available || [],
       },
-      latitude: location.latitude || null,
-      longitude: location.longitude || null,
+      userLat: location.latitude || location.lat || null,
+      userLng: location.longitude || location.lng || null,
       cityFallback: location.city || null,
       selectedSize: selectedSize || null,
       selectedColor: selectedColor || null,
-      radiusKm: 20,
     });
 
     const data = res?.data || {};
@@ -231,7 +230,13 @@ export default function NearbyStores({ title = "Nearby Stores", maxCount = 6, sh
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          const updatedLoc = { ...loc, latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+          const updatedLoc = {
+            ...loc,
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+          };
           setLoc(updatedLoc);
           setStarted(true);
           loadStores(updatedLoc);
