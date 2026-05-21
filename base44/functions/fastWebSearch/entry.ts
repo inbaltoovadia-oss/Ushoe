@@ -26,10 +26,11 @@ function buildSearchUrl(retailerName, query, countryCode) {
     if (rl.includes('sport depot')) return `https://www.sport-depot.co.il/search?q=${q}`;
     if (rl.includes('intisport'))   return `https://www.intisport.co.il/search?q=${q}`;
     if (rl.includes('terminal'))    return `https://www.terminalx.com/catalogsearch/result/?q=${q}`;
-    if (rl.includes('jd sport'))    return `https://www.jdsports.co.il/search/jdsports/${q}/`;
+    if (rl.includes('intisport'))   return `https://www.intisport.co.il/search?q=${q}`;
+    if (rl.includes('sport depot')) return `https://www.sport-depot.co.il/search?q=${q}`;
   } else {
     if (rl.includes('foot locker') || rl.includes('footlocker')) return `https://www.footlocker.com/search?query=${q}`;
-    if (rl.includes('jd sports') || rl.includes('jdsports'))     return `https://www.jdsports.com/search/jdsports/${q}/`;
+
     if (rl.includes('zappos'))      return `https://www.zappos.com/search/term/${q}`;
     if (rl.includes('finish line')) return `https://www.finishline.com/store/browse/search.jsp?query=${q}`;
     if (rl.includes('dsw'))         return `https://www.dsw.com/en/us/search?q=${q}`;
@@ -50,7 +51,7 @@ const IL_FALLBACK_RETAILERS = [
 
 const US_FALLBACK_RETAILERS = [
   { name: 'Foot Locker',  url: (q) => `https://www.footlocker.com/search?query=${q}` },
-  { name: 'JD Sports',    url: (q) => `https://www.jdsports.com/search/jdsports/${q}/` },
+  { name: 'Zappos',       url: (q) => `https://www.zappos.com/search/term/${q}` },
   { name: 'Zappos',       url: (q) => `https://www.zappos.com/search/term/${q}` },
   { name: 'Nike',         url: (q) => `https://www.nike.com/w?q=${q}` },
 ];
@@ -72,31 +73,47 @@ Deno.serve(async (req) => {
     if (cached) return Response.json({ ...cached, cached: true });
 
     const locationHint = cc === 'IL' ? 'Israel' : countryName;
-    const sizeClause = selectedSize
-      ? `Size context: user wants US size ${selectedSize}. Report the price shown for that size if visible; otherwise report the general price shown.`
-      : '';
 
-    const retailerList = cc === 'IL'
-      ? 'Nike Israel (nike.com/il), Adidas Israel (adidas.co.il), Foot Locker Israel (footlocker.co.il), Sport Depot (sport-depot.co.il), Terminal X (terminalx.com), Intisport (intisport.co.il)'
-      : 'Nike (nike.com), Adidas (adidas.com), Foot Locker (footlocker.com), JD Sports (jdsports.com), Zappos (zappos.com), Finish Line (finishline.com), DSW (dsw.com)';
 
-    const prompt = `Search Google Shopping right now for "${q}" available in ${locationHint}.
+    const retailers = cc === 'IL'
+      ? [
+          { name: 'Nike Israel',        url: 'nike.com/il' },
+          { name: 'Adidas Israel',      url: 'adidas.co.il' },
+          { name: 'Foot Locker Israel', url: 'footlocker.co.il' },
+          { name: 'Sport Depot',        url: 'sport-depot.co.il' },
+          { name: 'Terminal X',         url: 'terminalx.com' },
+          { name: 'Intisport',          url: 'intisport.co.il' },
+        ]
+      : [
+          { name: 'Nike',        url: 'nike.com' },
+          { name: 'Adidas',      url: 'adidas.com' },
+          { name: 'Foot Locker', url: 'footlocker.com' },
+          { name: 'Zappos',      url: 'zappos.com' },
+          { name: 'Finish Line', url: 'finishline.com' },
+          { name: 'DSW',         url: 'dsw.com' },
+        ];
 
-Target retailers to search: ${retailerList}
+    const sizeStep = selectedSize
+      ? `For each retailer: (1) open their website, (2) search for "${q}", (3) select US size ${selectedSize} on the product page, (4) copy the EXACT price shown for that size. If the size is unavailable or the retailer doesn't carry this shoe, skip them.`
+      : `For each retailer: (1) open their website, (2) search for "${q}", (3) copy the EXACT price shown on the product listing page.`;
 
-${sizeClause}
+    const prompt = `You are a price research agent. For the shoe "${q}" sold in ${locationHint}, visit each retailer website below and extract the real live price.
 
-TASK: Find prices at AS MANY of these retailers as possible — aim for at least 3-4 results.
+Retailers to check:
+${retailers.map(r => `- ${r.name}: ${r.url}`).join('\n')}
 
-STRICT RULES:
-1. Only report a price if you can SEE the actual number in search results — copy it verbatim (e.g. "₪529.90" or "$115.00")
-2. DO NOT invent or estimate prices — if a retailer has no visible price in search results, skip it
-3. DO NOT generate product URLs — set buy_link to empty string ""
-4. Search each retailer's Google Shopping listing for this exact shoe model
-5. "price_confidence" = "high" only when the price number is clearly visible in results
-6. Check all retailers in the list — do not stop after the first 1-2 results
+HOW TO GET THE PRICE:
+${sizeStep}
 
-Return all retailers where you found a real visible price. More verified results = better.`;
+STRICT RULES — violations will cause the data to be discarded:
+1. ONLY report prices you literally see on the retailer's website right now — NEVER estimate, guess, or use your training data
+2. The price must be a real number visible on the page (e.g. "₪529.90", "$119.00") — copy it character-for-character
+3. If you cannot find this shoe on a retailer's site, or cannot see a price, OMIT that retailer entirely
+4. Set buy_link to empty string "" — we will build URLs ourselves
+5. Set price_confidence "high" only if you actually navigated to the product page and saw the price; "low" if from a search snippet only
+6. DO NOT report the same price for multiple retailers — each must be independently verified
+
+Return only retailers where you confirmed a real price by visiting their site.`;
 
     const schema = {
       type: "object",
