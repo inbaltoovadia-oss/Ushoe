@@ -11,12 +11,15 @@ import { fromUSSize } from "../lib/sizeConverter";
 import { base44 } from "@/api/base44Client";
 
 // Build instant verified retailer list — only retailers that SHIP to the user's country
-function getInstantRetailers(shoe, countryCode) {
+function getInstantRetailers(shoe, countryCode, city) {
   const brand = (shoe?.brand || '').toLowerCase();
   const q = encodeURIComponent(`${shoe?.brand || ''} ${shoe?.name || ''}`);
 
-  // Israel — only Israeli/IL-shipping retailers
-  if (countryCode === 'IL') {
+  // Detect Israel by countryCode OR by city name (handles default "New York" countryCode mismatch)
+  const isIsrael = countryCode === 'IL' ||
+    ['tel aviv', 'haifa', 'jerusalem', 'beer sheva', 'netanya', 'rishon', 'petah', 'herzliya', 'ramat gan', 'holon', 'bat yam', 'ashdod'].some(c => (city || '').toLowerCase().includes(c));
+
+  if (isIsrael) {
     const retailers = [
       { name: 'Foot Locker Israel', url: `https://footlocker.co.il/search?q=${q}`, note: 'Ships within Israel · Large selection' },
       { name: 'WeShoes',            url: `https://www.weshoes.co.il/search?q=${q}`, note: 'Ships within Israel' },
@@ -30,33 +33,33 @@ function getInstantRetailers(shoe, countryCode) {
   // UK
   if (countryCode === 'GB') {
     const retailers = [
-      { name: 'Foot Locker UK',  url: `https://www.footlocker.co.uk/search?query=${q}`, note: 'Ships within UK · Free delivery £60+' },
-      { name: 'JD Sports UK',    url: `https://www.jdsports.co.uk/search/?query=${q}`,  note: 'Ships within UK' },
-      { name: 'ASOS',            url: `https://www.asos.com/search/?q=${q}`,            note: 'Free next-day delivery with ASOS Premier' },
+      { name: 'Foot Locker UK', url: `https://www.footlocker.co.uk/search?query=${q}`, note: 'Ships within UK · Free delivery £60+' },
+      { name: 'JD Sports UK',   url: `https://www.jdsports.co.uk/search/?query=${q}`,  note: 'Ships within UK' },
+      { name: 'ASOS',           url: `https://www.asos.com/search/?q=${q}`,            note: 'Free next-day delivery with ASOS Premier' },
     ];
     if (brand.includes('nike'))   retailers.unshift({ name: 'Nike UK',   url: `https://www.nike.com/gb/w?q=${q}`, note: 'Official Nike UK store' });
     if (brand.includes('adidas')) retailers.unshift({ name: 'Adidas UK', url: `https://www.adidas.co.uk/search?q=${q}`, note: 'Official Adidas UK store' });
     return retailers;
   }
 
-  // EU (Germany, France, etc.)
+  // EU
   if (['DE','FR','ES','IT','NL','BE','AT','PL','SE','DK','FI','NO'].includes(countryCode)) {
     const retailers = [
-      { name: 'Foot Locker EU',  url: `https://www.footlocker.eu/en/search?query=${q}`, note: 'Ships across Europe' },
-      { name: 'Zalando',         url: `https://www.zalando.com/catalog/?q=${q}`,        note: 'Free delivery & returns · Ships to EU' },
+      { name: 'Foot Locker EU', url: `https://www.footlocker.eu/en/search?query=${q}`, note: 'Ships across Europe' },
+      { name: 'Zalando',        url: `https://www.zalando.com/catalog/?q=${q}`,        note: 'Free delivery & returns · Ships to EU' },
     ];
     if (brand.includes('nike'))   retailers.unshift({ name: 'Nike EU',   url: `https://www.nike.com/de/w?q=${q}`, note: 'Official Nike EU store' });
     if (brand.includes('adidas')) retailers.unshift({ name: 'Adidas EU', url: `https://www.adidas.com/de/search?q=${q}`, note: 'Official Adidas EU store' });
     return retailers;
   }
 
-  // Default: US or international retailers that ship widely
+  // US only
   const retailers = [
     { name: 'Foot Locker',  url: `https://www.footlocker.com/search?query=${q}`, note: 'Ships within US · Free shipping $75+' },
-    { name: 'Zappos',       url: `https://www.zappos.com/search/term/${q}`,      note: 'Free shipping & free returns' },
-    { name: 'DSW',          url: `https://www.dsw.com/en/us/search?q=${q}`,      note: 'Rewards points on every purchase' },
+    { name: 'Zappos',       url: `https://www.zappos.com/search/term/${q}`,      note: 'Free shipping & free returns · US only' },
+    { name: 'DSW',          url: `https://www.dsw.com/en/us/search?q=${q}`,      note: 'Rewards points on every purchase · US only' },
   ];
-  if (brand.includes('nike'))   retailers.unshift({ name: 'Nike.com',   url: `https://www.nike.com/w?q=${q}`,          note: 'Official store · Free shipping & returns' });
+  if (brand.includes('nike'))   retailers.unshift({ name: 'Nike.com',   url: `https://www.nike.com/w?q=${q}`,           note: 'Official store · Free shipping & returns' });
   if (brand.includes('adidas')) retailers.unshift({ name: 'Adidas.com', url: `https://www.adidas.com/us/search?q=${q}`, note: 'Official store · Free shipping on $50+' });
   if (brand.includes('puma'))   retailers.push(   { name: 'Puma.com',   url: `https://us.puma.com/en_US/search?q=${q}`, note: 'Official Puma US store' });
   return retailers;
@@ -78,7 +81,7 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
     setLoadingLive(false);
   }, [shoe?.id]);
 
-  const instantRetailers = getInstantRetailers(shoe, loc.countryCode);
+  const instantRetailers = getInstantRetailers(shoe, loc.countryCode, loc.city);
 
   // Try to fetch live prices from backend — 65s timeout to match backend
   const fetchLivePrices = async () => {
