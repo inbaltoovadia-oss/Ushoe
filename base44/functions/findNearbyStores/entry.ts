@@ -28,25 +28,27 @@ function buildProductSearchUrl(retailerName, shoeQuery) {
   if (rl.includes('foot locker'))  return `https://footlocker.co.il/search?q=${q}`;
   if (rl.includes('nike'))         return `https://www.nike.com/il/w?q=${q}`;
   if (rl.includes('adidas'))       return `https://www.adidas.co.il/search?q=${q}`;
-  if (rl.includes('intisport'))    return `https://www.intisport.co.il/search?q=${q}`;
+  if (rl.includes('terminal'))     return `https://www.terminalx.com/catalogsearch/result/?q=${q}`;
   // Generic Google search for the shoe at that store
   return `https://www.google.com/search?q=${encodeURIComponent(shoeQuery + ' ' + retailerName)}`;
 }
 
 // ONLY verified Israeli sneaker retail chains with physical storefronts
-// Sport Depot, JD Sports, Fox Shoes, Shilav are all excluded
+// Sport Depot, JD Sports, Fox Shoes, Shilav, Intisport are all excluded
 const SNEAKER_CHAINS_IL = [
   {
     name: 'Foot Locker',
-    maps_search: 'Foot Locker חנות נעליים',
+    maps_search: 'Foot Locker חנות נעליים ישראל',
     rating: 4.2,
-    why: 'International sneaker chain — carries Nike, Adidas, Jordan and all major brands',
+    why: 'International sneaker chain with physical stores in Israel — carries Nike, Adidas, Jordan and all major brands',
+    website_search: (q) => `https://footlocker.co.il/search?q=${encodeURIComponent(q)}`,
   },
   {
-    name: 'Intisport',
-    maps_search: 'Intisport ישראל',
-    rating: 4.1,
-    why: 'Israeli sports chain with physical stores carrying major sneaker brands',
+    name: 'Terminal X',
+    maps_search: 'Terminal X טרמינל איקס חנות',
+    rating: 4.0,
+    why: 'Israel\'s largest multi-brand fashion retailer with physical locations carrying major sneaker brands',
+    website_search: (q) => `https://www.terminalx.com/catalogsearch/result/?q=${encodeURIComponent(q)}`,
   },
 ];
 
@@ -77,7 +79,7 @@ function getBrandStore(brand) {
 }
 
 // Stores that must NEVER appear
-const BLOCKED_STORES = ['terminal x', 'ac sports', 'acsports', 'fox shoes', 'foxshoes', 'shilav', 'sport depot', 'sportdepot', 'jd sports', 'jdsports'];
+const BLOCKED_STORES = ['ac sports', 'acsports', 'fox shoes', 'foxshoes', 'shilav', 'sport depot', 'sportdepot', 'jd sports', 'jdsports', 'intisport'];
 
 function getFallbackStores(locationLabel, brand, shoeQuery) {
   const brandStore = getBrandStore(brand);
@@ -128,7 +130,7 @@ Deno.serve(async (req) => {
     const allowedChains = [
       ...(brandStore ? [brandStore.name] : []),
       'Foot Locker',
-      'Intisport',
+      'Terminal X',
     ].join(', ');
 
     const prompt = `Search Google Maps for physical RETAIL STORE BRANCHES near ${useExactGPS ? `GPS coordinates ${locationLabel}` : locationLabel} in Israel that sell ${shoeFullName}${sizeInfo}.

@@ -23,10 +23,7 @@ function buildSearchUrl(retailerName, query, countryCode) {
     if (rl.includes('foot locker') || rl.includes('footlocker')) return `https://footlocker.co.il/search?q=${q}`;
     if (rl.includes('adidas'))      return `https://www.adidas.co.il/search?q=${q}`;
     if (rl.includes('nike'))        return `https://www.nike.com/il/w?q=${q}`;
-    if (rl.includes('sport depot')) return `https://www.sport-depot.co.il/search?q=${q}`;
-    if (rl.includes('intisport'))   return `https://www.intisport.co.il/search?q=${q}`;
     if (rl.includes('terminal'))    return `https://www.terminalx.com/catalogsearch/result/?q=${q}`;
-    if (rl.includes('intisport'))   return `https://www.intisport.co.il/search?q=${q}`;
   } else {
     if (rl.includes('foot locker') || rl.includes('footlocker')) return `https://www.footlocker.com/search?query=${q}`;
 
@@ -79,8 +76,7 @@ Deno.serve(async (req) => {
           { name: 'Nike Israel',        url: 'nike.com/il' },
           { name: 'Adidas Israel',      url: 'adidas.co.il' },
           { name: 'Foot Locker Israel', url: 'footlocker.co.il' },
-          { name: 'Intisport',          url: 'intisport.co.il' },
-          { name: 'Intisport',          url: 'intisport.co.il' },
+          { name: 'Terminal X',         url: 'terminalx.com' },
         ]
       : [
           { name: 'Nike',        url: 'nike.com' },
@@ -174,10 +170,10 @@ Return only retailers where you confirmed a real price by visiting their site.`;
     // Pad to minimum 3 with official verified retailers only (no invented prices)
     const officialRetailers = cc === 'IL'
       ? [
-          { name: 'Nike Israel',        url: (q) => `https://www.nike.com/il/w?q=${q}`,              brand: 'nike' },
-          { name: 'Adidas Israel',      url: (q) => `https://www.adidas.co.il/search?q=${q}`,        brand: 'adidas' },
-          { name: 'Foot Locker Israel', url: (q) => `https://footlocker.co.il/search?q=${q}`,        brand: null },
-          { name: 'Intisport',          url: (q) => `https://www.intisport.co.il/search?q=${q}`,     brand: null },
+          { name: 'Nike Israel',        url: (q) => `https://www.nike.com/il/w?q=${q}`,                              brand: 'nike' },
+          { name: 'Adidas Israel',      url: (q) => `https://www.adidas.co.il/search?q=${q}`,                        brand: 'adidas' },
+          { name: 'Foot Locker Israel', url: (q) => `https://footlocker.co.il/search?q=${q}`,                        brand: null },
+          { name: 'Terminal X',         url: (q) => `https://www.terminalx.com/catalogsearch/result/?q=${q}`,        brand: null },
         ]
       : [
           { name: 'Foot Locker', url: (q) => `https://www.footlocker.com/search?query=${q}`, brand: null },
