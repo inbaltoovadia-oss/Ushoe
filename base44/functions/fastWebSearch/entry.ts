@@ -171,6 +171,38 @@ Return only retailers where you confirmed a real price by visiting their site.`;
       buy_link: buildSearchUrl(p.retailer, q, cc),
     }));
 
+    // Pad to minimum 3 with official verified retailers only (no invented prices)
+    const officialRetailers = cc === 'IL'
+      ? [
+          { name: 'Nike Israel',        url: (q) => `https://www.nike.com/il/w?q=${q}`,              brand: 'nike' },
+          { name: 'Adidas Israel',      url: (q) => `https://www.adidas.co.il/search?q=${q}`,        brand: 'adidas' },
+          { name: 'Foot Locker Israel', url: (q) => `https://footlocker.co.il/search?q=${q}`,        brand: null },
+          { name: 'Intisport',          url: (q) => `https://www.intisport.co.il/search?q=${q}`,     brand: null },
+        ]
+      : [
+          { name: 'Foot Locker', url: (q) => `https://www.footlocker.com/search?query=${q}`, brand: null },
+          { name: 'Nike',        url: (q) => `https://www.nike.com/w?q=${q}`,                brand: 'nike' },
+          { name: 'Adidas',      url: (q) => `https://www.adidas.com/us/search?q=${q}`,     brand: 'adidas' },
+          { name: 'Zappos',      url: (q) => `https://www.zappos.com/search/term/${q}`,     brand: null },
+        ];
+
+    const enc = encodeURIComponent(q);
+    const qLower = q.toLowerCase();
+    for (const fb of officialRetailers) {
+      if (finalPicks.length >= 3) break;
+      // Skip brand-specific stores that wouldn't carry a competitor's shoe
+      if (fb.brand === 'nike' && (qLower.includes('adidas') || qLower.includes('puma') || qLower.includes('reebok'))) continue;
+      if (fb.brand === 'adidas' && (qLower.includes('nike') || qLower.includes('jordan') || qLower.includes('puma'))) continue;
+      const alreadyHave = finalPicks.some(p => p.retailer.toLowerCase().replace(/\s+/g,'').includes(fb.name.toLowerCase().replace(/\s+/g,'').split('israel')[0].trim().replace(/\s+/g,'')));
+      if (!alreadyHave) {
+        finalPicks.push({
+          name: q, brand: '', price: '', original_price: '', currency: cc === 'IL' ? 'ILS' : 'USD',
+          retailer: fb.name, buy_link: fb.url(enc),
+          in_stock: null, ships_to_user: true, is_best_deal: false, price_confidence: 'official_only', discount_percent: 0,
+        });
+      }
+    }
+
     // Mark best deal (lowest confirmed price)
     if (!finalPicks.some(p => p.is_best_deal)) {
       const prices = finalPicks.map(p => parseFloat((p.price || '0').replace(/[^0-9.]/g, '')) || Infinity);

@@ -105,10 +105,10 @@ export default function BuyOnline({ shoe, selectedSize = null, selectedColor = n
     setBestPrice(dealResult.best_price_found);
     setDealsDone(true);
     setStockDone(true);
-    // Only show retailers with a confirmed real price — no unverified/low-confidence entries
+    // Show retailers with confirmed price OR official verified fallbacks — never unverified 'low' entries
     const verifiedResult = {
       ...dealResult,
-      retailers: (dealResult.retailers || []).filter(r => r.deal_price && r.deal_price > 0 && r.confidence !== 'low'),
+      retailers: (dealResult.retailers || []).filter(r => r.confidence !== 'low'),
     };
     setRetailers(mergeRetailers(verifiedResult, null));
     setLoading(false);
