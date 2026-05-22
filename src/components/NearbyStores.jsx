@@ -251,7 +251,14 @@ export default function NearbyStores({ title = "Nearby Stores", maxCount = 6, sh
         setSummary(data.summary || "");
       }
     } catch (err) {
-      setError("Search timed out or failed. Please try again.");
+      const msg = err?.response?.data?.error || err?.message || "";
+      if (msg.toLowerCase().includes("timeout") || msg.toLowerCase().includes("timed out")) {
+        setError("Search took too long. Please try again — it usually works on the second attempt.");
+      } else if (msg) {
+        setError("Could not find stores: " + msg);
+      } else {
+        setError("Search failed. Please try again.");
+      }
     }
     setLoading(false);
   };
