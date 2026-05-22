@@ -44,58 +44,68 @@ Deno.serve(async (req) => {
 
     const sizeStr = selectedSize ? ` in US size ${selectedSize}` : '';
     const colorStr = selectedColor ? `, ${selectedColor}` : (shoe.colorway ? `, ${shoe.colorway}` : '');
-    const locationContext = refLat && refLng
-      ? `GPS: ${refLat}, ${refLng} (${locationLabel})`
-      : `Location: ${locationLabel}`;
+
+    // Build rich location context — GPS coords are the primary anchor for proximity
+    const hasGps = refLat && refLng;
+    const mapsSearchUrl = hasGps
+      ? `https://www.google.com/maps/search/${encodeURIComponent(shoe.brand + ' shoes store')}/@${refLat},${refLng},14z`
+      : null;
+    const locationContext = hasGps
+      ? `GPS coordinates: ${refLat}, ${refLng}\nAddress: ${locationLabel}\nGoogle Maps search: ${mapsSearchUrl}`
+      : `Address: ${locationLabel}`;
 
     // SINGLE combined call: find stores AND check stock in one web search — 80s timeout
     const llmCall = base44.asServiceRole.integrations.Core.InvokeLLM({
-      prompt: `You are a shoe store locator. Search the web RIGHT NOW to find real, currently-open physical shoe stores near: ${locationContext}
+      prompt: `You are a shoe store locator. Your #1 job is to find the PHYSICALLY CLOSEST stores to the user. Use the GPS coordinates to calculate real distances.
+
+USER LOCATION:
+${locationContext}
+
+PROXIMITY IS THE TOP PRIORITY. Search Google Maps and the web RIGHT NOW for "${shoe.brand} shoe stores near ${locationLabel}". Look up all branches of relevant chains and pick the ones GEOGRAPHICALLY CLOSEST to the GPS coordinates above. Do NOT just list the most famous branches — find the nearest ones.
 
 CRITICAL RULES — STRICT ENFORCEMENT:
-1. ONLY return stores you can VERIFY exist via a real Google Maps or web search result. Do NOT invent or hallucinate store names, addresses, or phone numbers.
-2. If a store chain does NOT officially operate in this country/city (e.g. JD Sports is NOT in Israel), do NOT include it.
-3. VERIFY each store's branch actually exists at the address you provide — confirm from Google Maps or the retailer's official store locator.
+1. ONLY return stores you can VERIFY exist via Google Maps or the retailer's official store locator. Do NOT invent stores, addresses, or phone numbers.
+2. If a chain does NOT officially operate in this country/city (e.g. JD Sports is NOT in Israel), do NOT include it.
+3. For EVERY store you return, VERIFY the specific branch address from Google Maps or the official store locator.
+4. ALWAYS provide real GPS latitude/longitude for each branch so distances can be calculated accurately.
 
-ISRAEL-SPECIFIC FACTS (if location is in Israel):
-- JD Sports does NOT operate in Israel. Do NOT include JD Sports.
-- Foot Locker Israel has branches at: Dizengoff Center Tel Aviv, Ayalon Mall Ramat Gan, Kanyon Haifa, Big Fashion Beer Sheva, Kanyon Holon.
-- Nike Israel has official stores at: Dizengoff Center Tel Aviv, Kanyon Ayalon Ramat Gan.
-- WeShoes has branches at multiple Israeli malls — sells ONLY: Crocs, HOKA, Blundstone, Desigual, Freedom Moses, Kizik, Native Shoes. Does NOT sell Nike, Adidas, Jordan, Puma, New Balance, Converse, Vans.
-- Adidas Israel stores at: Dizengoff Center, Kanyon Haifa, Kanyon Ayalon.
-- SneakerBox (independent boutique) is at Beilinson St, Tel Aviv.
-- Intersport has multiple Israeli branches.
+ISRAEL-SPECIFIC FACTS (apply if location is in Israel):
+- JD Sports does NOT operate in Israel. NEVER include JD Sports.
+- Foot Locker Israel verified branches: Dizengoff Center (Dizengoff St 50, Tel Aviv), Ayalon Mall (Derech Menachem Begin 2, Ramat Gan), Kanyon Haifa, Big Fashion Beer Sheva, Kanyon Holon.
+- Nike Israel verified stores: Dizengoff Center Tel Aviv, Kanyon Ayalon Ramat Gan.
+- Adidas Israel verified stores: Dizengoff Center, Kanyon Ayalon, Kanyon Haifa.
+- SneakerBox boutique: Beilinson St 1, Tel Aviv (sells Nike, Jordan, Adidas, New Balance).
+- Intersport: multiple branches in Israel — check actual nearest branch to the GPS.
+- WeShoes: multiple mall branches — sells ONLY Crocs, HOKA, Blundstone, Desigual, Freedom Moses, Kizik, Native Shoes. Does NOT sell Nike, Adidas, Jordan, Puma, New Balance, Converse, Vans.
 
-BRAND RULES:
-- Nike stores only sell Nike and Jordan brand.
-- Adidas stores only sell Adidas and Originals.
-- Foot Locker sells: Nike, Jordan, Adidas, Converse, New Balance, Puma, Under Armour, Vans, Reebok.
-- WeShoes sells ONLY: Crocs, HOKA, Blundstone, Desigual, Freedom Moses, Kizik, Native Shoes.
+BRAND RULES (strictly enforce — do NOT include stores that don't carry the brand):
+- Nike/Jordan brand: sold at Nike stores, Foot Locker, SneakerBox, Intersport, SportExperts.
+- Adidas: sold at Adidas stores, Foot Locker, SneakerBox, Intersport.
+- Foot Locker carries: Nike, Jordan, Adidas, Converse, New Balance, Puma, Under Armour, Vans, Reebok.
+- WeShoes carries ONLY: Crocs, HOKA, Blundstone, Desigual, Freedom Moses, Kizik, Native Shoes.
+- Nike stores: Nike and Jordan only.
+- Adidas stores: Adidas and Originals only.
 
-Find up to 5 stores within 20km that:
-1. Actually exist and are currently open as a business
-2. Actually carry the ${shoe.brand} brand (enforcing brand rules above)
-
-For each VERIFIED store, also check whether "${shoeFullName}"${sizeStr}${colorStr} is currently available.
+Find up to 8 NEAREST stores (within 25km) that carry the ${shoe.brand} brand. SORT by distance from the GPS — closest first. For each store also check if "${shoeFullName}"${sizeStr}${colorStr} is available.
 
 Return for each store:
-- name: exact store name and branch
-- address: verified full street address
-- latitude: GPS latitude
-- longitude: GPS longitude  
-- phone: real phone number (null if not found)
-- website: official website
-- google_maps_url: Google Maps link
+- name: store name and specific branch/mall
+- address: full verified street address of THIS specific branch
+- latitude: precise GPS latitude of THIS branch
+- longitude: precise GPS longitude of THIS branch
+- phone: real phone number (null if unknown)
+- website: official website URL
+- google_maps_url: direct Google Maps link for THIS branch
 - hours_today: today's hours
-- rating: Google Maps rating
+- rating: Google Maps rating (null if unknown)
 - carries_brand: true/false
 - stock_confidence: "high" if verified on site, "medium" if brand is carried, "low" if uncertain
 - stock_status: "In stock", "Check in store", or "Call to confirm"
-- price: local currency price if found
-- product_url: direct product URL or search URL
-- reasoning: one sentence why this store likely has the shoe
+- price: local currency price if found (null if unknown)
+- product_url: direct product URL or search URL on their site
+- reasoning: why this store likely has the shoe
 
-ONLY include stores where carries_brand is true AND you verified the store actually exists.`,
+ONLY include stores where carries_brand is true AND the branch address is verified.`,
       add_context_from_internet: true,
       model: 'gemini_3_flash',
       response_json_schema: {
