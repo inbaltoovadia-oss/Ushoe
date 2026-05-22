@@ -38,16 +38,41 @@ function buildSearchUrl(retailerName, query, countryCode) {
   return null;
 }
 
+// Brands WeShoes carries in Israel
+const WESHOES_BRANDS_IL = ['crocs', 'hoka', 'birkenstock', 'skechers', 'timberland', 'vans', 'new balance', 'converse', 'ecco', 'salomon', 'merrell', 'ugg', 'reebok', 'asics', 'saucony', 'brooks', 'on running'];
+
 // Get IL retailers to check based on brand
 function getILRetailers(query, brand) {
   const b = (brand || query || '').toLowerCase();
-  const retailers = [
-    { name: 'Foot Locker Israel', domain: 'footlocker.co.il', searchUrl: `https://footlocker.co.il/search?q=${encodeURIComponent(query)}` },
-    { name: 'WeShoes Israel',     domain: 'weshoes.co.il',    searchUrl: `https://www.weshoes.co.il/search?q=${encodeURIComponent(query)}` },
-  ];
-  if (b.includes('nike'))   retailers.unshift({ name: 'Nike Israel',   domain: 'nike.com/il',    searchUrl: `https://www.nike.com/il/w?q=${encodeURIComponent(query)}` });
-  if (b.includes('adidas')) retailers.unshift({ name: 'Adidas Israel', domain: 'adidas.co.il',   searchUrl: `https://www.adidas.co.il/search?q=${encodeURIComponent(query)}` });
-  if (b.includes('puma'))   retailers.push(   { name: 'Puma Israel',   domain: 'puma.com',       searchUrl: `https://www.puma.com/il/he/search?q=${encodeURIComponent(query)}` });
+  const retailers = [];
+
+  // Brand-specific official stores
+  if (b.includes('nike') || b.includes('jordan') || b.includes('air jordan')) {
+    retailers.push({ name: 'Nike Israel', domain: 'nike.com/il', searchUrl: `https://www.nike.com/il/w?q=${encodeURIComponent(query)}` });
+  }
+  if (b.includes('adidas') || b.includes('yeezy')) {
+    retailers.push({ name: 'Adidas Israel', domain: 'adidas.co.il', searchUrl: `https://www.adidas.co.il/search?q=${encodeURIComponent(query)}` });
+  }
+  if (b.includes('puma')) {
+    retailers.push({ name: 'Puma Israel', domain: 'puma.com', searchUrl: `https://www.puma.com/il/he/search?q=${encodeURIComponent(query)}` });
+  }
+
+  // Foot Locker carries most athletic brands (not specialty/comfort brands)
+  const noFL = ['birkenstock', 'ecco', 'merrell', 'salomon', 'skechers', 'crocs', 'ugg'];
+  if (!noFL.some(x => b.includes(x))) {
+    retailers.push({ name: 'Foot Locker Israel', domain: 'footlocker.co.il', searchUrl: `https://footlocker.co.il/search?q=${encodeURIComponent(query)}` });
+  }
+
+  // WeShoes only for its brands
+  if (WESHOES_BRANDS_IL.some(w => b.includes(w))) {
+    retailers.push({ name: 'WeShoes Israel', domain: 'weshoes.co.il', searchUrl: `https://www.weshoes.co.il/search?q=${encodeURIComponent(query)}` });
+  }
+
+  // Fallback
+  if (retailers.length === 0) {
+    retailers.push({ name: 'Foot Locker Israel', domain: 'footlocker.co.il', searchUrl: `https://footlocker.co.il/search?q=${encodeURIComponent(query)}` });
+  }
+
   return retailers;
 }
 
@@ -67,7 +92,7 @@ Look at the actual product listing page on ${retailer.domain} and return:
 
 If you cannot find the product on this specific site, return price as null.`,
         add_context_from_internet: true,
-        model: "gemini_3_1_pro",
+        model: "gemini_3_flash",
         response_json_schema: {
           type: "object",
           properties: {
@@ -147,7 +172,7 @@ For each retailer found: report exact price, direct URL, stock status.`;
         base44.asServiceRole.integrations.Core.InvokeLLM({
           prompt,
           add_context_from_internet: true,
-          model: "gemini_3_1_pro",
+          model: "gemini_3_flash",
           response_json_schema: {
             type: "object",
             properties: {

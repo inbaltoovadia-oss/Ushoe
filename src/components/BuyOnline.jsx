@@ -10,6 +10,14 @@ import LocationInput from "./LocationInput";
 import { fromUSSize } from "../lib/sizeConverter";
 import { base44 } from "@/api/base44Client";
 
+// WeShoes brands (Israel) — does NOT sell Nike, Jordan, Adidas, Under Armour, Puma
+const WESHOES_BRANDS = ['crocs', 'hoka', 'birkenstock', 'skechers', 'timberland', 'vans', 'new balance', 'converse', 'ecco', 'salomon', 'merrell', 'ugg', 'reebok', 'asics', 'saucony', 'brooks', 'on running', 'on '];
+
+function brandInWeShoes(brand) {
+  const b = brand.toLowerCase();
+  return WESHOES_BRANDS.some(w => b.includes(w) || w.includes(b));
+}
+
 // Build instant verified retailer list — only retailers that SHIP to the user's country
 function getInstantRetailers(shoe, countryCode, city) {
   const brand = (shoe?.brand || '').toLowerCase();
@@ -20,13 +28,30 @@ function getInstantRetailers(shoe, countryCode, city) {
     ['tel aviv', 'haifa', 'jerusalem', 'beer sheva', 'netanya', 'rishon', 'petah', 'herzliya', 'ramat gan', 'holon', 'bat yam', 'ashdod'].some(c => (city || '').toLowerCase().includes(c));
 
   if (isIsrael) {
-    const retailers = [
-      { name: 'Foot Locker Israel', url: `https://footlocker.co.il/search?q=${q}`, note: 'Ships within Israel · Large selection' },
-      { name: 'WeShoes',            url: `https://www.weshoes.co.il/search?q=${q}`, note: 'Ships within Israel' },
-    ];
-    if (brand.includes('nike'))   retailers.unshift({ name: 'Nike Israel',   url: `https://www.nike.com/il/w?q=${q}`, note: 'Official Nike Israel store · Free shipping' });
-    if (brand.includes('adidas')) retailers.unshift({ name: 'Adidas Israel', url: `https://www.adidas.co.il/search?q=${q}`, note: 'Official Adidas Israel store · Free shipping' });
-    if (brand.includes('puma'))   retailers.push(   { name: 'Puma Israel',   url: `https://www.puma.com/il/he/search?q=${q}`, note: 'Official Puma Israel store' });
+    const retailers = [];
+    // Brand-specific official stores first
+    if (brand.includes('nike') || brand.includes('jordan') || brand.includes('air jordan')) {
+      retailers.push({ name: 'Nike Israel', url: `https://www.nike.com/il/w?q=${q}`, note: 'Official Nike Israel store · Free shipping' });
+    }
+    if (brand.includes('adidas') || brand.includes('originals') || brand.includes('yeezy')) {
+      retailers.push({ name: 'Adidas Israel', url: `https://www.adidas.co.il/search?q=${q}`, note: 'Official Adidas Israel store · Free shipping' });
+    }
+    if (brand.includes('puma')) {
+      retailers.push({ name: 'Puma Israel', url: `https://www.puma.com/il/he/search?q=${q}`, note: 'Official Puma Israel store' });
+    }
+    // Foot Locker carries most major brands
+    const noFootLocker = ['birkenstock', 'ecco', 'merrell', 'salomon', 'skechers', 'crocs', 'ugg'];
+    if (!noFootLocker.some(b => brand.includes(b))) {
+      retailers.push({ name: 'Foot Locker Israel', url: `https://footlocker.co.il/search?q=${q}`, note: 'Ships within Israel · Large selection' });
+    }
+    // WeShoes only for its brands
+    if (brandInWeShoes(brand)) {
+      retailers.push({ name: 'WeShoes', url: `https://www.weshoes.co.il/search?q=${q}`, note: 'Official WeShoes Israel store' });
+    }
+    // Fallback: if no specific retailers found, add Foot Locker
+    if (retailers.length === 0) {
+      retailers.push({ name: 'Foot Locker Israel', url: `https://footlocker.co.il/search?q=${q}`, note: 'Ships within Israel' });
+    }
     return retailers;
   }
 
