@@ -95,12 +95,18 @@ export function detectLocation() {
             `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`
           );
           const data = await resp.json();
-          const city = data.address?.city || data.address?.town || data.address?.village || "Unknown";
-          const country = data.address?.country || "";
-          const countryCode = (data.address?.country_code || "").toUpperCase();
-          setLocation(city, latitude, longitude, country, countryCode, accuracy);
+          const addr = data.address || {};
+          const city = addr.city || addr.town || addr.village || "Unknown";
+          const country = addr.country || "";
+          const countryCode = (addr.country_code || "").toUpperCase();
+          // Build a full street address for LLM accuracy
+          const road = addr.road || addr.pedestrian || addr.footway || "";
+          const houseNumber = addr.house_number || "";
+          const suburb = addr.suburb || addr.neighbourhood || "";
+          const streetAddress = [houseNumber, road, suburb, city].filter(Boolean).join(", ");
+          setLocation(streetAddress || city, latitude, longitude, country, countryCode, accuracy);
         } catch {
-          setLocation("New York", latitude, longitude, "United States", "US", accuracy);
+          setLocation("Unknown", latitude, longitude, "United States", "US", accuracy);
         }
         resolve(getLocation());
       },
@@ -132,12 +138,18 @@ export async function requestLocation() {
             `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`
           );
           const data = await resp.json();
-          const city = data.address?.city || data.address?.town || data.address?.village || "Unknown";
-          const country = data.address?.country || "";
-          const countryCode = (data.address?.country_code || "").toUpperCase();
-          setLocation(city, latitude, longitude, country, countryCode, accuracy);
+          const addr = data.address || {};
+          const city = addr.city || addr.town || addr.village || "Unknown";
+          const country = addr.country || "";
+          const countryCode = (addr.country_code || "").toUpperCase();
+          // Build a full street address for LLM accuracy
+          const road = addr.road || addr.pedestrian || addr.footway || "";
+          const houseNumber = addr.house_number || "";
+          const suburb = addr.suburb || addr.neighbourhood || "";
+          const streetAddress = [houseNumber, road, suburb, city].filter(Boolean).join(", ");
+          setLocation(streetAddress || city, latitude, longitude, country, countryCode, accuracy);
         } catch {
-          setLocation("New York", latitude, longitude, "United States", "US", accuracy);
+          setLocation("Unknown", latitude, longitude, "United States", "US", accuracy);
         }
         resolve(getLocation());
       },

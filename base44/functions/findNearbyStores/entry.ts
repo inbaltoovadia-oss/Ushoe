@@ -50,37 +50,52 @@ Deno.serve(async (req) => {
 
     // SINGLE combined call: find stores AND check stock in one web search — 80s timeout
     const llmCall = base44.asServiceRole.integrations.Core.InvokeLLM({
-      prompt: `You are a shoe store locator and inventory expert. Do both tasks in one response:
+      prompt: `You are a shoe store locator. Search the web RIGHT NOW to find real, currently-open physical shoe stores near: ${locationContext}
 
-TASK 1: Find up to 6 real physical shoe stores near: ${locationContext}
-Search Google Maps for "shoe stores" and "sneaker stores" near this location. Include chains (Nike, Adidas, Foot Locker, JD Sports, WeShoes, etc.) and independent sneaker boutiques within 20km.
+CRITICAL RULES — STRICT ENFORCEMENT:
+1. ONLY return stores you can VERIFY exist via a real Google Maps or web search result. Do NOT invent or hallucinate store names, addresses, or phone numbers.
+2. If a store chain does NOT officially operate in this country/city (e.g. JD Sports is NOT in Israel), do NOT include it.
+3. VERIFY each store's branch actually exists at the address you provide — confirm from Google Maps or the retailer's official store locator.
 
-TASK 2: For each store found, check whether "${shoeFullName}"${sizeStr}${colorStr} is available there.
+ISRAEL-SPECIFIC FACTS (if location is in Israel):
+- JD Sports does NOT operate in Israel. Do NOT include JD Sports.
+- Foot Locker Israel has branches at: Dizengoff Center Tel Aviv, Ayalon Mall Ramat Gan, Kanyon Haifa, Big Fashion Beer Sheva, Kanyon Holon.
+- Nike Israel has official stores at: Dizengoff Center Tel Aviv, Kanyon Ayalon Ramat Gan.
+- WeShoes has branches at multiple Israeli malls — sells ONLY: Crocs, HOKA, Blundstone, Desigual, Freedom Moses, Kizik, Native Shoes. Does NOT sell Nike, Adidas, Jordan, Puma, New Balance, Converse, Vans.
+- Adidas Israel stores at: Dizengoff Center, Kanyon Haifa, Kanyon Ayalon.
+- SneakerBox (independent boutique) is at Beilinson St, Tel Aviv.
+- Intersport has multiple Israeli branches.
 
-BRAND RULES (strictly enforce):
-- WeShoes Israel sells ONLY: Crocs, HOKA, Blundstone, Desigual, Freedom Moses, Kizik, Gap footwear, Ilse Jacobsen, Native Shoes. WeShoes does NOT sell Nike, Adidas, Jordan, Puma, Under Armour, New Balance, Converse, Vans.
-- Foot Locker Israel sells: Nike, Jordan, Adidas, Converse, New Balance, Puma, Under Armour, Vans, Reebok. Foot Locker does NOT sell Crocs, HOKA, Birkenstock, Skechers, Merrell, Salomon, ECCO, Timberland as primary brands.
+BRAND RULES:
 - Nike stores only sell Nike and Jordan brand.
-- Adidas stores only sell Adidas, Yeezy, and adidas Originals.
+- Adidas stores only sell Adidas and Originals.
+- Foot Locker sells: Nike, Jordan, Adidas, Converse, New Balance, Puma, Under Armour, Vans, Reebok.
+- WeShoes sells ONLY: Crocs, HOKA, Blundstone, Desigual, Freedom Moses, Kizik, Native Shoes.
 
-For each store return:
-- name: store name with branch location
-- address: full street address
-- latitude: real GPS latitude of this branch
-- longitude: real GPS longitude of this branch
-- phone: phone number
-- website: store website
-- google_maps_url: direct Google Maps link for this branch
-- hours_today: opening hours today
+Find up to 5 stores within 20km that:
+1. Actually exist and are currently open as a business
+2. Actually carry the ${shoe.brand} brand (enforcing brand rules above)
+
+For each VERIFIED store, also check whether "${shoeFullName}"${sizeStr}${colorStr} is currently available.
+
+Return for each store:
+- name: exact store name and branch
+- address: verified full street address
+- latitude: GPS latitude
+- longitude: GPS longitude  
+- phone: real phone number (null if not found)
+- website: official website
+- google_maps_url: Google Maps link
+- hours_today: today's hours
 - rating: Google Maps rating
-- carries_brand: true/false — does this store actually sell the ${shoe.brand} brand?
-- stock_confidence: "high" if model verified on their site, "medium" if brand is carried, "low" if uncertain
+- carries_brand: true/false
+- stock_confidence: "high" if verified on site, "medium" if brand is carried, "low" if uncertain
 - stock_status: "In stock", "Check in store", or "Call to confirm"
-- price: price in local currency if found (e.g. "₪529")
-- product_url: direct URL to this product on their site (if found), otherwise their search URL for "${shoeFullName}"
-- reasoning: one sentence explanation
+- price: local currency price if found
+- product_url: direct product URL or search URL
+- reasoning: one sentence why this store likely has the shoe
 
-ONLY include stores where carries_brand is true.`,
+ONLY include stores where carries_brand is true AND you verified the store actually exists.`,
       add_context_from_internet: true,
       model: 'gemini_3_flash',
       response_json_schema: {
