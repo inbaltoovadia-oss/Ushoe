@@ -20,15 +20,18 @@ const SEARCH_STEPS = [
   "📍 Getting your location…",
   "🗺️ Searching nearby sneaker stores on Google Maps…",
   "🧠 Analyzing which stores carry this shoe…",
+  "🔍 Checking stock availability…",
   "✅ Ranking best options for you…",
 ];
 
 function LoadingState({ shoe }) {
   const [step, setStep] = useState(0);
+  const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
-    const timer = setInterval(() => setStep(s => Math.min(s + 1, SEARCH_STEPS.length - 1)), 2200);
-    return () => clearInterval(timer);
+    const stepTimer = setInterval(() => setStep(s => Math.min(s + 1, SEARCH_STEPS.length - 1)), 10000);
+    const secTimer = setInterval(() => setElapsed(e => e + 1), 1000);
+    return () => { clearInterval(stepTimer); clearInterval(secTimer); };
   }, []);
 
   return (
@@ -50,7 +53,9 @@ function LoadingState({ shoe }) {
               {SEARCH_STEPS[step]}
             </motion.p>
           </AnimatePresence>
-          <p className="text-[10px] text-muted-foreground mt-0.5">Finding stores for {shoe?.name}</p>
+          <p className="text-[10px] text-muted-foreground mt-0.5">
+            Finding stores for {shoe?.name} · {elapsed}s
+          </p>
         </div>
       </div>
       <div className="flex items-center justify-center gap-1.5">
@@ -218,29 +223,35 @@ export default function NearbyStores({ title = "Nearby Stores", maxCount = 6, sh
     setStores([]);
     setSummary("");
 
-    const res = await base44.functions.invoke('findNearbyStores', {
-      shoe: {
-        id: shoe.id,
-        name: shoe.name,
-        brand: shoe.brand,
-        colorway: shoe.colorway || selectedColor || null,
-        category: shoe.category,
-        sizes_available: shoe.sizes_available || [],
-      },
-      userLat: location.lat || location.latitude || null,
-      userLng: location.lng || location.longitude || null,
-      cityFallback: location.city || null,
-      exactAddress: addressOverride || null,
-      selectedSize: selectedSize || null,
-      selectedColor: selectedColor || null,
-    });
+    try {
+      const res = await base44.functions.invoke('findNearbyStores', {
+        shoe: {
+          id: shoe.id,
+          name: shoe.name,
+          brand: shoe.brand,
+          colorway: shoe.colorway || selectedColor || null,
+          category: shoe.category,
+          sizes_available: shoe.sizes_available || [],
+        },
+        userLat: location.lat || location.latitude || null,
+        userLng: location.lng || location.longitude || null,
+        cityFallback: location.city || null,
+        exactAddress: addressOverride || null,
+        selectedSize: selectedSize || null,
+        selectedColor: selectedColor || null,
+      });
 
-    const data = res?.data || {};
-    if (!data.stores?.length && !data.summary) {
-      setError("No stores found near " + (location.city || "your location") + ". Try a different address.");
-    } else {
-      setStores((data.stores || []).slice(0, maxCount));
-      setSummary(data.summary || "");
+      const data = res?.data || {};
+      if (data.error) {
+        setError("Could not find stores: " + data.error);
+      } else if (!data.stores?.length) {
+        setError("No stores found near " + (location.city || "your location") + ". Try a different address.");
+      } else {
+        setStores(data.stores.slice(0, maxCount));
+        setSummary(data.summary || "");
+      }
+    } catch (err) {
+      setError("Search timed out or failed. Please try again.");
     }
     setLoading(false);
   };
