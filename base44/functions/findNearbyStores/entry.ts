@@ -48,8 +48,8 @@ Deno.serve(async (req) => {
       ? `GPS: ${refLat}, ${refLng} (${locationLabel})`
       : `Location: ${locationLabel}`;
 
-    // SINGLE combined call: find stores AND check stock in one web search
-    const result = await base44.asServiceRole.integrations.Core.InvokeLLM({
+    // SINGLE combined call: find stores AND check stock in one web search — 80s timeout
+    const llmCall = base44.asServiceRole.integrations.Core.InvokeLLM({
       prompt: `You are a shoe store locator and inventory expert. Do both tasks in one response:
 
 TASK 1: Find up to 6 real physical shoe stores near: ${locationContext}
@@ -112,6 +112,11 @@ ONLY include stores where carries_brand is true.`,
         }
       }
     });
+
+    const result = await Promise.race([
+      llmCall,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Search timed out after 85 seconds')), 85000)),
+    ]);
 
     const rawStores = (result?.stores || []).filter(s => s.name && s.address && s.carries_brand !== false);
 
