@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Loader2, Sparkles, Brain, Zap, ArrowRight, RotateCcw, SlidersHorizontal, Globe, ExternalLink, Search, WifiOff, MessageSquare, Trash2 } from "lucide-react";
+import { Send, Loader2, Sparkles, Brain, Zap, ArrowRight, RotateCcw, SlidersHorizontal, Globe, ExternalLink, Search, WifiOff, MessageSquare, Trash2, MapPin } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { getShoesCatalog } from "../lib/shoeCache";
 import { getUserProfile, subscribeUserProfile } from "../lib/userProfileStore";
@@ -19,6 +19,7 @@ import ShoeCard from "../components/ShoeCard";
 import ReactMarkdown from "react-markdown";
 import PreferencesPanel from "../components/assistant/PreferencesPanel";
 import VoiceInput from "../components/VoiceInput";
+import FindNearbyNonCatalog from "../components/FindNearbyNonCatalog";
 
 const STARTER_PROMPTS = [
   "What's the best running shoe for me right now?",
@@ -34,32 +35,61 @@ function isRTL(text) {
 }
 
 function WebRecCard({ rec }) {
+  const [showNearby, setShowNearby] = useState(false);
   const href = `https://www.google.com/search?q=${encodeURIComponent(`${rec.brand} ${rec.name} buy ${rec.retailer || ""}`)}`;
-  const isExternal = true;
+  const shoeName = [rec.brand, rec.name].filter(Boolean).join(" ");
+
   return (
-    <motion.a
-      href={href}
-      target={isExternal ? "_blank" : undefined}
-      rel={isExternal ? "noopener noreferrer" : undefined}
+    <motion.div
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      className="flex items-center gap-3 rounded-xl px-3 py-2.5 no-underline transition-all active:scale-[0.97]"
+      className="rounded-xl overflow-hidden"
       style={{ background: "rgba(59,91,219,0.12)", border: "1px solid rgba(59,91,219,0.25)" }}
     >
-      <div className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center"
-        style={{ background: "rgba(59,91,219,0.2)" }}>
-        <Globe className="w-4 h-4" style={{ color: "#5B8BF5" }} />
+      <div className="flex items-center gap-3 px-3 py-2.5">
+        <div className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center"
+          style={{ background: "rgba(59,91,219,0.2)" }}>
+          <Globe className="w-4 h-4" style={{ color: "#5B8BF5" }} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-semibold truncate" style={{ color: "#E8EAF6" }}>{shoeName}</p>
+          <p className="text-[11px] truncate" style={{ color: "#9CA3AF" }}>
+            {rec.price && <span style={{ color: "#34D399" }}>{rec.price} · </span>}
+            {rec.retailer}
+          </p>
+          {rec.why && <p className="text-[10px] truncate mt-0.5" style={{ color: "#6B7280" }}>{rec.why}</p>}
+        </div>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <button
+            onClick={() => setShowNearby(v => !v)}
+            title="Find nearby stores"
+            className="p-1.5 rounded-lg transition-all"
+            style={showNearby
+              ? { background: "rgba(16,185,129,0.25)", color: "#34D399" }
+              : { background: "rgba(255,255,255,0.06)", color: "#6B7280" }}
+          >
+            <MapPin className="w-3.5 h-3.5" />
+          </button>
+          <a
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="p-1.5 rounded-lg transition-all"
+            style={{ background: "rgba(255,255,255,0.06)", color: "#5B8BF5" }}
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+        </div>
       </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-xs font-semibold truncate" style={{ color: "#E8EAF6" }}>{rec.brand} {rec.name}</p>
-        <p className="text-[11px] truncate" style={{ color: "#9CA3AF" }}>
-          {rec.price && <span style={{ color: "#34D399" }}>{rec.price} · </span>}
-          {rec.retailer}
-        </p>
-        {rec.why && <p className="text-[10px] truncate mt-0.5" style={{ color: "#6B7280" }}>{rec.why}</p>}
-      </div>
-      <ExternalLink className="w-3 h-3 flex-shrink-0" style={{ color: "#5B8BF5" }} />
-    </motion.a>
+
+      {showNearby && (
+        <div className="px-3 pb-3 border-t" style={{ borderColor: "rgba(59,91,219,0.2)" }}>
+          <div className="pt-3">
+            <FindNearbyNonCatalog query={shoeName} brand={rec.brand} />
+          </div>
+        </div>
+      )}
+    </motion.div>
   );
 }
 
