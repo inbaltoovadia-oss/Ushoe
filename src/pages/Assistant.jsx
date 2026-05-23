@@ -62,22 +62,21 @@ function WebRecCard({ rec }) {
         <div className="flex items-center gap-1.5 flex-shrink-0">
           <button
             onClick={() => setShowNearby(v => !v)}
-            title="Find nearby stores"
-            className="p-1.5 rounded-lg transition-all"
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all"
             style={showNearby
-              ? { background: "rgba(16,185,129,0.25)", color: "#34D399" }
-              : { background: "rgba(255,255,255,0.06)", color: "#6B7280" }}
+              ? { background: "rgba(16,185,129,0.25)", color: "#34D399", border: "1px solid rgba(16,185,129,0.4)" }
+              : { background: "rgba(255,255,255,0.08)", color: "#9CA3AF", border: "1px solid rgba(255,255,255,0.1)" }}
           >
-            <MapPin className="w-3.5 h-3.5" />
+            <MapPin className="w-3 h-3" /> Nearby
           </button>
           <a
             href={href}
             target="_blank"
             rel="noopener noreferrer"
-            className="p-1.5 rounded-lg transition-all"
-            style={{ background: "rgba(255,255,255,0.06)", color: "#5B8BF5" }}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all"
+            style={{ background: "rgba(59,91,219,0.2)", color: "#5B8BF5", border: "1px solid rgba(59,91,219,0.3)" }}
           >
-            <ExternalLink className="w-3.5 h-3.5" />
+            Buy <ExternalLink className="w-3 h-3" />
           </a>
         </div>
       </div>

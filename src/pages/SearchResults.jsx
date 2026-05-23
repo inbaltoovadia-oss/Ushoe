@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Search, SlidersHorizontal, X, Globe, Loader2, Clock, GitCompare } from "lucide-react";
+import { Search, SlidersHorizontal, X, Globe, Loader2, Clock, GitCompare, MapPin } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { base44 } from "@/api/base44Client";
 import ShoeCard from "../components/ShoeCard";
@@ -8,6 +8,7 @@ import AdvancedFilters from "../components/search/AdvancedFilters";
 import AISearchSuggestions from "../components/search/AISearchSuggestions";
 import PlanGate from "../components/PlanGate";
 import ShoeImage from "../components/ShoeImage";
+import FindNearbyNonCatalog from "../components/FindNearbyNonCatalog";
 import { canUse, getLimits, getPlan } from "../lib/planStore";
 import { toggleCompare, isInCompare, subscribeCompare, getCompareShoes } from "../lib/compareStore";
 import { Link } from "react-router-dom";
@@ -38,7 +39,7 @@ export default function SearchResults() {
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [dataAge, setDataAge] = useState(null);
-  const [activeTab, setActiveTab] = useState("catalog");
+  const [activeTab, setActiveTab] = useState("catalog"); // "catalog" | "web" | "nearby"
   const [compareIds, setCompareIds] = useState(() => getCompareShoes().map(s => s.id));
   const inputRef = useRef(null);
   const isPro = canUse("webResults");
@@ -68,7 +69,8 @@ export default function SearchResults() {
         prompt: `Search the web RIGHT NOW for shoes matching: "${q}".
 Find the latest models, current prices, and availability from Nike, Adidas, New Balance, Puma, Jordan, Hoka, ASICS, and other brands.
 Search official brand websites, FootLocker, Zappos, DSW, StockX, GOAT, and Dick's Sporting Goods.
-Return top 8 most relevant results with real current prices and direct buy URLs.
+CRITICAL: Only return shoes that are CURRENTLY IN STOCK and available to buy right now. Set in_stock=true only if the product page shows "Add to Cart" or "Buy Now" is active. If you cannot confirm availability, set in_stock=false. Do NOT return discontinued, sold out, or unavailable products.
+Return top 8 most relevant IN-STOCK results with real current prices and direct buy URLs.
 Indicate data_freshness (e.g. "Live - just now").`,
         add_context_from_internet: true,
         response_json_schema: {
@@ -120,6 +122,9 @@ Indicate data_freshness (e.g. "Live - just now").`,
       fetchWebResults(query);
     }
   };
+
+  // Filter web results to only show in-stock items
+  const availableWebResults = webResults.filter(item => item.in_stock !== false);
 
   const handleKeyDown = (e) => {
     if (e.key === "Enter") handleSearch();
@@ -255,12 +260,20 @@ Indicate data_freshness (e.g. "Live - just now").`,
                   activeTab === "web" ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"
                 }`}
               >
-                🌐 Live Web Results
+                <Globe className="w-3.5 h-3.5" /> Live Web Results
                 {webLoading && <Loader2 className="w-3 h-3 animate-spin" />}
               </button>
             ) : (
               <PlanGate locked inline feature="Live Web Results" description="Upgrade to Pro to search the live web" />
             )}
+            <button
+              onClick={() => handleTabSwitch("nearby")}
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-1.5 ${
+                activeTab === "nearby" ? "bg-green-600 text-white" : "bg-secondary text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <MapPin className="w-3.5 h-3.5" /> Find Nearby
+            </button>
           </div>
         )}
 
@@ -268,8 +281,8 @@ Indicate data_freshness (e.g. "Live - just now").`,
         <div className="space-y-3 mb-4">
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <p className="text-sm text-muted-foreground">
-              {activeTab === "catalog" ? `${sorted.length} shoes` : `${webResults.length} web results`}
-              {query ? ` for "${query}"` : ""}
+              {activeTab === "catalog" ? `${sorted.length} shoes` : activeTab === "web" ? `${availableWebResults.length} available web results` : "Find nearby stores"}
+              {query && activeTab !== "nearby" ? ` for "${query}"` : ""}
             </p>
             {dataAge && activeTab === "web" && (
               <span className="flex items-center gap-1 text-xs text-green-600 bg-green-50 dark:bg-green-950/30 px-2 py-0.5 rounded-full">
@@ -471,9 +484,9 @@ Indicate data_freshness (e.g. "Live - just now").`,
                 </div>
                 {[1, 2, 3, 4, 5, 6].map(i => <div key={i} className="h-28 bg-secondary animate-pulse rounded-2xl" />)}
               </div>
-            ) : webResults.length > 0 ? (
+            ) : availableWebResults.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {webResults.map((item, i) => (
+                {availableWebResults.map((item, i) => (
                   <motion.a
                     key={i}
                     initial={{ opacity: 0, y: 12 }}
@@ -499,9 +512,6 @@ Indicate data_freshness (e.g. "Live - just now").`,
                         {item.colorway && <p className="text-xs text-muted-foreground mt-0.5">{item.colorway}</p>}
                         {item.category && <p className="text-xs text-muted-foreground">{item.category}</p>}
                       </div>
-                      {item.in_stock === false && (
-                        <span className="text-xs text-red-500 bg-red-50 dark:bg-red-950/30 px-2 py-0.5 rounded-full whitespace-nowrap flex-shrink-0">Out of Stock</span>
-                      )}
                     </div>
                     <div className="flex items-baseline gap-2 mt-3">
                       <span className="font-heading font-bold text-xl text-primary">{item.price}</span>
@@ -531,6 +541,19 @@ Indicate data_freshness (e.g. "Live - just now").`,
                 )}
               </div>
             )}
+          </div>
+        )}
+
+        {/* NEARBY TAB */}
+        {activeTab === "nearby" && query && (
+          <div className="max-w-lg">
+            <FindNearbyNonCatalog query={query} />
+          </div>
+        )}
+        {activeTab === "nearby" && !query && (
+          <div className="text-center py-16">
+            <MapPin className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
+            <p className="text-muted-foreground text-sm">Search for a shoe first, then click "Find Nearby" to locate stores near you.</p>
           </div>
         )}
       </div>
