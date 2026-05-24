@@ -54,7 +54,8 @@ Deno.serve(async (req) => {
       ? `GPS coordinates: ${refLat}, ${refLng}\nAddress: ${locationLabel}\nGoogle Maps search: ${mapsSearchUrl}`
       : `Address: ${locationLabel}`;
 
-    // SINGLE combined call: find stores AND check stock in one web search — 80s timeout
+    // Use gemini_3_flash with web search but NO response_json_schema (incompatible combination)
+    // Instead, ask for JSON in the prompt and parse the text response
     const llmCall = base44.asServiceRole.integrations.Core.InvokeLLM({
       prompt: `You are a shoe store locator. Your #1 job is to find the PHYSICALLY CLOSEST stores to the user. Use the GPS coordinates to calculate real distances.
 
@@ -63,11 +64,10 @@ ${locationContext}
 
 PROXIMITY IS THE TOP PRIORITY. Search Google Maps and the web RIGHT NOW for "${shoe.brand} shoe stores near ${locationLabel}". Look up all branches of relevant chains and pick the ones GEOGRAPHICALLY CLOSEST to the GPS coordinates above. Do NOT just list the most famous branches — find the nearest ones.
 
-CRITICAL RULES — STRICT ENFORCEMENT:
+CRITICAL RULES:
 1. ONLY return stores you can VERIFY exist via Google Maps or the retailer's official store locator. Do NOT invent stores, addresses, or phone numbers.
 2. If a chain does NOT officially operate in this country/city (e.g. JD Sports is NOT in Israel), do NOT include it.
-3. For EVERY store you return, VERIFY the specific branch address from Google Maps or the official store locator.
-4. ALWAYS provide real GPS latitude/longitude for each branch so distances can be calculated accurately.
+3. ALWAYS provide real GPS latitude/longitude for each branch.
 
 ISRAEL-SPECIFIC FACTS (apply if location is in Israel):
 - JD Sports does NOT operate in Israel. NEVER include JD Sports.
@@ -76,74 +76,38 @@ ISRAEL-SPECIFIC FACTS (apply if location is in Israel):
 - Adidas Israel verified stores: Dizengoff Center, Kanyon Ayalon, Kanyon Haifa.
 - SneakerBox boutique: Beilinson St 1, Tel Aviv (sells Nike, Jordan, Adidas, New Balance).
 - Intersport: multiple branches in Israel — check actual nearest branch to the GPS.
-- WeShoes: multiple mall branches — sells ONLY Crocs, HOKA, Blundstone, Desigual, Freedom Moses, Kizik, Native Shoes. Does NOT sell Nike, Adidas, Jordan, Puma, New Balance, Converse, Vans.
+- WeShoes: sells ONLY Crocs, HOKA, Blundstone, Desigual, Freedom Moses, Kizik, Native Shoes. Does NOT sell Nike, Adidas, Jordan.
 
-BRAND RULES (strictly enforce — do NOT include stores that don't carry the brand):
-- Nike/Jordan brand: sold at Nike stores, Foot Locker, SneakerBox, Intersport, SportExperts.
+BRAND RULES:
+- Nike/Jordan: sold at Nike stores, Foot Locker, SneakerBox, Intersport.
 - Adidas: sold at Adidas stores, Foot Locker, SneakerBox, Intersport.
-- Foot Locker carries: Nike, Jordan, Adidas, Converse, New Balance, Puma, Under Armour, Vans, Reebok.
-- WeShoes carries ONLY: Crocs, HOKA, Blundstone, Desigual, Freedom Moses, Kizik, Native Shoes.
-- Nike stores: Nike and Jordan only.
-- Adidas stores: Adidas and Originals only.
+- Foot Locker carries: Nike, Jordan, Adidas, Converse, New Balance, Puma, Vans, Reebok.
 
-Find up to 8 NEAREST stores (within 25km) that carry the ${shoe.brand} brand. SORT by distance from the GPS — closest first. For each store also check if "${shoeFullName}"${sizeStr}${colorStr} is available.
+Find up to 6 NEAREST stores (within 25km) carrying ${shoe.brand}. Sort by distance from GPS — closest first. Also check if "${shoeFullName}"${sizeStr}${colorStr} is available.
 
-Return for each store:
-- name: store name and specific branch/mall
-- address: full verified street address of THIS specific branch
-- latitude: precise GPS latitude of THIS branch
-- longitude: precise GPS longitude of THIS branch
-- phone: real phone number (null if unknown)
-- website: official website URL
-- google_maps_url: direct Google Maps link for THIS branch
-- hours_today: today's hours
-- rating: Google Maps rating (null if unknown)
-- carries_brand: true/false
-- stock_confidence: "high" if verified on site, "medium" if brand is carried, "low" if uncertain
-- stock_status: "In stock", "Check in store", or "Call to confirm"
-- price: local currency price if found (null if unknown)
-- product_url: direct product URL or search URL on their site
-- reasoning: why this store likely has the shoe
-
-ONLY include stores where carries_brand is true AND the branch address is verified.`,
+Respond ONLY with a valid JSON object like this (no markdown, no explanation):
+{"stores":[{"name":"...","address":"...","latitude":0.0,"longitude":0.0,"phone":"...","website":"...","google_maps_url":"...","hours_today":"...","rating":4.5,"carries_brand":true,"stock_confidence":"medium","stock_status":"Check in store","price":null,"product_url":null,"reasoning":"..."}]}`,
       add_context_from_internet: true,
       model: 'gemini_3_flash',
-      response_json_schema: {
-        type: 'object',
-        properties: {
-          stores: {
-            type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                name:             { type: 'string' },
-                address:          { type: 'string' },
-                latitude:         { type: 'number' },
-                longitude:        { type: 'number' },
-                phone:            { type: 'string' },
-                website:          { type: 'string' },
-                google_maps_url:  { type: 'string' },
-                hours_today:      { type: 'string' },
-                rating:           { type: 'number' },
-                carries_brand:    { type: 'boolean' },
-                stock_confidence: { type: 'string' },
-                stock_status:     { type: 'string' },
-                price:            { type: 'string' },
-                product_url:      { type: 'string' },
-                reasoning:        { type: 'string' },
-              }
-            }
-          }
-        }
-      }
     });
 
-    const result = await Promise.race([
+    const rawText = await Promise.race([
       llmCall,
       new Promise((_, reject) => setTimeout(() => reject(new Error('Search timed out after 85 seconds')), 85000)),
     ]);
 
-    const rawStores = (result?.stores || []).filter(s => s.name && s.address && s.carries_brand !== false);
+    // Parse the text response as JSON
+    let parsed = { stores: [] };
+    if (typeof rawText === 'string') {
+      const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        parsed = JSON.parse(jsonMatch[0]);
+      }
+    } else if (rawText && typeof rawText === 'object') {
+      parsed = rawText;
+    }
+
+    const rawStores = (parsed?.stores || []).filter(s => s.name && s.address && s.carries_brand !== false);
 
     // Sort by distance and cap at 6
     const finalStores = rawStores.map(s => ({
