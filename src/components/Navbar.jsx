@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
-import { Search, MapPin, Sun, Moon, Menu, X, Wand2, ChevronDown, Crown, ShieldCheck, Ruler, ArrowLeft, MessageSquare } from "lucide-react";
+import { Search, MapPin, Sun, Moon, Menu, X, Crown, ShieldCheck, Ruler, ArrowLeft, MessageSquare } from "lucide-react";
 import { getLocation, subscribeLocation } from "../lib/locationStore";
 import LocationPicker from "./LocationPicker";
 import { useAuth } from "@/lib/AuthContext";
@@ -43,21 +43,11 @@ export default function Navbar() {
   const [loc, setLoc] = useState(getLocation());
   const [mobileOpen, setMobileOpen] = useState(false);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
-  const [showToolsMenu, setShowToolsMenu] = useState(false);
   const [showSizePicker, setShowSizePicker] = useState(false);
   const [sizeLabel, setSizeLabel] = useState(getSizeLabel());
-  const toolsRef = useRef(null);
 
   useEffect(() => subscribeSize(() => setSizeLabel(getSizeLabel())), []);
   useEffect(() => subscribeLocation(setLoc), []);
-
-  useEffect(() => {
-    const handler = (e) => {
-      if (toolsRef.current && !toolsRef.current.contains(e.target)) setShowToolsMenu(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
 
   const toggleDark = () => {
     document.documentElement.classList.toggle("dark");
@@ -143,43 +133,19 @@ export default function Navbar() {
                 </Link>
               )}
 
-              {/* AI Tools Dropdown */}
-              <div className="relative" ref={toolsRef}>
-                <button
-                  onClick={() => setShowToolsMenu((v) => !v)}
-                  className={`flex items-center gap-1 px-3 py-2 rounded-xl text-sm font-medium transition-all ${
-                  showToolsMenu ? "bg-accent/10 text-accent" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`
+              {/* AI Tools — visible inline on desktop */}
+              {toolLinks.map((t) =>
+                <Link
+                  key={t.to}
+                  to={t.to}
+                  onClick={handleNavClick}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
+                  isActive(t.to) ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`
                   }>
-                  
-                  <Wand2 className="w-3.5 h-3.5" />
-                  AI Tools
-                  <ChevronDown className={`w-3 h-3 transition-transform ${showToolsMenu ? "rotate-180" : ""}`} />
-                </button>
-                {showToolsMenu &&
-                <div className="absolute top-full mt-2 right-0 rounded-2xl py-2 w-48 z-50 overflow-hidden"
-                style={{
-                  background: "rgba(255,255,255,0.70)",
-                  backdropFilter: "blur(40px) saturate(200%)",
-                  WebkitBackdropFilter: "blur(40px) saturate(200%)",
-                  border: "1px solid rgba(255,255,255,0.55)",
-                  boxShadow: "0 1px 0 rgba(255,255,255,0.90) inset, 0 16px 48px rgba(0,0,0,0.12)"
-                }}
-                className="dark:[background:rgba(18,18,28,0.80)] dark:[border-color:rgba(255,255,255,0.10)]">
-                  
-                    {toolLinks.map((t) =>
-                  <Link
-                    key={t.to}
-                    to={t.to}
-                    onClick={() => {setShowToolsMenu(false);handleNavClick();}}
-                    className="flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-secondary transition-colors">
-                    
-                        <span>{t.emoji}</span>
-                        {t.label}
-                      </Link>
-                  )}
-                  </div>
-                }
-              </div>
+                  <span className="text-xs">{t.emoji}</span>
+                  {t.label}
+                </Link>
+              )}
             </div>
 
             {/* Right Actions */}
