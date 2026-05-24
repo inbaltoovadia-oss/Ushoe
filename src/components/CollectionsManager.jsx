@@ -3,6 +3,7 @@
  * Fully client-side, localStorage.
  */
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { X, Plus, FolderOpen, Check, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -44,13 +45,14 @@ export default function CollectionsManager({ shoe, onClose }) {
     setShoeCollections(getCollectionsForShoe(shoe.id).map(c => c.id));
   };
 
-  return (
-    <div className="fixed inset-0 z-[300] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+  const modal = (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4" onClick={onClose}>
       <motion.div
-        initial={{ y: 60, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        exit={{ y: 60, opacity: 0 }}
-        className="bg-card border border-border rounded-t-3xl sm:rounded-3xl shadow-2xl w-full sm:max-w-sm"
+        initial={{ opacity: 0, scale: 0.93, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.93, y: 20 }}
+        transition={{ type: "spring", stiffness: 380, damping: 30 }}
+        className="bg-card border border-border rounded-3xl shadow-2xl w-full max-w-sm"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-5 pt-5 pb-3">
@@ -123,4 +125,6 @@ export default function CollectionsManager({ shoe, onClose }) {
       </motion.div>
     </div>
   );
+
+  return createPortal(modal, document.body);
 }
