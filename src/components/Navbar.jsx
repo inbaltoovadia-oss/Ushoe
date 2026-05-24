@@ -71,13 +71,13 @@ export default function Navbar() {
   { to: "/", label: "Home" },
   { to: "/discover", label: "Discover" },
   { to: "/for-you", label: "For You" },
-  { to: "/assistant", label: "Assistant" },
+  { to: "/assistant", label: "AI Assistant " },
   { to: "/trending", label: "Trending" },
   { to: "/deals", label: "Deals" },
   { to: "/nearby-stores", label: "Stores" },
   { to: "/wishlist", label: "Wishlist" },
   { to: "/price-drops", label: "Price Drops" },
-  { to: "/rotation", label: "✨ Best For" }];
+  { to: "/rotation", label: "Best For" }];
 
 
   const toolLinks = [
