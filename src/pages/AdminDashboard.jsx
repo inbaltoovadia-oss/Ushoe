@@ -4,7 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { motion } from "framer-motion";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import {
-  Search, Heart, TrendingUp, DollarSign, Rocket, ShieldAlert, RefreshCw, Loader2, Users, Image
+  Search, Heart, TrendingUp, DollarSign, Rocket, ShieldAlert, RefreshCw, Loader2, Users, Image, MessageSquare
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import UserManagement from "../components/admin/UserManagement";
@@ -16,6 +16,11 @@ export default function AdminDashboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [feedbacks, setFeedbacks] = useState([]);
+
+  useEffect(() => {
+    base44.entities.Feedback.list("-created_date", 50).then(setFeedbacks).catch(() => {});
+  }, []);
 
   useEffect(() => {
     load();
@@ -203,7 +208,7 @@ export default function AdminDashboard() {
             )}
 
             {/* Recent Searches */}
-            <div className="bg-card border border-border rounded-2xl p-6">
+            <div className="bg-card border border-border rounded-2xl p-6 mb-8">
               <h2 className="font-heading font-semibold text-lg mb-4 flex items-center gap-2">
                 <Search className="w-5 h-5 text-muted-foreground" /> Recent Searches
               </h2>
@@ -217,6 +222,53 @@ export default function AdminDashboard() {
             </div>
           </>
         )}
+
+        {/* User Feedback */}
+        <div className="bg-card border border-border rounded-2xl p-6">
+          <h2 className="font-heading font-semibold text-lg mb-5 flex items-center gap-2">
+            <MessageSquare className="w-5 h-5 text-primary" /> User Feedback
+            {feedbacks.length > 0 && (
+              <span className="ml-auto text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-semibold">
+                {feedbacks.length}
+              </span>
+            )}
+          </h2>
+          {feedbacks.length === 0 ? (
+            <p className="text-muted-foreground text-sm">No feedback submitted yet.</p>
+          ) : (
+            <div className="space-y-3">
+              {feedbacks.map((fb) => (
+                <div key={fb.id} className="border border-border rounded-xl p-4">
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+                        fb.category === "Bug Report" ? "bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400" :
+                        fb.category === "Feature Request" ? "bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400" :
+                        fb.category === "Praise" ? "bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400" :
+                        fb.category === "Complaint" ? "bg-orange-100 text-orange-700 dark:bg-orange-950/40 dark:text-orange-400" :
+                        "bg-secondary text-muted-foreground"
+                      }`}>{fb.category || "General"}</span>
+                      {fb.user_name && <span className="text-xs text-muted-foreground">{fb.user_name}</span>}
+                      {fb.user_email && <span className="text-xs text-muted-foreground">({fb.user_email})</span>}
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
+                        fb.status === "Done" ? "bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400" :
+                        fb.status === "In Progress" ? "bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400" :
+                        fb.status === "Reviewed" ? "bg-secondary text-muted-foreground" :
+                        "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400"
+                      }`}>{fb.status || "New"}</span>
+                      <span className="text-[10px] text-muted-foreground">
+                        {new Date(fb.created_date).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </div>
+                  <p className="text-sm text-foreground leading-relaxed">{fb.message}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

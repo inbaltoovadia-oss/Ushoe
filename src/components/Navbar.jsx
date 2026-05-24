@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
-import { Search, MapPin, Sun, Moon, Menu, X, Wand2, ChevronDown, Crown, ShieldCheck, Ruler, ArrowLeft } from "lucide-react";
+import { Search, MapPin, Sun, Moon, Menu, X, Wand2, ChevronDown, Crown, ShieldCheck, Ruler, ArrowLeft, MessageSquare } from "lucide-react";
 import { getLocation, subscribeLocation } from "../lib/locationStore";
 import LocationPicker from "./LocationPicker";
 import { useAuth } from "@/lib/AuthContext";
@@ -296,6 +296,14 @@ export default function Navbar() {
                   Admin Panel
                 </Link>
               )}
+              <Link
+                to="/feedback"
+                onClick={() => { setMobileOpen(false); handleNavClick(); }}
+                className="flex items-center gap-2 w-full px-4 py-3 text-sm text-muted-foreground rounded-xl hover:bg-secondary"
+              >
+                <MessageSquare className="w-4 h-4" />
+                Send Feedback
+              </Link>
               <button
                 onClick={() => { setShowLocationPicker(true); setMobileOpen(false); }}
                 className="flex items-center gap-2 w-full px-4 py-3 text-sm text-muted-foreground rounded-xl hover:bg-secondary"

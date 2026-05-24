@@ -30,6 +30,7 @@ import Collections from './pages/Collections';
 import BestFor from './pages/BestFor';
 import About from './pages/About';
 import Contact from './pages/Contact';
+import Feedback from './pages/Feedback';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -81,6 +82,7 @@ const AuthenticatedApp = () => {
         <Route path="/assistant" element={<Assistant />} />
         <Route path="/about" element={<About />} />
         <Route path="/contact" element={<Contact />} />
+        <Route path="/feedback" element={<Feedback />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>
     </Routes>

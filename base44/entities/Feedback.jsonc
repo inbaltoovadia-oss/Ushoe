@@ -1,0 +1,43 @@
+{
+  "name": "Feedback",
+  "type": "object",
+  "properties": {
+    "message": {
+      "type": "string",
+      "title": "Feedback Message"
+    },
+    "category": {
+      "type": "string",
+      "title": "Category",
+      "enum": [
+        "Bug Report",
+        "Feature Request",
+        "General",
+        "Complaint",
+        "Praise"
+      ]
+    },
+    "user_name": {
+      "type": "string",
+      "title": "User Name"
+    },
+    "user_email": {
+      "type": "string",
+      "title": "User Email"
+    },
+    "status": {
+      "type": "string",
+      "title": "Status",
+      "enum": [
+        "New",
+        "Reviewed",
+        "In Progress",
+        "Done"
+      ],
+      "default": "New"
+    }
+  },
+  "required": [
+    "message"
+  ]
+}
