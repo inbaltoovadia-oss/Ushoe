@@ -31,6 +31,7 @@ import BestFor from './pages/BestFor';
 import About from './pages/About';
 import Contact from './pages/Contact';
 import Feedback from './pages/Feedback';
+import FindThisShoe from './pages/FindThisShoe';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -83,6 +84,7 @@ const AuthenticatedApp = () => {
         <Route path="/about" element={<About />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/feedback" element={<Feedback />} />
+        <Route path="/find-shoe" element={<FindThisShoe />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>
     </Routes>

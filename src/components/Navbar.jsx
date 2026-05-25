@@ -24,6 +24,7 @@ const PAGE_TITLES = {
   "/subscription": "Plans",
   "/admin": "Admin",
   "/assistant": "AI Assistant",
+  "/find-shoe": "Find This Shoe",
   "/rotation": "Best For",
   "/collections": "Collections"
 };
@@ -61,6 +62,7 @@ export default function Navbar() {
   { to: "/", label: "Home" },
   { to: "/discover", label: "Discover" },
   { to: "/for-you", label: "For You" },
+  { to: "/find-shoe", label: "🔍 Find Shoe" },
   { to: "/assistant", label: "AI Assistant " },
   { to: "/trending", label: "Trending" },
   { to: "/deals", label: "Deals" },
