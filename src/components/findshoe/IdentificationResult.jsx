@@ -1,19 +1,35 @@
 import { useState } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "react-router-dom";
-import { RotateCcw, MapPin, Globe, ShoppingBag, ChevronRight, Star, Zap } from "lucide-react";
+import { RotateCcw, MapPin, Globe, ShoppingBag, Star, Zap, Flame, Trophy, TrendingUp } from "lucide-react";
 import ShoeCard from "../ShoeCard";
 import NearbyStores from "../NearbyStores";
 import BuyOnline from "../BuyOnline";
 
 function ConfidenceBadge({ confidence }) {
-  const color = confidence >= 80 ? "text-green-600 bg-green-100 dark:bg-green-950/40"
-    : confidence >= 50 ? "text-amber-600 bg-amber-100 dark:bg-amber-950/40"
-    : "text-red-500 bg-red-100 dark:bg-red-950/40";
-  const label = confidence >= 80 ? "High confidence" : confidence >= 50 ? "Possible match" : "Low confidence";
+  const cfg = confidence >= 80
+    ? { color: "text-green-700 bg-green-100 dark:bg-green-950/40 dark:text-green-400", label: "High confidence", icon: "✓" }
+    : confidence >= 50
+    ? { color: "text-amber-700 bg-amber-100 dark:bg-amber-950/40 dark:text-amber-400", label: "Possible match", icon: "~" }
+    : { color: "text-red-600 bg-red-100 dark:bg-red-950/40 dark:text-red-400", label: "Low confidence", icon: "?" };
   return (
-    <span className={`inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full ${color}`}>
-      <Zap className="w-3 h-3" /> {confidence}% — {label}
+    <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full ${cfg.color}`}>
+      <Zap className="w-3 h-3" /> {confidence}% — {cfg.label}
+    </span>
+  );
+}
+
+function PopularityBadge({ popularity }) {
+  const cfg = {
+    iconic: { color: "text-yellow-700 bg-yellow-100 dark:bg-yellow-950/40", icon: Trophy, label: "Iconic" },
+    popular: { color: "text-blue-700 bg-blue-100 dark:bg-blue-950/40", icon: TrendingUp, label: "Popular" },
+    niche: { color: "text-purple-700 bg-purple-100 dark:bg-purple-950/40", icon: Star, label: "Niche" },
+    rare: { color: "text-rose-700 bg-rose-100 dark:bg-rose-950/40", icon: Flame, label: "Rare" },
+  }[popularity] || { color: "text-muted-foreground bg-secondary", icon: Star, label: popularity };
+  const Icon = cfg.icon;
+  return (
+    <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${cfg.color}`}>
+      <Icon className="w-2.5 h-2.5" /> {cfg.label}
     </span>
   );
 }
@@ -37,7 +53,7 @@ export default function IdentificationResult({ result, imageUrl, onReset }) {
 
   return (
     <div className="space-y-6 pb-8">
-      {/* AI Result Card */}
+      {/* Main AI Result Card */}
       <motion.div
         initial={{ opacity: 0, scale: 0.97 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -45,7 +61,7 @@ export default function IdentificationResult({ result, imageUrl, onReset }) {
       >
         <div className="flex items-start gap-4">
           {imageUrl && (
-            <div className="w-20 h-20 rounded-2xl overflow-hidden flex-shrink-0 bg-secondary">
+            <div className="w-20 h-20 rounded-2xl overflow-hidden flex-shrink-0 bg-secondary ring-2 ring-primary/10">
               <img src={imageUrl} alt="Analyzed" className="w-full h-full object-cover" />
             </div>
           )}
@@ -64,6 +80,7 @@ export default function IdentificationResult({ result, imageUrl, onReset }) {
             )}
             <div className="flex items-center gap-2 flex-wrap mt-2">
               <ConfidenceBadge confidence={identified.confidence} />
+              {identified.popularity && <PopularityBadge popularity={identified.popularity} />}
               {identified.release_year && (
                 <span className="text-xs text-muted-foreground">Released {identified.release_year}</span>
               )}
@@ -74,8 +91,9 @@ export default function IdentificationResult({ result, imageUrl, onReset }) {
           </div>
         </div>
 
+        {/* AI Reasoning */}
         {identified.reasoning && (
-          <div className="bg-secondary/50 rounded-2xl px-4 py-3">
+          <div className="bg-secondary/50 rounded-2xl px-4 py-3 space-y-1">
             <p className="text-xs text-muted-foreground leading-relaxed">
               <span className="font-semibold text-foreground">AI reasoning: </span>
               {identified.reasoning}
@@ -83,14 +101,41 @@ export default function IdentificationResult({ result, imageUrl, onReset }) {
           </div>
         )}
 
-        {/* CTA buttons */}
+        {/* Styling Notes */}
+        {identified.styling_notes && (
+          <div className="flex items-start gap-2 bg-primary/5 rounded-2xl px-4 py-2.5">
+            <Star className="w-3.5 h-3.5 text-primary flex-shrink-0 mt-0.5" />
+            <p className="text-xs text-muted-foreground leading-relaxed">{identified.styling_notes}</p>
+          </div>
+        )}
+
+        {/* Other shoes detected */}
+        {other_shoes.length > 0 && (
+          <div className="border border-border/50 rounded-2xl p-3 space-y-1.5">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground mb-2">Also detected</p>
+            {other_shoes.slice(0, 3).map((shoe, i) => (
+              <div key={i} className="flex items-center gap-3 py-1.5 border-b border-border/30 last:border-0">
+                <span className="text-base">👟</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{[shoe.brand, shoe.model].filter(Boolean).join(' ') || "Unknown"}</p>
+                  {shoe.colorway && <p className="text-xs text-muted-foreground">{shoe.colorway}</p>}
+                </div>
+                {shoe.confidence != null && (
+                  <span className="text-xs text-muted-foreground flex-shrink-0">{shoe.confidence}%</span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* CTA Buttons */}
         <div className="grid grid-cols-2 gap-2 pt-1">
           <button
             onClick={() => setActiveAction(activeAction === "nearby" ? null : "nearby")}
             className={`flex items-center justify-center gap-2 py-3.5 rounded-2xl font-semibold text-sm transition-all ${
               activeAction === "nearby"
                 ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25"
-                : "bg-primary/10 text-primary border-2 border-primary/25 hover:bg-primary/15"
+                : "bg-primary/10 text-primary border-2 border-primary/20 hover:bg-primary/15"
             }`}
           >
             <MapPin className="w-4 h-4" /> Find Near Me
@@ -100,23 +145,25 @@ export default function IdentificationResult({ result, imageUrl, onReset }) {
             className={`flex items-center justify-center gap-2 py-3.5 rounded-2xl font-semibold text-sm transition-all ${
               activeAction === "online"
                 ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25"
-                : "bg-primary/10 text-primary border-2 border-primary/25 hover:bg-primary/15"
+                : "bg-primary/10 text-primary border-2 border-primary/20 hover:bg-primary/15"
             }`}
           >
             <Globe className="w-4 h-4" /> Buy Online
           </button>
         </div>
 
-        {activeAction === "nearby" && (
-          <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
-            <NearbyStores shoe={searchShoe} title="Stores Near You" maxCount={4} />
-          </motion.div>
-        )}
-        {activeAction === "online" && (
-          <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
-            <BuyOnline shoe={searchShoe} />
-          </motion.div>
-        )}
+        <AnimatePresence>
+          {activeAction === "nearby" && (
+            <motion.div key="nearby" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+              <NearbyStores shoe={searchShoe} title="Stores Near You" maxCount={4} />
+            </motion.div>
+          )}
+          {activeAction === "online" && (
+            <motion.div key="online" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+              <BuyOnline shoe={searchShoe} />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
 
       {/* Exact catalog matches */}
@@ -129,30 +176,15 @@ export default function IdentificationResult({ result, imageUrl, onReset }) {
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {catalog_matches.map((shoe, i) => (
-              <div key={shoe.id} onClick={() => setSelectedCatalogShoe(shoe)} className="cursor-pointer">
+              <div
+                key={shoe.id}
+                onClick={() => setSelectedCatalogShoe(shoe)}
+                className={`cursor-pointer rounded-2xl transition-all ${selectedCatalogShoe?.id === shoe.id ? 'ring-2 ring-primary' : ''}`}
+              >
                 <ShoeCard shoe={shoe} index={i} />
               </div>
             ))}
           </div>
-        </div>
-      )}
-
-      {/* Other shoes detected */}
-      {other_shoes.length > 0 && (
-        <div className="glass-card rounded-3xl p-4 space-y-2">
-          <h3 className="font-semibold text-sm text-muted-foreground">Also detected in image</h3>
-          {other_shoes.slice(0, 3).map((shoe, i) => (
-            <div key={i} className="flex items-center gap-3 py-2 border-b border-border/40 last:border-0">
-              <span className="text-lg">👟</span>
-              <div>
-                <p className="text-sm font-medium">{[shoe.brand, shoe.model].filter(Boolean).join(' ') || shoe.name || "Unknown"}</p>
-                {shoe.colorway && <p className="text-xs text-muted-foreground">{shoe.colorway}</p>}
-              </div>
-              {shoe.confidence && (
-                <span className="ml-auto text-xs text-muted-foreground">{shoe.confidence}%</span>
-              )}
-            </div>
-          ))}
         </div>
       )}
 
@@ -168,15 +200,18 @@ export default function IdentificationResult({ result, imageUrl, onReset }) {
         </div>
       )}
 
-      {/* Confidence low: no match found */}
+      {/* Low confidence fallback */}
       {!hasExactMatch && identified.confidence < 40 && (
         <div className="text-center py-8 space-y-3">
           <div className="text-4xl">🤔</div>
           <h3 className="font-heading font-bold text-lg">Not sure about this one</h3>
           <p className="text-muted-foreground text-sm max-w-xs mx-auto">
-            The image may be blurry or the shoe isn't in our catalog yet. Try a clearer photo or describe the shoe in the search.
+            The image may be blurry or this shoe isn't in our catalog yet. Try a clearer photo or describe it below.
           </p>
-          <Link to="/search" className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-2xl font-semibold text-sm hover:opacity-90 transition-opacity">
+          <Link
+            to="/search"
+            className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-2xl font-semibold text-sm hover:opacity-90 transition-opacity"
+          >
             <ShoppingBag className="w-4 h-4" /> Search Manually
           </Link>
         </div>

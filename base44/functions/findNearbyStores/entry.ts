@@ -3,6 +3,16 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 const CACHE = new Map();
 const CACHE_TTL = 10 * 60 * 1000;
 
+// ── Rate limiter ──
+const RATE = new Map();
+function checkRate(userId) {
+  const now = Date.now();
+  const e = RATE.get(userId) || { count: 0, start: now };
+  if (now - e.start > 60000) { RATE.set(userId, { count: 1, start: now }); return true; }
+  if (e.count >= 15) return false;
+  e.count++; RATE.set(userId, e); return true;
+}
+
 function getCacheKey(shoeName, lat, lng, size) {
   return `${shoeName}_${lat?.toFixed(2)}_${lng?.toFixed(2)}_${size || 'any'}`.toLowerCase().replace(/\s+/g, '_');
 }
@@ -16,25 +26,85 @@ function calcDistance(lat1, lon1, lat2, lon2) {
   return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 10) / 10;
 }
 
+// Remove duplicate stores (same name OR very close GPS)
+function deduplicateStores(stores) {
+  const seen = new Set();
+  return stores.filter(s => {
+    const nameKey = (s.name || '').toLowerCase().replace(/\s+/g, '');
+    if (seen.has(nameKey)) return false;
+    // Also check if another store with same GPS already added
+    const gpsKey = s.latitude && s.longitude ? `${s.latitude.toFixed(3)},${s.longitude.toFixed(3)}` : null;
+    if (gpsKey && seen.has(gpsKey)) return false;
+    seen.add(nameKey);
+    if (gpsKey) seen.add(gpsKey);
+    return true;
+  });
+}
+
+// Build region-aware product search URL
+function buildSearchUrl(storeName, shoeFullName, countryCode) {
+  const q = encodeURIComponent(shoeFullName);
+  const sl = (storeName || '').toLowerCase();
+  const cc = (countryCode || 'IL').toUpperCase();
+
+  if (cc === 'IL') {
+    if (sl.includes('foot locker') || sl.includes('footlocker')) return `https://footlocker.co.il/search?q=${q}`;
+    if (sl.includes('nike')) return `https://www.nike.com/il/w?q=${q}`;
+    if (sl.includes('adidas')) return `https://www.adidas.co.il/search?q=${q}`;
+    if (sl.includes('puma')) return `https://www.puma.com/il/he/search?q=${q}`;
+    if (sl.includes('new balance')) return `https://www.newbalance.co.il/search?q=${q}`;
+    if (sl.includes('weshoes') || sl.includes('we shoes')) return `https://www.weshoes.co.il/search?q=${q}`;
+    if (sl.includes('intersport')) return `https://www.intersport.co.il/search?q=${q}`;
+  } else {
+    if (sl.includes('foot locker')) return `https://www.footlocker.com/search?query=${q}`;
+    if (sl.includes('nike')) return `https://www.nike.com/w?q=${q}`;
+    if (sl.includes('adidas')) return `https://www.adidas.com/us/search?q=${q}`;
+    if (sl.includes('finish line')) return `https://www.finishline.com/store/browse/search.jsp?query=${q}`;
+  }
+  return null;
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     const body = await req.json();
+
+    // Auth check
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { shoe, selectedSize = null, selectedColor = null, cityFallback = null, userLat = null, userLng = null, exactAddress = null } = body;
+    if (!checkRate(user.id)) {
+      return Response.json({ error: 'Too many requests. Please wait.' }, { status: 429 });
+    }
+
+    const {
+      shoe,
+      selectedSize = null,
+      selectedColor = null,
+      cityFallback = null,
+      userLat = null,
+      userLng = null,
+      exactAddress = null,
+      countryCode = null,
+    } = body;
+
     if (!shoe) return Response.json({ error: 'Missing shoe data' }, { status: 400 });
+
+    // Sanitize shoe fields
+    const shoeBrand = ((shoe.brand || '').replace(/<[^>]*>/g, '')).trim().slice(0, 100);
+    const shoeName = ((shoe.name || '').replace(/<[^>]*>/g, '')).trim().slice(0, 200);
+    const shoeColorway = ((shoe.colorway || selectedColor || '').replace(/<[^>]*>/g, '')).trim().slice(0, 100);
 
     const refLat = userLat && !isNaN(userLat) ? parseFloat(userLat) : null;
     const refLng = userLng && !isNaN(userLng) ? parseFloat(userLng) : null;
     const locationLabel = exactAddress || cityFallback || 'your location';
+    const cc = (countryCode || (locationLabel.toLowerCase().includes('israel') || locationLabel.toLowerCase().includes('tel aviv') || locationLabel.toLowerCase().includes('haifa') ? 'IL' : 'US')).toUpperCase();
 
-    const brandLower = (shoe.brand || '').toLowerCase();
-    const nameLower = (shoe.name || '').toLowerCase();
+    const brandLower = shoeBrand.toLowerCase();
+    const nameLower = shoeName.toLowerCase();
     const shoeFullName = nameLower.startsWith(brandLower)
-      ? `${shoe.name}${shoe.colorway ? ' ' + shoe.colorway : ''}`
-      : `${shoe.brand} ${shoe.name}${shoe.colorway ? ' ' + shoe.colorway : ''}`;
+      ? `${shoeName}${shoeColorway ? ' ' + shoeColorway : ''}`
+      : `${shoeBrand} ${shoeName}${shoeColorway ? ' ' + shoeColorway : ''}`;
 
     const cacheKey = getCacheKey(shoeFullName, refLat, refLng, selectedSize);
     const cached = CACHE.get(cacheKey);
@@ -43,92 +113,88 @@ Deno.serve(async (req) => {
     }
 
     const sizeStr = selectedSize ? ` in US size ${selectedSize}` : '';
-    const colorStr = selectedColor ? `, ${selectedColor}` : (shoe.colorway ? `, ${shoe.colorway}` : '');
+    const colorStr = shoeColorway ? `, ${shoeColorway}` : '';
 
-    // Build rich location context — GPS coords are the primary anchor for proximity
     const hasGps = refLat && refLng;
-    const mapsSearchUrl = hasGps
-      ? `https://www.google.com/maps/search/${encodeURIComponent(shoe.brand + ' shoes store')}/@${refLat},${refLng},14z`
-      : null;
     const locationContext = hasGps
-      ? `GPS coordinates: ${refLat}, ${refLng}\nAddress: ${locationLabel}\nGoogle Maps search: ${mapsSearchUrl}`
-      : `Address: ${locationLabel}`;
+      ? `GPS coordinates: ${refLat}, ${refLng}\nCity/Address: ${locationLabel}\nCountry: ${cc === 'IL' ? 'Israel' : cc}`
+      : `City/Address: ${locationLabel}`;
 
-    // Use gemini_3_flash with web search but NO response_json_schema (incompatible combination)
-    // Instead, ask for JSON in the prompt and parse the text response
     const llmCall = base44.asServiceRole.integrations.Core.InvokeLLM({
-      prompt: `You are a shoe store locator. Your #1 job is to find the PHYSICALLY CLOSEST stores to the user. Use the GPS coordinates to calculate real distances.
+      prompt: `You are a shoe store locator AI. Find REAL physical stores near the user that carry ${shoeBrand}.
 
 USER LOCATION:
 ${locationContext}
 
-PROXIMITY IS THE TOP PRIORITY. Search Google Maps and the web RIGHT NOW for "${shoe.brand} shoe stores near ${locationLabel}". Look up all branches of relevant chains and pick the ones GEOGRAPHICALLY CLOSEST to the GPS coordinates above. Do NOT just list the most famous branches — find the nearest ones.
+YOUR PRIORITY: Find stores PHYSICALLY CLOSEST to the GPS coordinates. Search Google Maps NOW for "${shoeBrand} shoe stores near ${locationLabel}".
 
-CRITICAL RULES:
-1. ONLY return stores you can VERIFY exist via Google Maps or the retailer's official store locator. Do NOT invent stores, addresses, or phone numbers.
-2. If a chain does NOT officially operate in this country/city (e.g. JD Sports is NOT in Israel), do NOT include it.
-3. ALWAYS provide real GPS latitude/longitude for each branch.
+MANDATORY RULES:
+1. ONLY return stores you can VERIFY exist on Google Maps or the official brand store locator. NEVER invent stores.
+2. NEVER include a chain that does NOT operate in the user's country.
+3. Always provide real GPS coordinates for each store.
+4. Remove any duplicate stores (same name or same location).
 
-ISRAEL-SPECIFIC FACTS (apply if location is in Israel):
-- JD Sports does NOT operate in Israel. NEVER include JD Sports.
-- Foot Locker Israel verified branches: Dizengoff Center (Dizengoff St 50, Tel Aviv), Ayalon Mall (Derech Menachem Begin 2, Ramat Gan), Kanyon Haifa, Big Fashion Beer Sheva, Kanyon Holon.
-- Nike Israel verified stores: Dizengoff Center Tel Aviv, Kanyon Ayalon Ramat Gan.
-- Adidas Israel verified stores: Dizengoff Center, Kanyon Ayalon, Kanyon Haifa.
-- SneakerBox boutique: Beilinson St 1, Tel Aviv (sells Nike, Jordan, Adidas, New Balance).
-- Intersport: multiple branches in Israel — check actual nearest branch to the GPS.
-- WeShoes: sells ONLY Crocs, HOKA, Blundstone, Desigual, Freedom Moses, Kizik, Native Shoes. Does NOT sell Nike, Adidas, Jordan.
+${cc === 'IL' ? `ISRAEL-VERIFIED STORE DATA:
+- JD Sports: NOT in Israel. Never include.
+- Foot Locker Israel branches: Dizengoff Center (32.0795, 34.7740), Kanyon Ayalon Ramat Gan (32.0881, 34.8225), Kanyon Haifa (32.8102, 35.0053), Big Fashion Beer Sheva (31.2530, 34.7915), Kanyon Holon (32.0166, 34.7760).
+- Nike Israel: Dizengoff Center Tel Aviv, Kanyon Ayalon Ramat Gan.
+- Adidas Israel: Dizengoff Center, Kanyon Ayalon, Kanyon Haifa.
+- SneakerBox boutique: Beilinson St 1, Tel Aviv (32.0665, 34.7748) — sells Nike, Jordan, Adidas, New Balance.
+- Intersport Israel: multiple branches — search for nearest.
+- WeShoes Israel: ONLY carries Crocs, HOKA, Blundstone, Native, Kizik. Does NOT carry Nike, Adidas, Jordan, Puma, Converse.
 
-BRAND RULES:
-- Nike/Jordan: sold at Nike stores, Foot Locker, SneakerBox, Intersport.
-- Adidas: sold at Adidas stores, Foot Locker, SneakerBox, Intersport.
-- Foot Locker carries: Nike, Jordan, Adidas, Converse, New Balance, Puma, Vans, Reebok.
+BRAND ROUTING:
+- Nike/Jordan: Nike stores, Foot Locker, SneakerBox, Intersport.
+- Adidas: Adidas stores, Foot Locker, SneakerBox, Intersport.
+- Puma/Converse/Reebok/Vans: Foot Locker Israel.
+- HOKA/Crocs/Blundstone: WeShoes Israel.` : ''}
 
-Find up to 6 NEAREST stores (within 25km) carrying ${shoe.brand}. Sort by distance from GPS — closest first. Also check if "${shoeFullName}"${sizeStr}${colorStr} is available.
+Find up to 6 stores within 25km carrying ${shoeBrand}. Sort by distance — CLOSEST FIRST.
+Check if "${shoeFullName}"${sizeStr}${colorStr} is available.
 
-Respond ONLY with a valid JSON object like this (no markdown, no explanation):
-{"stores":[{"name":"...","address":"...","latitude":0.0,"longitude":0.0,"phone":"...","website":"...","google_maps_url":"...","hours_today":"...","rating":4.5,"carries_brand":true,"stock_confidence":"medium","stock_status":"Check in store","price":null,"product_url":null,"reasoning":"..."}]}`,
+Respond ONLY with valid JSON (no markdown):
+{"stores":[{"name":"...","address":"...","latitude":0.0,"longitude":0.0,"phone":"...","website":"...","google_maps_url":"...","hours_today":"...","rating":4.5,"carries_brand":true,"stock_confidence":"high|medium|low","stock_status":"...","price":null,"product_url":null,"reasoning":"..."}]}`,
       add_context_from_internet: true,
       model: 'gemini_3_flash',
     });
 
     const rawText = await Promise.race([
       llmCall,
-      new Promise((_, reject) => setTimeout(() => reject(new Error('Search timed out after 85 seconds')), 85000)),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Search timed out')), 85000)),
     ]);
 
-    // Parse the text response as JSON
     let parsed = { stores: [] };
     if (typeof rawText === 'string') {
       const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        parsed = JSON.parse(jsonMatch[0]);
-      }
+      if (jsonMatch) { try { parsed = JSON.parse(jsonMatch[0]); } catch {} }
     } else if (rawText && typeof rawText === 'object') {
       parsed = rawText;
     }
 
     const rawStores = (parsed?.stores || []).filter(s => s.name && s.address && s.carries_brand !== false);
 
-    // Sort by distance and cap at 6
-    const finalStores = rawStores.map(s => ({
+    // Calculate distances, filter, de-dup, sort
+    const withDistance = rawStores.map(s => ({
       ...s,
-      distance_km: (refLat && refLng && s.latitude && s.longitude)
+      distance_km: (hasGps && s.latitude && s.longitude)
         ? calcDistance(refLat, refLng, s.latitude, s.longitude)
         : null,
-    }))
-    .filter(s => !s.distance_km || s.distance_km <= 25)
-    .sort((a, b) => (a.distance_km ?? 99) - (b.distance_km ?? 99))
-    .slice(0, 6)
-    .map((s, i) => {
-      // Build best website URL
-      const q = encodeURIComponent(shoeFullName);
-      let websiteUrl = s.product_url || s.website || null;
-      if (!websiteUrl || websiteUrl.includes('google.com')) {
-        if (s.website?.includes('footlocker.co.il')) websiteUrl = `https://footlocker.co.il/search?q=${q}`;
-        else if (s.website?.includes('nike.com')) websiteUrl = `https://www.nike.com/il/w?q=${q}`;
-        else if (s.website?.includes('adidas')) websiteUrl = `https://www.adidas.co.il/search?q=${q}`;
-        else if (s.website?.includes('weshoes')) websiteUrl = `https://www.weshoes.co.il/search?q=${q}`;
-        else websiteUrl = s.website || null;
+    }));
+
+    const filtered = deduplicateStores(
+      withDistance
+        .filter(s => !s.distance_km || s.distance_km <= 25)
+        .sort((a, b) => (a.distance_km ?? 99) - (b.distance_km ?? 99))
+    ).slice(0, 6);
+
+    const finalStores = filtered.map((s, i) => {
+      let websiteUrl = buildSearchUrl(s.name, shoeFullName, cc);
+      if (!websiteUrl) {
+        if (s.product_url && s.product_url.startsWith('http') && !s.product_url.includes('google.com')) {
+          websiteUrl = s.product_url;
+        } else if (s.website && s.website.startsWith('http') && !s.website.includes('google.com')) {
+          websiteUrl = s.website;
+        }
       }
 
       return {
@@ -144,7 +210,7 @@ Respond ONLY with a valid JSON object like this (no markdown, no explanation):
         hours_today: s.hours_today || null,
         website: websiteUrl,
         price: s.price || null,
-        why: s.reasoning || `${s.name} carries ${shoe.brand}`,
+        why: s.reasoning || `${s.name} carries ${shoeBrand}`,
         stock_status: s.stock_status || 'Check in store',
         stock_confidence: s.stock_confidence || 'medium',
         local_pickup: true,

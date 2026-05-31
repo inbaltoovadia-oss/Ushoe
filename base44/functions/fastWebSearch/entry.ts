@@ -1,7 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
 const CACHE = new Map();
-const CACHE_TTL = 20 * 60 * 1000;
+const CACHE_TTL = 15 * 60 * 1000; // 15 min
 
 function cacheGet(k) {
   const e = CACHE.get(k);
@@ -14,121 +14,167 @@ function cacheSet(k, data) {
   if (CACHE.size > 200) CACHE.delete(CACHE.keys().next().value);
 }
 
-function buildSearchUrl(retailerName, query, countryCode) {
-  const cleanQuery = query.replace(/\s+buy\s*$/i, '').trim();
-  const q = encodeURIComponent(cleanQuery);
-  const rl = (retailerName || '').toLowerCase();
+// ── Rate limiter ──
+const RATE = new Map();
+function checkRate(userId) {
+  const now = Date.now();
+  const e = RATE.get(userId) || { count: 0, start: now };
+  if (now - e.start > 60000) { RATE.set(userId, { count: 1, start: now }); return true; }
+  if (e.count >= 20) return false;
+  e.count++; RATE.set(userId, e); return true;
+}
 
-  if (countryCode === 'IL') {
+// ── Build deep-link product URL for a retailer ──
+function buildProductUrl(retailerName, query, countryCode, rawLink) {
+  const rl = (retailerName || '').toLowerCase();
+  const q = encodeURIComponent(query);
+  const cc = (countryCode || 'US').toUpperCase();
+
+  // Use AI-returned link if it looks like a real product page (not a homepage)
+  if (rawLink && rawLink.startsWith('http') && !rawLink.includes('google.com')) {
+    const isHomepage = /\.(com|co\.il|co\.uk|eu)(\/)?$/.test(rawLink);
+    if (!isHomepage && rawLink.length > 30) return rawLink;
+  }
+
+  if (cc === 'IL') {
     if (rl.includes('foot locker') || rl.includes('footlocker')) return `https://footlocker.co.il/search?q=${q}`;
     if (rl.includes('weshoes') || rl.includes('we shoes')) return `https://www.weshoes.co.il/search?q=${q}`;
-    if (rl.includes('adidas'))  return `https://www.adidas.co.il/search?q=${q}`;
-    if (rl.includes('nike'))    return `https://www.nike.com/il/w?q=${q}`;
-    if (rl.includes('puma'))    return `https://www.puma.com/il/he/search?q=${q}`;
-    if (rl.includes('terminal') || rl.includes('shilav') || rl.includes('fox') || rl.includes('crocs')) return null;
+    if (rl.includes('adidas')) return `https://www.adidas.co.il/search?q=${q}`;
+    if (rl.includes('nike')) return `https://www.nike.com/il/w?q=${q}`;
+    if (rl.includes('puma')) return `https://www.puma.com/il/he/search?q=${q}`;
+    if (rl.includes('new balance')) return `https://www.newbalance.co.il/search?q=${q}`;
+    if (rl.includes('converse')) return `https://www.converse.com/il/en/search?q=${q}`;
+  } else if (cc === 'GB') {
+    if (rl.includes('foot locker')) return `https://www.footlocker.co.uk/search?query=${q}`;
+    if (rl.includes('jd sports')) return `https://www.jdsports.co.uk/search/?query=${q}`;
+    if (rl.includes('nike')) return `https://www.nike.com/gb/w?q=${q}`;
+    if (rl.includes('adidas')) return `https://www.adidas.co.uk/search?q=${q}`;
+    if (rl.includes('size')) return `https://www.size.co.uk/search?q=${q}`;
+  } else if (['DE','FR','ES','IT','NL','BE','AT','PL','SE'].includes(cc)) {
+    if (rl.includes('foot locker')) return `https://www.footlocker.eu/en/search?query=${q}`;
+    if (rl.includes('zalando')) return `https://www.zalando.com/catalog/?q=${q}`;
+    if (rl.includes('nike')) return `https://www.nike.com/de/w?q=${q}`;
+    if (rl.includes('adidas')) return `https://www.adidas.com/de/search?q=${q}`;
   } else {
-    if (rl.includes('foot locker') || rl.includes('footlocker')) return `https://www.footlocker.com/search?query=${q}`;
-    if (rl.includes('zappos'))      return `https://www.zappos.com/search/term/${q}`;
+    // US default
+    if (rl.includes('foot locker')) return `https://www.footlocker.com/search?query=${q}`;
+    if (rl.includes('zappos')) return `https://www.zappos.com/search/term/${q}`;
     if (rl.includes('finish line')) return `https://www.finishline.com/store/browse/search.jsp?query=${q}`;
-    if (rl.includes('dsw'))         return `https://www.dsw.com/en/us/search?q=${q}`;
-    if (rl.includes('amazon'))      return `https://www.amazon.com/s?k=${q}`;
-    if (rl.includes('nike'))        return `https://www.nike.com/w?q=${q}`;
-    if (rl.includes('adidas'))      return `https://www.adidas.com/us/search?q=${q}`;
+    if (rl.includes('dsw')) return `https://www.dsw.com/en/us/search?q=${q}`;
+    if (rl.includes('amazon')) return `https://www.amazon.com/s?k=${q}`;
+    if (rl.includes('nike')) return `https://www.nike.com/w?q=${q}`;
+    if (rl.includes('adidas')) return `https://www.adidas.com/us/search?q=${q}`;
+    if (rl.includes('stockx')) return `https://stockx.com/search?s=${q}`;
+    if (rl.includes('goat')) return `https://www.goat.com/search?query=${q}`;
   }
   return null;
 }
 
-// Brands WeShoes carries in Israel
-const WESHOES_BRANDS_IL = ['crocs', 'hoka', 'birkenstock', 'skechers', 'timberland', 'vans', 'new balance', 'converse', 'ecco', 'salomon', 'merrell', 'ugg', 'reebok', 'asics', 'saucony', 'brooks', 'on running'];
+// Brands WeShoes Israel carries
+const WESHOES_BRANDS = ['crocs', 'hoka', 'blundstone', 'desigual', 'freedom moses', 'kizik', 'native'];
 
-// Get IL retailers to check based on brand
-function getILRetailers(query, brand) {
+// Get region-aware retailers based on brand and country
+function getRegionRetailers(query, brand, countryCode) {
   const b = (brand || query || '').toLowerCase();
-  const retailers = [];
+  const q = encodeURIComponent(query);
+  const cc = (countryCode || 'US').toUpperCase();
 
-  // Brand-specific official stores
-  if (b.includes('nike') || b.includes('jordan') || b.includes('air jordan')) {
-    retailers.push({ name: 'Nike Israel', domain: 'nike.com/il', searchUrl: `https://www.nike.com/il/w?q=${encodeURIComponent(query)}` });
-  }
-  if (b.includes('adidas') || b.includes('yeezy')) {
-    retailers.push({ name: 'Adidas Israel', domain: 'adidas.co.il', searchUrl: `https://www.adidas.co.il/search?q=${encodeURIComponent(query)}` });
-  }
-  if (b.includes('puma')) {
-    retailers.push({ name: 'Puma Israel', domain: 'puma.com', searchUrl: `https://www.puma.com/il/he/search?q=${encodeURIComponent(query)}` });
-  }
-
-  // Foot Locker carries most athletic brands (not specialty/comfort brands)
-  const noFL = ['birkenstock', 'ecco', 'merrell', 'salomon', 'skechers', 'crocs', 'ugg'];
-  if (!noFL.some(x => b.includes(x))) {
-    retailers.push({ name: 'Foot Locker Israel', domain: 'footlocker.co.il', searchUrl: `https://footlocker.co.il/search?q=${encodeURIComponent(query)}` });
+  if (cc === 'IL') {
+    const retailers = [];
+    if (b.includes('nike') || b.includes('jordan')) retailers.push({ name: 'Nike Israel', domain: 'nike.com/il', searchUrl: `https://www.nike.com/il/w?q=${q}` });
+    if (b.includes('adidas') || b.includes('yeezy')) retailers.push({ name: 'Adidas Israel', domain: 'adidas.co.il', searchUrl: `https://www.adidas.co.il/search?q=${q}` });
+    if (b.includes('puma')) retailers.push({ name: 'Puma Israel', domain: 'puma.com/il', searchUrl: `https://www.puma.com/il/he/search?q=${q}` });
+    if (b.includes('new balance')) retailers.push({ name: 'New Balance Israel', domain: 'newbalance.co.il', searchUrl: `https://www.newbalance.co.il/search?q=${q}` });
+    const noFL = ['birkenstock', 'ecco', 'merrell', 'salomon', 'crocs', 'ugg', 'hoka'];
+    if (!noFL.some(x => b.includes(x))) retailers.push({ name: 'Foot Locker Israel', domain: 'footlocker.co.il', searchUrl: `https://footlocker.co.il/search?q=${q}` });
+    if (WESHOES_BRANDS.some(w => b.includes(w))) retailers.push({ name: 'WeShoes Israel', domain: 'weshoes.co.il', searchUrl: `https://www.weshoes.co.il/search?q=${q}` });
+    if (retailers.length === 0) retailers.push({ name: 'Foot Locker Israel', domain: 'footlocker.co.il', searchUrl: `https://footlocker.co.il/search?q=${q}` });
+    return retailers;
   }
 
-  // WeShoes only for its brands
-  if (WESHOES_BRANDS_IL.some(w => b.includes(w))) {
-    retailers.push({ name: 'WeShoes Israel', domain: 'weshoes.co.il', searchUrl: `https://www.weshoes.co.il/search?q=${encodeURIComponent(query)}` });
+  if (cc === 'GB') {
+    const retailers = [
+      { name: 'Foot Locker UK', domain: 'footlocker.co.uk', searchUrl: `https://www.footlocker.co.uk/search?query=${q}` },
+      { name: 'JD Sports', domain: 'jdsports.co.uk', searchUrl: `https://www.jdsports.co.uk/search/?query=${q}` },
+    ];
+    if (b.includes('nike')) retailers.unshift({ name: 'Nike UK', domain: 'nike.com/gb', searchUrl: `https://www.nike.com/gb/w?q=${q}` });
+    if (b.includes('adidas')) retailers.unshift({ name: 'Adidas UK', domain: 'adidas.co.uk', searchUrl: `https://www.adidas.co.uk/search?q=${q}` });
+    return retailers;
   }
 
-  // Fallback
-  if (retailers.length === 0) {
-    retailers.push({ name: 'Foot Locker Israel', domain: 'footlocker.co.il', searchUrl: `https://footlocker.co.il/search?q=${encodeURIComponent(query)}` });
-  }
-
+  // US default
+  const retailers = [
+    { name: 'Foot Locker', domain: 'footlocker.com', searchUrl: `https://www.footlocker.com/search?query=${q}` },
+    { name: 'Zappos', domain: 'zappos.com', searchUrl: `https://www.zappos.com/search/term/${q}` },
+    { name: 'DSW', domain: 'dsw.com', searchUrl: `https://www.dsw.com/en/us/search?q=${q}` },
+  ];
+  if (b.includes('nike')) retailers.unshift({ name: 'Nike.com', domain: 'nike.com', searchUrl: `https://www.nike.com/w?q=${q}` });
+  if (b.includes('adidas')) retailers.unshift({ name: 'Adidas.com', domain: 'adidas.com', searchUrl: `https://www.adidas.com/us/search?q=${q}` });
   return retailers;
 }
 
-// Fetch price from a single retailer using a focused LLM call
-async function fetchRetailerPrice(base44, query, retailer, sizeNote) {
+// Fetch price from a single retailer
+async function fetchRetailerPrice(base44, query, brand, retailer, sizeNote, countryCode, countryName) {
   try {
     const result = await Promise.race([
       base44.asServiceRole.integrations.Core.InvokeLLM({
-        prompt: `Search the web right now for the current price of "${query}"${sizeNote ? ` ${sizeNote}` : ''} on ${retailer.domain}.
+        prompt: `Search ${retailer.domain} RIGHT NOW for the current price of "${query}"${sizeNote ? ` in ${sizeNote}` : ''}.
 
-Look at the actual product listing page on ${retailer.domain} and return:
-- price: the exact price shown (e.g. "₪649.90", "$120.00") — must be a real number from the page
-- original_price: original/crossed-out price if there is a discount, otherwise same as price
-- buy_link: direct URL to the product or search results page on ${retailer.domain}
-- in_stock: true if available to buy, false if sold out
-- discount_percent: integer discount percentage if on sale, else 0
+USER REGION: ${countryName} (${countryCode})
 
-If you cannot find the product on this specific site, return price as null.`,
+CRITICAL RULES:
+1. Only return data from ${retailer.domain} — do NOT use other sites.
+2. The product page must be AVAILABLE in ${countryName}. If the product says "Not available in your region" or shows in wrong currency, set price to null.
+3. Return a DIRECT product/search page URL — not the homepage.
+4. If the shoe is not found on this site, set price to null.
+
+Return JSON:
+{
+  "price": "₪649" or "$120" (exact price with currency symbol, or null if not found),
+  "original_price": "₪799" (original crossed-out price if discounted, else same as price),
+  "buy_link": "https://..." (direct product or search URL on ${retailer.domain}),
+  "in_stock": true/false,
+  "discount_percent": 0 (integer),
+  "regional_available": true/false
+}`,
         add_context_from_internet: true,
-        model: "gemini_3_flash",
+        model: 'gemini_3_flash',
         response_json_schema: {
-          type: "object",
+          type: 'object',
           properties: {
-            price:            { type: "string" },
-            original_price:   { type: "string" },
-            buy_link:         { type: "string" },
-            in_stock:         { type: "boolean" },
-            price_confidence: { type: "string" },
-            discount_percent: { type: "number" },
+            price: { type: 'string' },
+            original_price: { type: 'string' },
+            buy_link: { type: 'string' },
+            in_stock: { type: 'boolean' },
+            discount_percent: { type: 'number' },
+            regional_available: { type: 'boolean' },
           }
         }
       }),
       new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 55000))
     ]);
 
+    // Validate result
+    if (!result || result.regional_available === false) return null;
     const price = result?.price;
     const priceNum = parseFloat((price || '').replace(/[^0-9.]/g, ''));
     if (!price || isNaN(priceNum) || priceNum <= 0) return null;
 
     const rawLink = (result?.buy_link || '').trim();
-    const link = (rawLink.startsWith('http') && !rawLink.includes('google.com'))
-      ? rawLink
-      : retailer.searchUrl;
+    const link = buildProductUrl(retailer.name, query, countryCode, rawLink) || retailer.searchUrl;
 
     return {
       retailer: retailer.name,
       name: query,
-      brand: '',
+      brand,
       price,
       original_price: result?.original_price || null,
-      currency: 'ILS',
+      currency: countryCode === 'IL' ? 'ILS' : countryCode === 'GB' ? 'GBP' : 'USD',
       buy_link: link,
       in_stock: result?.in_stock ?? true,
       ships_to_user: true,
       is_best_deal: false,
-      price_confidence: result?.price_confidence || 'medium',
+      price_confidence: 'high',
       discount_percent: result?.discount_percent || 0,
     };
   } catch {
@@ -136,19 +182,43 @@ If you cannot find the product on this specific site, return price as null.`,
   }
 }
 
+// De-duplicate by retailer name
+function deduplicateByRetailer(picks) {
+  const seen = new Set();
+  return picks.filter(p => {
+    const key = (p.retailer || '').toLowerCase().split(' ')[0];
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 Deno.serve(async (req) => {
   let parsedBody = {};
   try { parsedBody = await req.json(); } catch {}
 
-  const { query, city, country, countryCode, brand = '', selectedSize = null, userLat = null, userLng = null } = parsedBody;
+  const {
+    query, city, country, countryCode, brand = '',
+    selectedSize = null, userLat = null, userLng = null
+  } = parsedBody;
 
-  const q = (query || '').trim();
-  const cc = (countryCode || 'US').toUpperCase();
-  const countryName = country || 'United States';
-  const cityName = city || countryName;
+  // Sanitize inputs
+  const q = (query || '').replace(/<[^>]*>/g, '').trim().slice(0, 200);
+  const cc = (countryCode || 'US').toUpperCase().slice(0, 2);
+  const countryName = (country || 'United States').slice(0, 100);
+  const cityName = (city || countryName).slice(0, 100);
 
   try {
     const base44 = createClientFromRequest(req);
+
+    // Auth check
+    const user = await base44.auth.me();
+    if (!user) return Response.json({ web_picks: [], nearby_stores: [] });
+
+    if (!checkRate(user.id)) {
+      return Response.json({ web_picks: [], nearby_stores: [], error: 'Rate limit exceeded' }, { status: 429 });
+    }
+
     if (!q) return Response.json({ web_picks: [], nearby_stores: [] });
 
     const cacheKey = `${q}::${cc}::${selectedSize || 'any'}`.toLowerCase().replace(/\s+/g, '_');
@@ -156,70 +226,88 @@ Deno.serve(async (req) => {
     if (cached) return Response.json({ ...cached, cached: true });
 
     const sizeNote = selectedSize ? `US size ${selectedSize}` : '';
-
     let finalPicks = [];
 
-    if (cc === 'IL') {
-      // Parallel per-retailer price fetches — whichever returns first wins
-      const retailers = getILRetailers(q, brand);
-      const results = await Promise.all(retailers.map(r => fetchRetailerPrice(base44, q, r, sizeNote)));
-      finalPicks = results.filter(Boolean);
+    // Israel & UK: parallel per-retailer lookups
+    if (cc === 'IL' || cc === 'GB') {
+      const retailers = getRegionRetailers(q, brand, cc);
+      const results = await Promise.all(
+        retailers.map(r => fetchRetailerPrice(base44, q, brand, r, sizeNote, cc, countryName))
+      );
+      finalPicks = deduplicateByRetailer(results.filter(Boolean));
     } else {
-      // For non-IL: single broad search
-      const prompt = `Search the web and find current prices for "${q}"${sizeNote ? ` in ${sizeNote}` : ''} from major US retailers: Foot Locker, Zappos, Nike, Adidas, DSW, Finish Line.
-For each retailer found: report exact price, direct URL, stock status.`;
+      // Global: structured broad search
+      const retailers = getRegionRetailers(q, brand, cc);
+      const retailerDomains = retailers.map(r => r.domain).join(', ');
       const result = await Promise.race([
         base44.asServiceRole.integrations.Core.InvokeLLM({
-          prompt,
+          prompt: `Search for current prices of "${q}"${sizeNote ? ` in ${sizeNote}` : ''} from these US retailers: ${retailerDomains}.
+
+RULES:
+- Only return retailers that ACTUALLY have this product listed and available in the US.
+- Return DIRECT product page URLs — not homepages.
+- Do NOT repeat the same retailer twice.
+- If a retailer doesn't carry this specific shoe, exclude it.
+
+Return JSON with "web_picks" array. Each item: retailer, price (with $ symbol), original_price, buy_link (direct URL), in_stock, discount_percent.`,
           add_context_from_internet: true,
-          model: "gemini_3_flash",
+          model: 'gemini_3_flash',
           response_json_schema: {
-            type: "object",
+            type: 'object',
             properties: {
               web_picks: {
-                type: "array",
+                type: 'array',
                 items: {
-                  type: "object",
+                  type: 'object',
                   properties: {
-                    retailer: { type: "string" }, price: { type: "string" },
-                    buy_link: { type: "string" }, in_stock: { type: "boolean" },
-                    is_best_deal: { type: "boolean" }, price_confidence: { type: "string" },
-                    discount_percent: { type: "number" }, currency: { type: "string" },
+                    retailer: { type: 'string' },
+                    price: { type: 'string' },
+                    original_price: { type: 'string' },
+                    buy_link: { type: 'string' },
+                    in_stock: { type: 'boolean' },
+                    discount_percent: { type: 'number' },
                   }
                 }
               }
             }
           }
         }),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 50000))
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 55000))
       ]);
-      finalPicks = (result?.web_picks || []).filter(p => p.price && parseFloat(p.price.replace(/[^0-9.]/g, '')) > 0)
-        .map(p => ({
-          ...p,
-          buy_link: buildSearchUrl(p.retailer, q, cc) || p.buy_link,
-        })).filter(p => p.buy_link);
+
+      finalPicks = deduplicateByRetailer(
+        (result?.web_picks || [])
+          .filter(p => p.price && parseFloat((p.price || '').replace(/[^0-9.]/g, '')) > 0)
+          .map(p => ({
+            ...p,
+            currency: 'USD',
+            brand,
+            name: q,
+            ships_to_user: true,
+            is_best_deal: false,
+            price_confidence: 'medium',
+            buy_link: buildProductUrl(p.retailer, q, cc, p.buy_link) || p.buy_link,
+          }))
+          .filter(p => p.buy_link)
+      );
     }
 
-    // Mark best deal (lowest price)
-    if (finalPicks.length > 0 && !finalPicks.some(p => p.is_best_deal)) {
+    // Mark best deal
+    if (finalPicks.length > 0) {
       const prices = finalPicks.map(p => parseFloat((p.price || '0').replace(/[^0-9.]/g, '')) || Infinity);
       const minIdx = prices.indexOf(Math.min(...prices));
       if (minIdx >= 0 && prices[minIdx] < Infinity) finalPicks[minIdx] = { ...finalPicks[minIdx], is_best_deal: true };
     }
 
-    // Fallback if nothing found — verified search links (no Shilav)
+    // Fallback search links if AI found nothing
     let fallbackPicks = [];
     if (finalPicks.length === 0) {
-      if (cc === 'IL') {
-        const fq = encodeURIComponent(q);
-        const retailers = getILRetailers(q, brand);
-        fallbackPicks = retailers.map((r, i) => ({
-          retailer: r.name, name: q, brand: '', currency: 'ILS', price: null,
-          buy_link: r.searchUrl, in_stock: null, ships_to_user: true,
-          is_best_deal: i === 0, price_confidence: 'low',
-          discount_percent: 0, is_fallback_search_link: true,
-        }));
-      }
+      const retailers = getRegionRetailers(q, brand, cc);
+      fallbackPicks = retailers.map((r, i) => ({
+        retailer: r.name, name: q, brand, currency: cc === 'IL' ? 'ILS' : cc === 'GB' ? 'GBP' : 'USD',
+        price: null, buy_link: r.searchUrl, in_stock: null, ships_to_user: true,
+        is_best_deal: i === 0, price_confidence: 'low', discount_percent: 0, is_fallback_search_link: true,
+      }));
     }
 
     const response = {
@@ -235,11 +323,13 @@ For each retailer found: report exact price, direct URL, stock status.`;
 
   } catch (error) {
     const fq = encodeURIComponent(q);
-    const fallback = cc === 'IL' ? [
-      { retailer: 'Foot Locker Israel', buy_link: `https://footlocker.co.il/search?q=${fq}`, price: null, name: q, brand: '', currency: 'ILS', in_stock: null, ships_to_user: true, is_best_deal: true,  price_confidence: 'low', discount_percent: 0, is_fallback_search_link: true },
-      { retailer: 'WeShoes Israel',     buy_link: `https://www.weshoes.co.il/search?q=${fq}`, price: null, name: q, brand: '', currency: 'ILS', in_stock: null, ships_to_user: true, is_best_deal: false, price_confidence: 'low', discount_percent: 0, is_fallback_search_link: true },
-      { retailer: 'Nike Israel',        buy_link: `https://www.nike.com/il/w?q=${fq}`,         price: null, name: q, brand: '', currency: 'ILS', in_stock: null, ships_to_user: true, is_best_deal: false, price_confidence: 'low', discount_percent: 0, is_fallback_search_link: true },
-    ] : [];
-    return Response.json({ web_picks: fallback, nearby_stores: [], timed_out: true, used_fallback: true, error: error.message });
+    const cc2 = (countryCode || 'US').toUpperCase();
+    const fallback = cc2 === 'IL' ? [
+      { retailer: 'Foot Locker Israel', buy_link: `https://footlocker.co.il/search?q=${fq}`, price: null, name: q, brand, currency: 'ILS', in_stock: null, ships_to_user: true, is_best_deal: true, price_confidence: 'low', discount_percent: 0, is_fallback_search_link: true },
+      { retailer: 'Nike Israel', buy_link: `https://www.nike.com/il/w?q=${fq}`, price: null, name: q, brand, currency: 'ILS', in_stock: null, ships_to_user: true, is_best_deal: false, price_confidence: 'low', discount_percent: 0, is_fallback_search_link: true },
+    ] : [
+      { retailer: 'Foot Locker', buy_link: `https://www.footlocker.com/search?query=${fq}`, price: null, name: q, brand, currency: 'USD', in_stock: null, ships_to_user: true, is_best_deal: true, price_confidence: 'low', discount_percent: 0, is_fallback_search_link: true },
+    ];
+    return Response.json({ web_picks: fallback, nearby_stores: [], timed_out: true, used_fallback: true });
   }
 });
