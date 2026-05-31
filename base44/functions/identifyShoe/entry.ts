@@ -18,21 +18,19 @@ function checkRateLimit(userId) {
   return true;
 }
 
-// ── Input sanitization ──
+// ── Input sanitization — only for text, NOT for URLs ──
 function sanitizeText(str) {
   if (typeof str !== 'string') return '';
-  return str.replace(/<[^>]*>/g, '').replace(/[^\w\s.,!?@:/\-#%&()[\]'"]/g, '').trim().slice(0, 2000);
+  return str.replace(/<[^>]*>/g, '').trim().slice(0, 2000);
 }
 
-function isValidUrl(str) {
-  try { const u = new URL(str); return u.protocol === 'http:' || u.protocol === 'https:'; } catch { return false; }
-}
-
-const ALLOWED_IMAGE_HOSTS = ['base44.app', 'cdn.base44.app', 'storage.googleapis.com', 'firebasestorage.googleapis.com'];
 const SOCIAL_DOMAINS = ['tiktok.com', 'instagram.com', 'youtube.com', 'youtu.be', 'twitter.com', 'x.com'];
 
-function isAllowedImageUrl(url) {
-  try { const u = new URL(url); return ALLOWED_IMAGE_HOSTS.some(h => u.hostname.endsWith(h)); } catch { return false; }
+function isValidImageUrl(url) {
+  try {
+    const u = new URL(url);
+    return (u.protocol === 'http:' || u.protocol === 'https:') && u.hostname.length > 0;
+  } catch { return false; }
 }
 
 function isAllowedSocialUrl(url) {
@@ -105,11 +103,12 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Missing imageUrl or videoLink' }, { status: 400 });
     }
 
-    const imageUrl = rawImageUrl ? sanitizeText(rawImageUrl) : null;
-    const videoLink = rawVideoLink ? sanitizeText(rawVideoLink) : null;
+    // Keep URLs intact — only strip them if they look completely invalid
+    const imageUrl = rawImageUrl ? (typeof rawImageUrl === 'string' ? rawImageUrl.trim().slice(0, 2000) : null) : null;
+    const videoLink = rawVideoLink ? (typeof rawVideoLink === 'string' ? rawVideoLink.trim().slice(0, 2000) : null) : null;
 
-    if (imageUrl && !isAllowedImageUrl(imageUrl)) {
-      return Response.json({ error: 'Invalid image source. Please upload via the Ushoe uploader.' }, { status: 400 });
+    if (imageUrl && !isValidImageUrl(imageUrl)) {
+      return Response.json({ error: 'Invalid image URL.' }, { status: 400 });
     }
     if (videoLink && !isAllowedSocialUrl(videoLink)) {
       return Response.json({ error: 'Invalid link. Only TikTok, Instagram, YouTube, and X links are supported.' }, { status: 400 });

@@ -30,11 +30,8 @@ function buildProductUrl(retailerName, query, countryCode, rawLink) {
   const q = encodeURIComponent(query);
   const cc = (countryCode || 'US').toUpperCase();
 
-  // Use AI-returned link if it looks like a real product page (not a homepage)
-  if (rawLink && rawLink.startsWith('http') && !rawLink.includes('google.com')) {
-    const isHomepage = /\.(com|co\.il|co\.uk|eu)(\/)?$/.test(rawLink);
-    if (!isHomepage && rawLink.length > 30) return rawLink;
-  }
+  // Never trust AI-hallucinated direct product URLs — they often 404.
+  // We only use AI-provided links as a last resort when we have no known search URL for the retailer.
 
   if (cc === 'IL') {
     if (rl.includes('foot locker') || rl.includes('footlocker')) return `https://footlocker.co.il/search?q=${q}`;
@@ -207,17 +204,14 @@ Return JSON with "web_picks" array. Each item: retailer, price (with currency sy
     finalPicks = deduplicateByRetailer(
       (result?.web_picks || [])
         .filter(p => p.price && parseFloat((p.price || '').replace(/[^0-9.]/g, '')) > 0)
-        .map(p => ({
-          ...p,
-          currency,
-          brand,
-          name: q,
-          ships_to_user: true,
-          is_best_deal: false,
-          price_confidence: 'medium',
-          buy_link: buildProductUrl(p.retailer, q, cc, p.buy_link) || p.buy_link,
-        }))
-        .filter(p => p.buy_link)
+        .map(p => {
+          // Always prefer our hardcoded search URLs — they are guaranteed valid.
+          // Only use the AI-supplied link when we truly have no mapping for this retailer.
+          const knownLink = buildProductUrl(p.retailer, q, cc, null);
+          const link = knownLink || retailers.find(r => r.name.toLowerCase().includes((p.retailer || '').toLowerCase().split(' ')[0]))?.searchUrl || null;
+          return link ? { ...p, currency, brand, name: q, ships_to_user: true, is_best_deal: false, price_confidence: 'medium', buy_link: link } : null;
+        })
+        .filter(Boolean)
     );
 
     // Mark best deal
