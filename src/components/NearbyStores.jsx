@@ -239,6 +239,7 @@ export default function NearbyStores({ title = "Nearby Stores", maxCount = 6, sh
         exactAddress: addressOverride || null,
         selectedSize: selectedSize || null,
         selectedColor: selectedColor || null,
+        countryCode: location.countryCode || null,
       });
 
       const data = res?.data || {};

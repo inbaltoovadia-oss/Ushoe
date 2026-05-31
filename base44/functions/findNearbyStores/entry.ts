@@ -126,36 +126,34 @@ Deno.serve(async (req) => {
 USER LOCATION:
 ${locationContext}
 
-YOUR PRIORITY: Find stores PHYSICALLY CLOSEST to the GPS coordinates. Search Google Maps NOW for "${shoeBrand} shoe stores near ${locationLabel}".
-
 MANDATORY RULES:
-1. ONLY return stores you can VERIFY exist on Google Maps or the official brand store locator. NEVER invent stores.
+1. ONLY return stores that ACTUALLY EXIST for this country/region. NEVER invent stores.
 2. NEVER include a chain that does NOT operate in the user's country.
 3. Always provide real GPS coordinates for each store.
-4. Remove any duplicate stores (same name or same location).
+4. Remove any duplicate stores (same name or very close location).
 
-${cc === 'IL' ? `ISRAEL-VERIFIED STORE DATA:
+${cc === 'IL' ? `ISRAEL-VERIFIED STORE DATA (use these known locations):
 - JD Sports: NOT in Israel. Never include.
-- Foot Locker Israel branches: Dizengoff Center (32.0795, 34.7740), Kanyon Ayalon Ramat Gan (32.0881, 34.8225), Kanyon Haifa (32.8102, 35.0053), Big Fashion Beer Sheva (31.2530, 34.7915), Kanyon Holon (32.0166, 34.7760).
-- Nike Israel: Dizengoff Center Tel Aviv, Kanyon Ayalon Ramat Gan.
-- Adidas Israel: Dizengoff Center, Kanyon Ayalon, Kanyon Haifa.
-- SneakerBox boutique: Beilinson St 1, Tel Aviv (32.0665, 34.7748) — sells Nike, Jordan, Adidas, New Balance.
-- Intersport Israel: multiple branches — search for nearest.
+- Foot Locker Israel branches: Dizengoff Center Tel Aviv (32.0795, 34.7740), Kanyon Ayalon Ramat Gan (32.0881, 34.8225), Kanyon Haifa (32.8102, 35.0053), Big Fashion Beer Sheva (31.2530, 34.7915), Kanyon Holon (32.0166, 34.7760).
+- Nike Israel: Dizengoff Center Tel Aviv (32.0795, 34.7740), Kanyon Ayalon Ramat Gan (32.0881, 34.8225).
+- Adidas Israel: Dizengoff Center (32.0795, 34.7740), Kanyon Ayalon (32.0881, 34.8225), Kanyon Haifa (32.8102, 35.0053).
+- SneakerBox Tel Aviv: Beilinson St 1, Tel Aviv (32.0665, 34.7748) — Nike, Jordan, Adidas, New Balance.
+- Intersport Israel: multiple branches in major malls.
 - WeShoes Israel: ONLY carries Crocs, HOKA, Blundstone, Native, Kizik. Does NOT carry Nike, Adidas, Jordan, Puma, Converse.
 
-BRAND ROUTING:
-- Nike/Jordan: Nike stores, Foot Locker, SneakerBox, Intersport.
-- Adidas: Adidas stores, Foot Locker, SneakerBox, Intersport.
-- Puma/Converse/Reebok/Vans: Foot Locker Israel.
-- HOKA/Crocs/Blundstone: WeShoes Israel.` : ''}
+BRAND ROUTING FOR ISRAEL:
+- Nike/Jordan: Nike stores, Foot Locker Israel, SneakerBox.
+- Adidas/Yeezy: Adidas stores, Foot Locker Israel, SneakerBox.
+- Puma/Converse/Reebok/Vans/Asics: Foot Locker Israel.
+- HOKA/Crocs/Blundstone/Kizik: WeShoes Israel.
+- New Balance: Foot Locker Israel, SneakerBox.` : ''}
 
-Find up to 6 stores within 25km carrying ${shoeBrand}. Sort by distance — CLOSEST FIRST.
-Check if "${shoeFullName}"${sizeStr}${colorStr} is available.
+Find up to 6 stores within 25km of the user carrying ${shoeBrand}. Sort by distance — CLOSEST FIRST.
+Estimate stock availability for "${shoeFullName}"${sizeStr}${colorStr}.
 
 Respond ONLY with valid JSON (no markdown):
 {"stores":[{"name":"...","address":"...","latitude":0.0,"longitude":0.0,"phone":"...","website":"...","google_maps_url":"...","hours_today":"...","rating":4.5,"carries_brand":true,"stock_confidence":"high|medium|low","stock_status":"...","price":null,"product_url":null,"reasoning":"..."}]}`,
-      add_context_from_internet: true,
-      model: 'gemini_3_flash',
+      add_context_from_internet: false,
     });
 
     const rawText = await Promise.race([

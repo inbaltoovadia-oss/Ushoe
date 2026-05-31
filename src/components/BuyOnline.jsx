@@ -43,9 +43,12 @@ function getIsraelRetailers(brand, q) {
     retailers.push({ name: 'WeShoes Israel', url: `https://www.weshoes.co.il/search?q=${q}`, note: 'Official Israeli retailer · Ships within Israel' });
   }
 
+  // Farfetch always shown for Israel — ships designer/premium sneakers
+  retailers.push({ name: 'Farfetch', url: `https://www.farfetch.com/il/shopping/men/search/items.aspx?q=${q}`, note: 'International luxury retailer · Ships to Israel' });
+
   // Fallback for unknown brands
-  if (retailers.length === 0) {
-    retailers.push({ name: 'Foot Locker Israel', url: `https://footlocker.co.il/search?q=${q}`, note: 'Ships within Israel' });
+  if (retailers.length <= 1) {
+    retailers.unshift({ name: 'Foot Locker Israel', url: `https://footlocker.co.il/search?q=${q}`, note: 'Ships within Israel' });
   }
 
   return retailers;

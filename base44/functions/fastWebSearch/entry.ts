@@ -88,7 +88,9 @@ function getRegionRetailers(query, brand, countryCode) {
     const noFL = ['birkenstock', 'ecco', 'merrell', 'salomon', 'crocs', 'ugg', 'hoka'];
     if (!noFL.some(x => b.includes(x))) retailers.push({ name: 'Foot Locker Israel', domain: 'footlocker.co.il', searchUrl: `https://footlocker.co.il/search?q=${q}` });
     if (WESHOES_BRANDS.some(w => b.includes(w))) retailers.push({ name: 'WeShoes Israel', domain: 'weshoes.co.il', searchUrl: `https://www.weshoes.co.il/search?q=${q}` });
-    if (retailers.length === 0) retailers.push({ name: 'Foot Locker Israel', domain: 'footlocker.co.il', searchUrl: `https://footlocker.co.il/search?q=${q}` });
+    // Farfetch ships to Israel for luxury/designer sneakers
+    retailers.push({ name: 'Farfetch', domain: 'farfetch.com', searchUrl: `https://www.farfetch.com/il/shopping/men/search/items.aspx?q=${q}` });
+    if (retailers.length === 1) retailers.unshift({ name: 'Foot Locker Israel', domain: 'footlocker.co.il', searchUrl: `https://footlocker.co.il/search?q=${q}` });
     return retailers;
   }
 
@@ -111,75 +113,6 @@ function getRegionRetailers(query, brand, countryCode) {
   if (b.includes('nike')) retailers.unshift({ name: 'Nike.com', domain: 'nike.com', searchUrl: `https://www.nike.com/w?q=${q}` });
   if (b.includes('adidas')) retailers.unshift({ name: 'Adidas.com', domain: 'adidas.com', searchUrl: `https://www.adidas.com/us/search?q=${q}` });
   return retailers;
-}
-
-// Fetch price from a single retailer
-async function fetchRetailerPrice(base44, query, brand, retailer, sizeNote, countryCode, countryName) {
-  try {
-    const result = await Promise.race([
-      base44.asServiceRole.integrations.Core.InvokeLLM({
-        prompt: `Search ${retailer.domain} RIGHT NOW for the current price of "${query}"${sizeNote ? ` in ${sizeNote}` : ''}.
-
-USER REGION: ${countryName} (${countryCode})
-
-CRITICAL RULES:
-1. Only return data from ${retailer.domain} — do NOT use other sites.
-2. The product page must be AVAILABLE in ${countryName}. If the product says "Not available in your region" or shows in wrong currency, set price to null.
-3. Return a DIRECT product/search page URL — not the homepage.
-4. If the shoe is not found on this site, set price to null.
-
-Return JSON:
-{
-  "price": "₪649" or "$120" (exact price with currency symbol, or null if not found),
-  "original_price": "₪799" (original crossed-out price if discounted, else same as price),
-  "buy_link": "https://..." (direct product or search URL on ${retailer.domain}),
-  "in_stock": true/false,
-  "discount_percent": 0 (integer),
-  "regional_available": true/false
-}`,
-        add_context_from_internet: true,
-        model: 'gemini_3_flash',
-        response_json_schema: {
-          type: 'object',
-          properties: {
-            price: { type: 'string' },
-            original_price: { type: 'string' },
-            buy_link: { type: 'string' },
-            in_stock: { type: 'boolean' },
-            discount_percent: { type: 'number' },
-            regional_available: { type: 'boolean' },
-          }
-        }
-      }),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 55000))
-    ]);
-
-    // Validate result
-    if (!result || result.regional_available === false) return null;
-    const price = result?.price;
-    const priceNum = parseFloat((price || '').replace(/[^0-9.]/g, ''));
-    if (!price || isNaN(priceNum) || priceNum <= 0) return null;
-
-    const rawLink = (result?.buy_link || '').trim();
-    const link = buildProductUrl(retailer.name, query, countryCode, rawLink) || retailer.searchUrl;
-
-    return {
-      retailer: retailer.name,
-      name: query,
-      brand,
-      price,
-      original_price: result?.original_price || null,
-      currency: countryCode === 'IL' ? 'ILS' : countryCode === 'GB' ? 'GBP' : 'USD',
-      buy_link: link,
-      in_stock: result?.in_stock ?? true,
-      ships_to_user: true,
-      is_best_deal: false,
-      price_confidence: 'high',
-      discount_percent: result?.discount_percent || 0,
-    };
-  } catch {
-    return null;
-  }
 }
 
 // De-duplicate by retailer name
@@ -228,69 +161,64 @@ Deno.serve(async (req) => {
     const sizeNote = selectedSize ? `US size ${selectedSize}` : '';
     let finalPicks = [];
 
-    // Israel & UK: parallel per-retailer lookups
-    if (cc === 'IL' || cc === 'GB') {
-      const retailers = getRegionRetailers(q, brand, cc);
-      const results = await Promise.all(
-        retailers.map(r => fetchRetailerPrice(base44, q, brand, r, sizeNote, cc, countryName))
-      );
-      finalPicks = deduplicateByRetailer(results.filter(Boolean));
-    } else {
-      // Global: structured broad search
-      const retailers = getRegionRetailers(q, brand, cc);
-      const retailerDomains = retailers.map(r => r.domain).join(', ');
-      const result = await Promise.race([
-        base44.asServiceRole.integrations.Core.InvokeLLM({
-          prompt: `Search for current prices of "${q}"${sizeNote ? ` in ${sizeNote}` : ''} from these US retailers: ${retailerDomains}.
+    // Single broad search for all regions
+    const retailers = getRegionRetailers(q, brand, cc);
+    const retailerDomains = retailers.map(r => r.domain).join(', ');
+    const currencyHint = cc === 'IL' ? 'ILS (₪)' : cc === 'GB' ? 'GBP (£)' : 'USD ($)';
+
+    const result = await Promise.race([
+      base44.asServiceRole.integrations.Core.InvokeLLM({
+        prompt: `Find current prices for "${q}"${sizeNote ? ` in ${sizeNote}` : ''} from these retailers: ${retailerDomains}.
+
+USER REGION: ${countryName} (${cc}) — prices should be in ${currencyHint}.
 
 RULES:
-- Only return retailers that ACTUALLY have this product listed and available in the US.
-- Return DIRECT product page URLs — not homepages.
-- Do NOT repeat the same retailer twice.
-- If a retailer doesn't carry this specific shoe, exclude it.
+- Only return retailers that actually carry this product.
+- Return DIRECT product or search page URLs — not homepages.
+- Do NOT repeat the same retailer.
+- Prices must be in local currency (${currencyHint}).
 
-Return JSON with "web_picks" array. Each item: retailer, price (with $ symbol), original_price, buy_link (direct URL), in_stock, discount_percent.`,
-          add_context_from_internet: true,
-          model: 'gemini_3_flash',
-          response_json_schema: {
-            type: 'object',
-            properties: {
-              web_picks: {
-                type: 'array',
-                items: {
-                  type: 'object',
-                  properties: {
-                    retailer: { type: 'string' },
-                    price: { type: 'string' },
-                    original_price: { type: 'string' },
-                    buy_link: { type: 'string' },
-                    in_stock: { type: 'boolean' },
-                    discount_percent: { type: 'number' },
-                  }
+Return JSON with "web_picks" array. Each item: retailer, price (with currency symbol), original_price, buy_link, in_stock (boolean), discount_percent (integer).`,
+        add_context_from_internet: true,
+        response_json_schema: {
+          type: 'object',
+          properties: {
+            web_picks: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  retailer: { type: 'string' },
+                  price: { type: 'string' },
+                  original_price: { type: 'string' },
+                  buy_link: { type: 'string' },
+                  in_stock: { type: 'boolean' },
+                  discount_percent: { type: 'number' },
                 }
               }
             }
           }
-        }),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 55000))
-      ]);
+        }
+      }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 55000))
+    ]);
 
-      finalPicks = deduplicateByRetailer(
-        (result?.web_picks || [])
-          .filter(p => p.price && parseFloat((p.price || '').replace(/[^0-9.]/g, '')) > 0)
-          .map(p => ({
-            ...p,
-            currency: 'USD',
-            brand,
-            name: q,
-            ships_to_user: true,
-            is_best_deal: false,
-            price_confidence: 'medium',
-            buy_link: buildProductUrl(p.retailer, q, cc, p.buy_link) || p.buy_link,
-          }))
-          .filter(p => p.buy_link)
-      );
-    }
+    const currency = cc === 'IL' ? 'ILS' : cc === 'GB' ? 'GBP' : 'USD';
+    finalPicks = deduplicateByRetailer(
+      (result?.web_picks || [])
+        .filter(p => p.price && parseFloat((p.price || '').replace(/[^0-9.]/g, '')) > 0)
+        .map(p => ({
+          ...p,
+          currency,
+          brand,
+          name: q,
+          ships_to_user: true,
+          is_best_deal: false,
+          price_confidence: 'medium',
+          buy_link: buildProductUrl(p.retailer, q, cc, p.buy_link) || p.buy_link,
+        }))
+        .filter(p => p.buy_link)
+    );
 
     // Mark best deal
     if (finalPicks.length > 0) {
