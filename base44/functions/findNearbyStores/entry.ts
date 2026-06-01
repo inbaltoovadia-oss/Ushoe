@@ -137,7 +137,7 @@ Deno.serve(async (req) => {
     const validStores = getValidIsraelStoresForBrand(shoeBrand);
 
     const llmCall = base44.asServiceRole.integrations.Core.InvokeLLM({
-      prompt: `You are a shoe store locator AI for Israel. Find REAL physical stores near the user that will actually carry the SPECIFIC shoe model requested.
+      prompt: `You are a shoe store locator. Search the web RIGHT NOW to find REAL physical shoe stores near the user's location that carry the brand "${shoeBrand}".
 
 USER LOCATION:
 ${locationContext}
@@ -147,30 +147,23 @@ Brand: ${shoeBrand}
 Model: ${shoeModel || shoeName}
 Size needed: ${selectedSize ? `US ${selectedSize}` : 'Not specified'}
 
-CRITICAL RULES — READ CAREFULLY:
-1. ONLY include stores that actually carry the ${shoeBrand} BRAND. Do NOT include stores that don't carry this brand.
-2. IMPORTANT: Foot Locker, Nike stores, etc. showing up in a search does NOT mean they have the SPECIFIC shoe. Only say "Likely in stock" if this exact model is commonly sold at that chain.
-3. NEVER include "SneakerBox" — it does not exist as an authorized retailer.
-4. NEVER include "JD Sports" in Israel — they do NOT operate in Israel.
-5. For stock_confidence: use "high" only if this exact model is a mainline product of that chain. Use "medium" if unsure. Use "low" if it's a limited model they might not carry.
-6. stock_status should be honest: "Likely in stock", "May be available", or "Call ahead to confirm" — never say "Available" unless you are certain.
+TASK: Search Google Maps / the web for real stores near the user that carry ${shoeBrand} shoes. Return only stores you can VERIFY EXIST with their real address and coordinates.
 
-VERIFIED ISRAEL CHAIN DATA:
-- Foot Locker Israel branches: Dizengoff Center Tel Aviv (32.0795, 34.7740), Kanyon Ayalon Ramat Gan (32.0881, 34.8225), Kanyon Haifa (32.8102, 35.0053), Big Fashion Beer Sheva (31.2530, 34.7915).
-  Carries: Nike, Jordan, Adidas, Converse, New Balance, Puma, Reebok, Vans, Asics, Saucony, Under Armour, Fila
-- Nike Israel stores: Dizengoff Center Tel Aviv, Kanyon Ayalon Ramat Gan. Carries: Nike & Jordan ONLY.
-- Adidas Israel stores: Dizengoff Center, Kanyon Ayalon. Carries: Adidas & Yeezy ONLY.
-- WeShoes Israel: Carries ONLY Crocs, HOKA, Blundstone, Kizik, Native, Desigual, Freedom Moses.
-- Intersport Israel: Multiple locations, carries mixed sports brands.
+STRICT RULES:
+1. Only return stores you found via web search that actually exist. Do NOT invent stores.
+2. Only include stores that carry the ${shoeBrand} brand.
+3. NEVER include stores called "SneakerBox" or "JD Sports" in Israel.
+4. For stock_confidence: "high" = this model is a core product for this chain. "medium" = they carry the brand. "low" = uncertain.
+5. stock_status must be honest: "Likely in stock", "May be available", or "Call ahead to confirm".
+6. Include the real latitude/longitude from Google Maps for each store.
+7. Include the real phone number and address if you can find them.
 
-VALID STORES FOR ${shoeBrand}: ${validStores.join(', ')}
-
-Find up to 4 stores within 25km. Sort by distance — CLOSEST FIRST.
-Only include stores from the VALID STORES list above.
+Find up to 4 stores within 25km, sorted by distance (closest first).
 
 Respond ONLY with valid JSON (no markdown):
 {"stores":[{"name":"...","address":"...","latitude":0.0,"longitude":0.0,"phone":"...","hours_today":"...","rating":4.5,"carries_brand":true,"stock_confidence":"high|medium|low","stock_status":"...","reasoning":"..."}]}`,
-      add_context_from_internet: false,
+      add_context_from_internet: true,
+      model: 'gemini_3_flash',
     });
 
     const rawText = await Promise.race([

@@ -208,13 +208,14 @@ Return JSON with "web_picks" array. Each item: retailer, price (with currency sy
     const currency = cc === 'IL' ? 'ILS' : cc === 'GB' ? 'GBP' : 'USD';
     finalPicks = deduplicateByRetailer(
       (result?.web_picks || [])
-        .filter(p => p.price && parseFloat((p.price || '').replace(/[^0-9.]/g, '')) > 0)
+        .filter(p => p.retailer && p.price && parseFloat((p.price || '').replace(/[^0-9.]/g, '')) > 0)
         .map(p => {
-          // Always prefer our hardcoded search URLs — they are guaranteed valid.
-          // Only use the AI-supplied link when we truly have no mapping for this retailer.
+          // Prefer AI-provided link (it's for the exact product), but fall back to known search URL
+          const aiLink = (p.buy_link || '').startsWith('http') && !p.buy_link.includes('google.com') ? p.buy_link : null;
           const knownLink = buildProductUrl(p.retailer, q, cc, null);
-          const link = knownLink || retailers.find(r => r.name.toLowerCase().includes((p.retailer || '').toLowerCase().split(' ')[0]))?.searchUrl || null;
-          return link ? { ...p, currency, brand, name: q, ships_to_user: true, is_best_deal: false, price_confidence: 'medium', buy_link: link } : null;
+          const link = aiLink || knownLink || retailers.find(r => r.name.toLowerCase().includes((p.retailer || '').toLowerCase().split(' ')[0]))?.searchUrl || null;
+          if (!link) return null;
+          return { ...p, currency, brand, name: q, ships_to_user: true, is_best_deal: false, price_confidence: aiLink ? 'high' : 'medium', buy_link: link };
         })
         .filter(Boolean)
     );
