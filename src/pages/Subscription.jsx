@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
-import { Check, Crown, Zap, Rocket, Star, FlaskConical, X } from "lucide-react";
+import { Check, Crown, Zap, Rocket, Star, Loader2, AlertCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { getPlan, setPlan, subscribePlan } from "@/lib/planStore";
+import { getPlan, subscribePlan } from "@/lib/planStore";
+import { base44 } from "@/api/base44Client";
 
 const PLANS = [
   {
@@ -74,50 +75,58 @@ const PLANS = [
   },
 ];
 
+function isInIframe() {
+  try { return window.self !== window.top; } catch { return true; }
+}
+
 export default function Subscription() {
   const [currentPlan, setCurrentPlan] = useState(getPlan());
-  const [showBetaBanner, setShowBetaBanner] = useState(true);
+  const [loadingPlan, setLoadingPlan] = useState(null);
 
   useEffect(() => subscribePlan(setCurrentPlan), []);
 
-  const handleSelectPlan = (planId) => {
-    if (planId === currentPlan) return;
-    setPlan(planId);
-    setCurrentPlan(planId);
-    const plan = PLANS.find(p => p.id === planId);
-    toast.success(`Switched to ${plan.name} plan! 🎉`);
+  // Handle success/cancel redirect from Stripe
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("success") === "1") {
+      toast.success("Payment successful! Your plan has been upgraded. 🎉");
+      window.history.replaceState({}, "", "/subscription");
+    }
+    if (params.get("canceled") === "1") {
+      toast.info("Payment canceled.");
+      window.history.replaceState({}, "", "/subscription");
+    }
+  }, []);
+
+  const handleSelectPlan = async (planId) => {
+    if (planId === "free" || planId === currentPlan) return;
+
+    if (isInIframe()) {
+      alert("Checkout only works from the published app. Please open the app directly.");
+      return;
+    }
+
+    setLoadingPlan(planId);
+    try {
+      const res = await base44.functions.invoke("createCheckout", {
+        planId,
+        successUrl: `${window.location.origin}/subscription?success=1`,
+        cancelUrl:  `${window.location.origin}/subscription?canceled=1`,
+      });
+      if (res.data?.url) {
+        window.location.href = res.data.url;
+      } else {
+        toast.error("Could not start checkout. Please try again.");
+      }
+    } catch (err) {
+      toast.error("Checkout failed: " + err.message);
+    }
+    setLoadingPlan(null);
   };
 
   return (
     <div className="min-h-screen py-8 px-4 sm:px-6">
       <div className="max-w-3xl mx-auto">
-
-        {/* Beta Banner */}
-        {showBetaBanner && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="relative mb-6 bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-700 rounded-2xl p-4 pr-10"
-          >
-            <div className="flex items-start gap-3">
-              <FlaskConical className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="font-semibold text-amber-800 dark:text-amber-300 text-sm">
-                  🚧 Subscriptions are in Beta
-                </p>
-                <p className="text-amber-700 dark:text-amber-400 text-xs mt-1 leading-relaxed">
-                  All plans are completely <strong>free to switch between</strong> right now. Real billing is not active yet — explore all features without paying anything. We'll notify you before billing goes live.
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={() => setShowBetaBanner(false)}
-              className="absolute top-3 right-3 p-1 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors"
-            >
-              <X className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-            </button>
-          </motion.div>
-        )}
 
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8 text-center">
@@ -136,6 +145,7 @@ export default function Subscription() {
           {PLANS.map((plan, i) => {
             const Icon = plan.icon;
             const isActive = currentPlan === plan.id;
+            const isLoading = loadingPlan === plan.id;
             return (
               <motion.div
                 key={plan.id}
@@ -174,9 +184,9 @@ export default function Subscription() {
 
                   <button
                     onClick={() => handleSelectPlan(plan.id)}
-                    disabled={isActive}
-                    className={`px-5 py-2.5 rounded-xl text-sm font-semibold transition-all flex-shrink-0 ${
-                      isActive
+                    disabled={isActive || plan.id === "free" || isLoading}
+                    className={`px-5 py-2.5 rounded-xl text-sm font-semibold transition-all flex-shrink-0 flex items-center gap-2 ${
+                      isActive || plan.id === "free"
                         ? "bg-secondary text-muted-foreground cursor-default"
                         : plan.id === "pro"
                         ? "bg-primary text-primary-foreground hover:opacity-90"
@@ -185,7 +195,8 @@ export default function Subscription() {
                         : "bg-secondary text-foreground hover:bg-secondary/80"
                     }`}
                   >
-                    {isActive ? "Current Plan" : `Switch to ${plan.name}`}
+                    {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                    {isActive ? "Current Plan" : plan.id === "free" ? "Free" : `Upgrade to ${plan.name}`}
                   </button>
                 </div>
 
@@ -208,8 +219,9 @@ export default function Subscription() {
           })}
         </div>
 
-        <p className="text-xs text-center text-muted-foreground mt-6">
-          🚧 Beta — switching plans is instant and free. Real billing coming soon.
+        <p className="text-xs text-center text-muted-foreground mt-6 flex items-center justify-center gap-1.5">
+          <AlertCircle className="w-3.5 h-3.5" />
+          Secure payments via Stripe. Cancel anytime.
         </p>
       </div>
     </div>
