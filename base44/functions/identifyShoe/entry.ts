@@ -248,15 +248,78 @@ NEVER guess. If uncertain, lower the confidence score appropriately.`,
 
     identified.full_name = [identified.brand, identified.model, identified.colorway].filter(Boolean).join(' ');
 
-    // Catalog matching
+    // Run catalog matching AND web search in parallel
     const allShoes = await catalogPromise;
     const { catalogMatches, similarMatches } = matchCatalog(allShoes, identified.brand, identified.model, identified.colorway);
+
+    // Web search for real buy links — only if we have a confident identification
+    let onlineResults = [];
+    if (identified.confidence >= 40 && identified.brand && identified.model) {
+      const searchQuery = `${identified.brand} ${identified.model}${identified.colorway ? ' ' + identified.colorway : ''}`;
+      try {
+        const webResult = await Promise.race([
+          base44.asServiceRole.integrations.Core.InvokeLLM({
+            prompt: `Find where to buy the "${searchQuery}" sneaker online right now. Search major sneaker retailers.
+
+Return the top 4 results with:
+- retailer name
+- current price (with currency symbol, use USD as default)
+- direct product page URL (must be a real URL to that exact shoe, not a homepage)
+- whether it's in stock
+
+IMPORTANT: Only return results if you found the EXACT shoe model "${identified.model}". Do not return generic search pages.
+Only include: Nike.com, Adidas.com, StockX, GOAT, Foot Locker, Zappos, Finish Line, JD Sports, Farfetch, END Clothing, Size?, SNS.
+For Israeli users also: footlocker.co.il, nike.com/il, adidas.co.il
+
+Return ONLY JSON, no markdown:
+{"results":[{"retailer":"...","price":"$XXX","product_url":"...","in_stock":true,"is_official":true}]}`,
+            add_context_from_internet: true,
+            model: 'gemini_3_flash',
+            response_json_schema: {
+              type: 'object',
+              properties: {
+                results: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      retailer: { type: 'string' },
+                      price: { type: 'string' },
+                      product_url: { type: 'string' },
+                      in_stock: { type: 'boolean' },
+                      is_official: { type: 'boolean' },
+                    }
+                  }
+                }
+              }
+            }
+          }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Web search timed out')), 25000)),
+        ]);
+
+        if (webResult?.results) {
+          onlineResults = (webResult.results || [])
+            .filter(r => r.retailer && r.product_url && r.product_url.startsWith('http') && !r.product_url.includes('google.com'))
+            .slice(0, 4)
+            .map(r => ({
+              retailer: r.retailer,
+              price: r.price || null,
+              url: r.product_url,
+              in_stock: r.in_stock !== false,
+              is_official: !!r.is_official,
+            }));
+        }
+      } catch {
+        // Web search failed — that's OK, we still return catalog results
+      }
+    }
 
     const response = {
       identified,
       other_shoes: otherShoes,
       catalog_matches: catalogMatches,
       similar_matches: similarMatches,
+      online_results: onlineResults,
       source,
     };
 

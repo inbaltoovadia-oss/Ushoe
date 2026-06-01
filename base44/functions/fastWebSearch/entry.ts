@@ -165,15 +165,20 @@ Deno.serve(async (req) => {
 
     const result = await Promise.race([
       base44.asServiceRole.integrations.Core.InvokeLLM({
-        prompt: `Find current prices for "${q}"${sizeNote ? ` in ${sizeNote}` : ''} from these retailers: ${retailerDomains}.
+        prompt: `Search online RIGHT NOW for the EXACT shoe model: "${q}"${sizeNote ? ` in ${sizeNote}` : ''}.
 
-USER REGION: ${countryName} (${cc}) — prices should be in ${currencyHint}.
+USER REGION: ${countryName} (${cc}) — prices must be in ${currencyHint}.
 
-RULES:
-- Only return retailers that actually carry this product.
-- Return DIRECT product or search page URLs — not homepages.
-- Do NOT repeat the same retailer.
-- Prices must be in local currency (${currencyHint}).
+CHECK THESE RETAILERS: ${retailerDomains}
+
+CRITICAL RULES:
+1. You MUST search for the EXACT model name "${q}". Do NOT return results for similar shoes.
+2. ONLY return a retailer if that specific model is listed and available on their site RIGHT NOW.
+3. A retailer showing up in a Google search for the brand does NOT mean they carry this specific shoe.
+4. If you cannot confirm the exact shoe is available at a retailer, DO NOT include that retailer.
+5. Return DIRECT search page URLs for that exact model — not homepages.
+6. Prices must be real, current prices in local currency (${currencyHint}).
+7. Do NOT repeat the same retailer.
 
 Return JSON with "web_picks" array. Each item: retailer, price (with currency symbol), original_price, buy_link, in_stock (boolean), discount_percent (integer).`,
         add_context_from_internet: true,

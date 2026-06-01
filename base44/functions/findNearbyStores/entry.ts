@@ -3,7 +3,6 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 const CACHE = new Map();
 const CACHE_TTL = 10 * 60 * 1000;
 
-// ── Rate limiter ──
 const RATE = new Map();
 function checkRate(userId) {
   const now = Date.now();
@@ -26,13 +25,11 @@ function calcDistance(lat1, lon1, lat2, lon2) {
   return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 10) / 10;
 }
 
-// Remove duplicate stores (same name OR very close GPS)
 function deduplicateStores(stores) {
   const seen = new Set();
   return stores.filter(s => {
     const nameKey = (s.name || '').toLowerCase().replace(/\s+/g, '');
     if (seen.has(nameKey)) return false;
-    // Also check if another store with same GPS already added
     const gpsKey = s.latitude && s.longitude ? `${s.latitude.toFixed(3)},${s.longitude.toFixed(3)}` : null;
     if (gpsKey && seen.has(gpsKey)) return false;
     seen.add(nameKey);
@@ -41,7 +38,6 @@ function deduplicateStores(stores) {
   });
 }
 
-// Build region-aware product search URL
 function buildSearchUrl(storeName, shoeFullName, countryCode) {
   const q = encodeURIComponent(shoeFullName);
   const sl = (storeName || '').toLowerCase();
@@ -64,12 +60,31 @@ function buildSearchUrl(storeName, shoeFullName, countryCode) {
   return null;
 }
 
+// Brand → which chain stores actually carry it in Israel
+function getValidIsraelStoresForBrand(brand) {
+  const b = (brand || '').toLowerCase();
+  // WeShoes ONLY carries these brands — never Nike/Adidas/Jordan
+  const weshoesOnly = ['crocs', 'hoka', 'blundstone', 'kizik', 'native', 'ilse jacobsen', 'desigual', 'freedom moses'];
+  // Foot Locker Israel carries these brands
+  const footLockerBrands = ['nike', 'jordan', 'air jordan', 'adidas', 'converse', 'new balance', 'puma', 'reebok', 'vans', 'under armour', 'asics', 'saucony', 'brooks', 'fila'];
+
+  const validStores = [];
+  if (b.includes('nike') || b.includes('jordan') || b.includes('air jordan')) validStores.push('Nike store');
+  if (b.includes('adidas') || b.includes('yeezy')) validStores.push('Adidas store');
+  if (b.includes('puma')) validStores.push('Puma store');
+  if (b.includes('new balance')) validStores.push('New Balance store');
+  if (footLockerBrands.some(x => b.includes(x))) validStores.push('Foot Locker');
+  if (weshoesOnly.some(x => b.includes(x))) validStores.push('WeShoes');
+  if (b.includes('intersport') || validStores.length === 0) validStores.push('Intersport');
+
+  return validStores;
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     const body = await req.json();
 
-    // Auth check
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
@@ -90,9 +105,9 @@ Deno.serve(async (req) => {
 
     if (!shoe) return Response.json({ error: 'Missing shoe data' }, { status: 400 });
 
-    // Sanitize shoe fields
     const shoeBrand = ((shoe.brand || '').replace(/<[^>]*>/g, '')).trim().slice(0, 100);
     const shoeName = ((shoe.name || '').replace(/<[^>]*>/g, '')).trim().slice(0, 200);
+    const shoeModel = ((shoe.model || '').replace(/<[^>]*>/g, '')).trim().slice(0, 100);
     const shoeColorway = ((shoe.colorway || selectedColor || '').replace(/<[^>]*>/g, '')).trim().slice(0, 100);
 
     const refLat = userLat && !isNaN(userLat) ? parseFloat(userLat) : null;
@@ -113,46 +128,48 @@ Deno.serve(async (req) => {
     }
 
     const sizeStr = selectedSize ? ` in US size ${selectedSize}` : '';
-    const colorStr = shoeColorway ? `, ${shoeColorway}` : '';
-
     const hasGps = refLat && refLng;
     const locationContext = hasGps
       ? `GPS coordinates: ${refLat}, ${refLng}\nCity/Address: ${locationLabel}\nCountry: ${cc === 'IL' ? 'Israel' : cc}`
       : `City/Address: ${locationLabel}`;
 
+    // Get valid stores for this brand
+    const validStores = getValidIsraelStoresForBrand(shoeBrand);
+
     const llmCall = base44.asServiceRole.integrations.Core.InvokeLLM({
-      prompt: `You are a shoe store locator AI. Find REAL physical stores near the user that carry ${shoeBrand}.
+      prompt: `You are a shoe store locator AI for Israel. Find REAL physical stores near the user that will actually carry the SPECIFIC shoe model requested.
 
 USER LOCATION:
 ${locationContext}
 
-MANDATORY RULES:
-1. ONLY return stores that ACTUALLY EXIST for this country/region. NEVER invent stores.
-2. NEVER include a chain that does NOT operate in the user's country.
-3. Always provide real GPS coordinates for each store.
-4. Remove any duplicate stores (same name or very close location).
+SHOE TO FIND: "${shoeFullName}"
+Brand: ${shoeBrand}
+Model: ${shoeModel || shoeName}
+Size needed: ${selectedSize ? `US ${selectedSize}` : 'Not specified'}
 
-${cc === 'IL' ? `ISRAEL-VERIFIED STORE DATA (use these known locations):
-- JD Sports: NOT in Israel. Never include.
-- Foot Locker Israel branches: Dizengoff Center Tel Aviv (32.0795, 34.7740), Kanyon Ayalon Ramat Gan (32.0881, 34.8225), Kanyon Haifa (32.8102, 35.0053), Big Fashion Beer Sheva (31.2530, 34.7915), Kanyon Holon (32.0166, 34.7760).
-- Nike Israel: Dizengoff Center Tel Aviv (32.0795, 34.7740), Kanyon Ayalon Ramat Gan (32.0881, 34.8225).
-- Adidas Israel: Dizengoff Center (32.0795, 34.7740), Kanyon Ayalon (32.0881, 34.8225), Kanyon Haifa (32.8102, 35.0053).
-- SneakerBox Tel Aviv: Beilinson St 1, Tel Aviv (32.0665, 34.7748) — Nike, Jordan, Adidas, New Balance.
-- Intersport Israel: multiple branches in major malls.
-- WeShoes Israel: ONLY carries Crocs, HOKA, Blundstone, Native, Kizik. Does NOT carry Nike, Adidas, Jordan, Puma, Converse.
+CRITICAL RULES — READ CAREFULLY:
+1. ONLY include stores that actually carry the ${shoeBrand} BRAND. Do NOT include stores that don't carry this brand.
+2. IMPORTANT: Foot Locker, Nike stores, etc. showing up in a search does NOT mean they have the SPECIFIC shoe. Only say "Likely in stock" if this exact model is commonly sold at that chain.
+3. NEVER include "SneakerBox" — it does not exist as an authorized retailer.
+4. NEVER include "JD Sports" in Israel — they do NOT operate in Israel.
+5. For stock_confidence: use "high" only if this exact model is a mainline product of that chain. Use "medium" if unsure. Use "low" if it's a limited model they might not carry.
+6. stock_status should be honest: "Likely in stock", "May be available", or "Call ahead to confirm" — never say "Available" unless you are certain.
 
-BRAND ROUTING FOR ISRAEL:
-- Nike/Jordan: Nike stores, Foot Locker Israel, SneakerBox.
-- Adidas/Yeezy: Adidas stores, Foot Locker Israel, SneakerBox.
-- Puma/Converse/Reebok/Vans/Asics: Foot Locker Israel.
-- HOKA/Crocs/Blundstone/Kizik: WeShoes Israel.
-- New Balance: Foot Locker Israel, SneakerBox.` : ''}
+VERIFIED ISRAEL CHAIN DATA:
+- Foot Locker Israel branches: Dizengoff Center Tel Aviv (32.0795, 34.7740), Kanyon Ayalon Ramat Gan (32.0881, 34.8225), Kanyon Haifa (32.8102, 35.0053), Big Fashion Beer Sheva (31.2530, 34.7915).
+  Carries: Nike, Jordan, Adidas, Converse, New Balance, Puma, Reebok, Vans, Asics, Saucony, Under Armour, Fila
+- Nike Israel stores: Dizengoff Center Tel Aviv, Kanyon Ayalon Ramat Gan. Carries: Nike & Jordan ONLY.
+- Adidas Israel stores: Dizengoff Center, Kanyon Ayalon. Carries: Adidas & Yeezy ONLY.
+- WeShoes Israel: Carries ONLY Crocs, HOKA, Blundstone, Kizik, Native, Desigual, Freedom Moses.
+- Intersport Israel: Multiple locations, carries mixed sports brands.
 
-Find up to 6 stores within 25km of the user carrying ${shoeBrand}. Sort by distance — CLOSEST FIRST.
-Estimate stock availability for "${shoeFullName}"${sizeStr}${colorStr}.
+VALID STORES FOR ${shoeBrand}: ${validStores.join(', ')}
+
+Find up to 4 stores within 25km. Sort by distance — CLOSEST FIRST.
+Only include stores from the VALID STORES list above.
 
 Respond ONLY with valid JSON (no markdown):
-{"stores":[{"name":"...","address":"...","latitude":0.0,"longitude":0.0,"phone":"...","website":"...","google_maps_url":"...","hours_today":"...","rating":4.5,"carries_brand":true,"stock_confidence":"high|medium|low","stock_status":"...","price":null,"product_url":null,"reasoning":"..."}]}`,
+{"stores":[{"name":"...","address":"...","latitude":0.0,"longitude":0.0,"phone":"...","hours_today":"...","rating":4.5,"carries_brand":true,"stock_confidence":"high|medium|low","stock_status":"...","reasoning":"..."}]}`,
       add_context_from_internet: false,
     });
 
@@ -169,9 +186,17 @@ Respond ONLY with valid JSON (no markdown):
       parsed = rawText;
     }
 
-    const rawStores = (parsed?.stores || []).filter(s => s.name && s.address && s.carries_brand !== false);
+    const rawStores = (parsed?.stores || []).filter(s => {
+      if (!s.name || !s.address) return false;
+      if (s.carries_brand === false) return false;
+      // Filter out stores that are not in the valid list for this brand
+      const storeNameLower = (s.name || '').toLowerCase();
+      // Hard block SneakerBox and JD Sports Israel
+      if (storeNameLower.includes('sneakerbox') || storeNameLower.includes('sneaker box')) return false;
+      if (storeNameLower.includes('jd sports') && cc === 'IL') return false;
+      return true;
+    });
 
-    // Calculate distances, filter, de-dup, sort
     const withDistance = rawStores.map(s => ({
       ...s,
       distance_km: (hasGps && s.latitude && s.longitude)
@@ -183,16 +208,12 @@ Respond ONLY with valid JSON (no markdown):
       withDistance
         .filter(s => !s.distance_km || s.distance_km <= 25)
         .sort((a, b) => (a.distance_km ?? 99) - (b.distance_km ?? 99))
-    ).slice(0, 6);
+    ).slice(0, 4);
 
     const finalStores = filtered.map((s, i) => {
       let websiteUrl = buildSearchUrl(s.name, shoeFullName, cc);
-      if (!websiteUrl) {
-        if (s.product_url && s.product_url.startsWith('http') && !s.product_url.includes('google.com')) {
-          websiteUrl = s.product_url;
-        } else if (s.website && s.website.startsWith('http') && !s.website.includes('google.com')) {
-          websiteUrl = s.website;
-        }
+      if (!websiteUrl && s.website && s.website.startsWith('http') && !s.website.includes('google.com')) {
+        websiteUrl = s.website;
       }
 
       return {
@@ -207,9 +228,8 @@ Respond ONLY with valid JSON (no markdown):
         is_open: null,
         hours_today: s.hours_today || null,
         website: websiteUrl,
-        price: s.price || null,
         why: s.reasoning || `${s.name} carries ${shoeBrand}`,
-        stock_status: s.stock_status || 'Check in store',
+        stock_status: s.stock_status || 'Call ahead to confirm',
         stock_confidence: s.stock_confidence || 'medium',
         local_pickup: true,
         is_best_option: i === 0,
@@ -219,7 +239,7 @@ Respond ONLY with valid JSON (no markdown):
     const response = {
       stores: finalStores,
       summary: finalStores.length > 0
-        ? `Found ${finalStores.length} store${finalStores.length !== 1 ? 's' : ''} near ${locationLabel} that carry ${shoeFullName}${sizeStr}.`
+        ? `Found ${finalStores.length} store${finalStores.length !== 1 ? 's' : ''} near ${locationLabel} that may carry ${shoeFullName}${sizeStr}. Always call ahead to confirm availability.`
         : `No stores found carrying ${shoeFullName} near ${locationLabel}.`,
       shoe_searched: shoeFullName,
     };

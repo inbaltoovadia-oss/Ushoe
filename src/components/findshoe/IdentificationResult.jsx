@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "react-router-dom";
-import { RotateCcw, MapPin, Globe, ShoppingBag, Star, Zap, Flame, Trophy, TrendingUp } from "lucide-react";
+import { RotateCcw, MapPin, Globe, ShoppingBag, Star, Zap, Flame, Trophy, TrendingUp, ExternalLink, CheckCircle, ShoppingCart } from "lucide-react";
 import ShoeCard from "../ShoeCard";
 import NearbyStores from "../NearbyStores";
 import BuyOnline from "../BuyOnline";
@@ -35,7 +35,7 @@ function PopularityBadge({ popularity }) {
 }
 
 export default function IdentificationResult({ result, imageUrl, onReset }) {
-  const { identified, catalog_matches = [], similar_matches = [], other_shoes = [] } = result;
+  const { identified, catalog_matches = [], similar_matches = [], other_shoes = [], online_results = [] } = result;
   const [activeAction, setActiveAction] = useState(null); // "nearby" | "online"
   const [selectedCatalogShoe, setSelectedCatalogShoe] = useState(catalog_matches[0] || null);
 
@@ -214,6 +214,42 @@ export default function IdentificationResult({ result, imageUrl, onReset }) {
           >
             <ShoppingBag className="w-4 h-4" /> Search Manually
           </Link>
+        </div>
+      )}
+
+      {/* Online results from web search */}
+      {online_results.length > 0 && (
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <ShoppingCart className="w-4 h-4 text-green-600" />
+            <h3 className="font-heading font-bold text-base">Buy Online — Live Results</h3>
+          </div>
+          <div className="space-y-2">
+            {online_results.map((r, i) => (
+              <motion.a
+                key={i}
+                href={r.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.05 }}
+                className="flex items-center justify-between gap-3 bg-card border border-border/60 rounded-2xl px-4 py-3 hover:border-primary/40 hover:shadow-sm transition-all group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`w-2 h-2 rounded-full flex-shrink-0 ${r.in_stock ? 'bg-green-500' : 'bg-red-400'}`} />
+                  <div>
+                    <p className="font-heading font-semibold text-sm group-hover:text-primary transition-colors">{r.retailer}</p>
+                    <p className="text-[10px] text-muted-foreground">{r.in_stock ? 'In stock' : 'May be sold out'}{r.is_official ? ' · Official store' : ''}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {r.price && <span className="font-heading font-bold text-base text-primary">{r.price}</span>}
+                  <ExternalLink className="w-3.5 h-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
+                </div>
+              </motion.a>
+            ))}
+          </div>
         </div>
       )}
 
