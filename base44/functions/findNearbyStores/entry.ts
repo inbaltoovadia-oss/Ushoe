@@ -137,7 +137,7 @@ Deno.serve(async (req) => {
     const validStores = getValidIsraelStoresForBrand(shoeBrand);
 
     const llmCall = base44.asServiceRole.integrations.Core.InvokeLLM({
-      prompt: `You are a shoe store locator. Search the web RIGHT NOW to find REAL physical shoe stores near the user's location that carry the brand "${shoeBrand}".
+      prompt: `You are a shoe store locator. Search Google Maps and the web RIGHT NOW to find real, physical, customer-facing retail shoe stores near the user that carry "${shoeBrand}" shoes.
 
 USER LOCATION:
 ${locationContext}
@@ -147,21 +147,22 @@ Brand: ${shoeBrand}
 Model: ${shoeModel || shoeName}
 Size needed: ${selectedSize ? `US ${selectedSize}` : 'Not specified'}
 
-TASK: Search Google Maps / the web for real stores near the user that carry ${shoeBrand} shoes. Return only stores you can VERIFY EXIST with their real address and coordinates.
+ABSOLUTE RULES — violating these will make the result useless:
+1. ONLY return stores that are CONFIRMED TO EXIST via Google Maps or official brand locator pages. Do NOT invent or hallucinate stores.
+2. ONLY include RETAIL STORES where customers walk in and buy shoes. Do NOT include: headquarters, warehouses, distribution centers, offices, or brand regional offices.
+3. Each store MUST have a verified street address and real GPS coordinates from Google Maps.
+4. ONLY include stores that carry the "${shoeBrand}" brand — not generic shoe stores that don't carry it.
+5. NEVER include "SneakerBox" or "JD Sports" (does not exist in Israel).
+6. Prefer stores that have a working website where "${shoeBrand}" shoes are sold (e.g. nike.com/il, adidas.co.il, footlocker.co.il). Add the website field.
+7. stock_confidence: "high" = this exact model is a core mainline product there. "medium" = brand is carried. "low" = uncertain.
+8. stock_status: "Likely in stock", "May be available", or "Call ahead to confirm". Never say "Available" unless certain.
 
-STRICT RULES:
-1. Only return stores you found via web search that actually exist. Do NOT invent stores.
-2. Only include stores that carry the ${shoeBrand} brand.
-3. NEVER include stores called "SneakerBox" or "JD Sports" in Israel.
-4. For stock_confidence: "high" = this model is a core product for this chain. "medium" = they carry the brand. "low" = uncertain.
-5. stock_status must be honest: "Likely in stock", "May be available", or "Call ahead to confirm".
-6. Include the real latitude/longitude from Google Maps for each store.
-7. Include the real phone number and address if you can find them.
+Search for real ${shoeBrand} retail locations near ${locationLabel}. For each store you find, verify it is a real store (not HQ) by checking Google Maps reviews/photos.
 
-Find up to 4 stores within 25km, sorted by distance (closest first).
+Find up to 4 stores within 25km, sorted by distance — closest first.
 
 Respond ONLY with valid JSON (no markdown):
-{"stores":[{"name":"...","address":"...","latitude":0.0,"longitude":0.0,"phone":"...","hours_today":"...","rating":4.5,"carries_brand":true,"stock_confidence":"high|medium|low","stock_status":"...","reasoning":"..."}]}`,
+{"stores":[{"name":"...","address":"...","latitude":0.0,"longitude":0.0,"phone":"...","website":"...","hours_today":"...","rating":4.5,"carries_brand":true,"is_retail_store":true,"stock_confidence":"high|medium|low","stock_status":"...","reasoning":"..."}]}`,
       add_context_from_internet: true,
       model: 'gemini_3_flash',
     });
@@ -179,14 +180,16 @@ Respond ONLY with valid JSON (no markdown):
       parsed = rawText;
     }
 
+    const NON_RETAIL_KEYWORDS = ['headquarter', 'hq', 'warehouse', 'distribution', 'logistics', 'office', 'campus', 'corporate'];
     const rawStores = (parsed?.stores || []).filter(s => {
       if (!s.name || !s.address) return false;
       if (s.carries_brand === false) return false;
-      // Filter out stores that are not in the valid list for this brand
+      if (s.is_retail_store === false) return false;
       const storeNameLower = (s.name || '').toLowerCase();
-      // Hard block SneakerBox and JD Sports Israel
+      const addressLower = (s.address || '').toLowerCase();
       if (storeNameLower.includes('sneakerbox') || storeNameLower.includes('sneaker box')) return false;
       if (storeNameLower.includes('jd sports') && cc === 'IL') return false;
+      if (NON_RETAIL_KEYWORDS.some(kw => storeNameLower.includes(kw) || addressLower.includes(kw))) return false;
       return true;
     });
 
@@ -200,12 +203,19 @@ Respond ONLY with valid JSON (no markdown):
     const filtered = deduplicateStores(
       withDistance
         .filter(s => !s.distance_km || s.distance_km <= 25)
-        .sort((a, b) => (a.distance_km ?? 99) - (b.distance_km ?? 99))
+        .sort((a, b) => {
+          // Prefer stores with known website (sells the shoe online too)
+          const aHasWeb = buildSearchUrl(a.name, shoeFullName, cc) || (a.website && a.website.startsWith('http')) ? 0 : 1;
+          const bHasWeb = buildSearchUrl(b.name, shoeFullName, cc) || (b.website && b.website.startsWith('http')) ? 0 : 1;
+          if (aHasWeb !== bHasWeb) return aHasWeb - bHasWeb;
+          return (a.distance_km ?? 99) - (b.distance_km ?? 99);
+        })
     ).slice(0, 4);
 
     const finalStores = filtered.map((s, i) => {
+      // Prefer our known search URLs (guaranteed valid), then the AI-discovered website
       let websiteUrl = buildSearchUrl(s.name, shoeFullName, cc);
-      if (!websiteUrl && s.website && s.website.startsWith('http') && !s.website.includes('google.com')) {
+      if (!websiteUrl && s.website && s.website.startsWith('http') && !s.website.includes('google.com') && !s.website.includes('maps.google')) {
         websiteUrl = s.website;
       }
 

@@ -4,12 +4,18 @@ import { base44 } from "@/api/base44Client";
 import { motion } from "framer-motion";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import {
-  Search, Heart, TrendingUp, DollarSign, Rocket, ShieldAlert, RefreshCw, Loader2, Users, Image, MessageSquare
+  Search, Heart, TrendingUp, DollarSign, Rocket, ShieldAlert, RefreshCw, Loader2, Users, Image, MessageSquare, Flame
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import UserManagement from "../components/admin/UserManagement";
 import ImageManager from "../components/admin/ImageManager";
 import AddShoePanel from "../components/admin/AddShoePanel";
+import TrendingSearchesTab from "../components/admin/TrendingSearchesTab";
+
+const TABS = [
+  { id: "overview", label: "Overview", icon: TrendingUp },
+  { id: "trending", label: "Trending Searches", icon: Flame },
+];
 
 export default function AdminDashboard() {
   const { user } = useAuth();
@@ -17,6 +23,7 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [feedbacks, setFeedbacks] = useState([]);
+  const [activeTab, setActiveTab] = useState("overview");
 
   useEffect(() => {
     base44.entities.Feedback.list("-created_date", 50).then(setFeedbacks).catch(() => {});
@@ -79,7 +86,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="font-heading font-bold text-3xl">Admin Dashboard</h1>
             <p className="text-muted-foreground text-sm mt-1">Analytics & platform management</p>
@@ -94,6 +101,21 @@ export default function AdminDashboard() {
           </button>
         </div>
 
+        {/* Tab bar */}
+        <div className="flex gap-1 p-1 bg-secondary rounded-2xl mb-8 w-fit">
+          {TABS.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              onClick={() => setActiveTab(id)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                activeTab === id ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Icon className="w-4 h-4" /> {label}
+            </button>
+          ))}
+        </div>
+
         {error && (
           <div className="bg-destructive/10 border border-destructive/30 text-destructive rounded-2xl px-5 py-4 mb-6 text-sm">
             {error}
@@ -104,7 +126,9 @@ export default function AdminDashboard() {
           <div className="flex items-center justify-center py-24">
             <Loader2 className="w-10 h-10 animate-spin text-muted-foreground" />
           </div>
-        ) : data && (
+        ) : data && activeTab === "trending" ? (
+          <TrendingSearchesTab data={data} />
+        ) : data && activeTab === "overview" && (
           <>
             {/* Stat Cards */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-10">
