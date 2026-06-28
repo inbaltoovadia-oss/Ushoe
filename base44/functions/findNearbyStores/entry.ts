@@ -85,10 +85,18 @@ Deno.serve(async (req) => {
     const base44 = createClientFromRequest(req);
     const body = await req.json();
 
-    const user = await base44.auth.me();
-    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    // Public app — auth is optional. Use user ID if logged in, otherwise fall back to IP for rate limiting.
+    let userId = 'anonymous';
+    try {
+      const user = await base44.auth.me();
+      if (user) userId = user.id;
+    } catch {}
+    if (!userId || userId === 'anonymous') {
+      const fwd = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'anon';
+      userId = 'ip:' + fwd.split(',')[0].trim();
+    }
 
-    if (!checkRate(user.id)) {
+    if (!checkRate(userId)) {
       return Response.json({ error: 'Too many requests. Please wait.' }, { status: 429 });
     }
 
