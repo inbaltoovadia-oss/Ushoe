@@ -1,9 +1,8 @@
 import { useState, useEffect } from "react";
-import { Check, Crown, Zap, Rocket, Star, Loader2, AlertCircle } from "lucide-react";
+import { Check, Crown, Zap, Rocket, Star, Loader2, FlaskConical } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { getPlan, subscribePlan } from "@/lib/planStore";
-import { base44 } from "@/api/base44Client";
+import { getPlan, setPlan, subscribePlan } from "@/lib/planStore";
 
 const PLANS = [
   {
@@ -75,52 +74,19 @@ const PLANS = [
   },
 ];
 
-function isInIframe() {
-  try { return window.self !== window.top; } catch { return true; }
-}
-
 export default function Subscription() {
   const [currentPlan, setCurrentPlan] = useState(getPlan());
   const [loadingPlan, setLoadingPlan] = useState(null);
 
   useEffect(() => subscribePlan(setCurrentPlan), []);
 
-  // Handle success/cancel redirect from Stripe
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("success") === "1") {
-      toast.success("Payment successful! Your plan has been upgraded. 🎉");
-      window.history.replaceState({}, "", "/subscription");
-    }
-    if (params.get("canceled") === "1") {
-      toast.info("Payment canceled.");
-      window.history.replaceState({}, "", "/subscription");
-    }
-  }, []);
-
   const handleSelectPlan = async (planId) => {
     if (planId === "free" || planId === currentPlan) return;
 
-    if (isInIframe()) {
-      alert("Checkout only works from the published app. Please open the app directly.");
-      return;
-    }
-
     setLoadingPlan(planId);
-    try {
-      const res = await base44.functions.invoke("createCheckout", {
-        planId,
-        successUrl: `${window.location.origin}/subscription?success=1`,
-        cancelUrl:  `${window.location.origin}/subscription?canceled=1`,
-      });
-      if (res.data?.url) {
-        window.location.href = res.data.url;
-      } else {
-        toast.error("Could not start checkout. Please try again.");
-      }
-    } catch (err) {
-      toast.error("Checkout failed: " + err.message);
-    }
+    // Beta mode — no payment required, plans are free during beta
+    setPlan(planId);
+    toast.success(`You're now on the ${planId === "pro" ? "Pro" : "Brand"} plan (Beta — free during testing).`);
     setLoadingPlan(null);
   };
 
@@ -219,10 +185,10 @@ export default function Subscription() {
           })}
         </div>
 
-        <p className="text-xs text-center text-muted-foreground mt-6 flex items-center justify-center gap-1.5">
-          <AlertCircle className="w-3.5 h-3.5" />
-          Secure payments via Stripe. Cancel anytime.
-        </p>
+        <div className="mt-6 flex items-center justify-center gap-2 bg-amber-500/10 text-amber-700 dark:text-amber-400 px-4 py-3 rounded-2xl text-xs font-medium">
+          <FlaskConical className="w-4 h-4 flex-shrink-0" />
+          Payments are in Beta — all plans are free during testing. No card required.
+        </div>
       </div>
     </div>
   );

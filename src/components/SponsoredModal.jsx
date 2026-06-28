@@ -1,8 +1,10 @@
-import { X, Rocket, Check, Loader2 } from "lucide-react";
+import { X, Rocket, Check, Loader2, FlaskConical } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { useState } from "react";
 import { base44 } from "@/api/base44Client";
+
+const SPONSOR_DURATIONS = { starter: 7, featured: 14, premium: 30 };
 
 const SPONSOR_PLANS = [
   {
@@ -35,10 +37,6 @@ const SPONSOR_PLANS = [
   },
 ];
 
-function isInIframe() {
-  try { return window.self !== window.top; } catch { return true; }
-}
-
 export default function SponsoredModal({ shoe, onClose, onSponsorComplete }) {
   const [selected, setSelected] = useState("featured");
   const [loading, setLoading] = useState(false);
@@ -46,31 +44,26 @@ export default function SponsoredModal({ shoe, onClose, onSponsorComplete }) {
   const handleSponsor = async () => {
     if (!shoe?.id) return;
 
-    if (isInIframe()) {
-      alert("Checkout only works from the published app. Please open the app directly.");
-      return;
-    }
-
     setLoading(true);
     try {
-      const res = await base44.functions.invoke("createCheckout", {
-        planId: selected,
-        shoeId: shoe.id,
-        shoeName: shoe.name,
-        successUrl: `${window.location.origin}/admin?sponsored=1&shoeId=${shoe.id}&plan=${selected}`,
-        cancelUrl:  `${window.location.origin}/admin?sponsored=canceled`,
+      // Beta mode — activate sponsorship directly, no payment required
+      const days = SPONSOR_DURATIONS[selected] || 7;
+      const until = new Date();
+      until.setDate(until.getDate() + days);
+
+      await base44.entities.Shoe.update(shoe.id, {
+        is_sponsored: true,
+        sponsored_plan: selected,
+        sponsored_until: until.toISOString(),
       });
 
-      if (res.data?.url) {
-        window.location.href = res.data.url;
-      } else {
-        toast.error("Could not start checkout. Please try again.");
-        setLoading(false);
-      }
+      toast.success(`"${shoe.name}" is now sponsored (Beta — free during testing).`);
+      onSponsorComplete?.(selected, until.toISOString());
+      onClose?.();
     } catch (err) {
-      toast.error("Checkout failed: " + err.message);
-      setLoading(false);
+      toast.error("Failed to sponsor: " + err.message);
     }
+    setLoading(false);
   };
 
   return (
@@ -146,11 +139,12 @@ export default function SponsoredModal({ shoe, onClose, onSponsorComplete }) {
               className="w-full bg-primary text-primary-foreground py-3.5 rounded-2xl font-semibold hover:opacity-90 transition-opacity flex items-center justify-center gap-2 mt-2 disabled:opacity-50"
             >
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />}
-              {loading ? "Redirecting to checkout…" : "Sponsor Now — Secure Payment"}
+              {loading ? "Activating sponsorship…" : "Sponsor Now (Beta — Free)"}
             </button>
-            <p className="text-center text-xs text-muted-foreground">
-              Powered by Stripe · Secure checkout
-            </p>
+            <div className="flex items-center justify-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+              <FlaskConical className="w-3.5 h-3.5" />
+              Beta — payments are free during testing. No card required.
+            </div>
           </div>
         </motion.div>
       </div>
