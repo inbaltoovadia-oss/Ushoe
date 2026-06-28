@@ -28,6 +28,9 @@ export const ensureLoaded = async () => {
     items.forEach(item => { trackedMap[item.shoe_id] = item; });
     loaded = true;
     notify();
+  } catch {
+    // Unauthenticated (guest) users — prevent infinite retries
+    loaded = true;
   } finally {
     loading = false;
     pendingCallbacks.forEach(resolve => resolve());

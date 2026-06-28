@@ -2,6 +2,7 @@ import { useLocation, useNavigationType, Link, Outlet } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { useRef } from "react";
 import Navbar from "./Navbar";
+import GuestBanner from "./GuestBanner";
 import CompareBar from "./CompareBar";
 import MobileBottomTabs from "./MobileBottomTabs";
 import Seo from "./Seo";
@@ -55,6 +56,7 @@ export default function Layout() {
       </div>
       <Navbar />
       <main aria-label="Main content" className={`pt-16 relative z-10 ${isFullscreen ? "overflow-hidden" : "pb-20 md:pb-20"}`}>
+        <GuestBanner />
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={key}

@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
 import { Bell, BellOff, Loader2 } from "lucide-react";
 import { base44 } from "@/api/base44Client";
+import { useAuth } from "@/lib/AuthContext";
 import { toast } from "sonner";
 import { ensureLoaded, getTrackedMap, setTracked, removeTracked, subscribeTrack } from "../lib/priceTrackStore";
 
 export default function PriceTrackButton({ shoe, compact = false }) {
+  const { isAuthenticated, navigateToLogin } = useAuth();
   const [trackedMap, setTrackedMap] = useState(getTrackedMap());
   const [loading, setLoading] = useState(false);
   const [initializing, setInitializing] = useState(true);
@@ -24,6 +26,12 @@ export default function PriceTrackButton({ shoe, compact = false }) {
   const toggle = async (e) => {
     e.preventDefault();
     e.stopPropagation();
+    if (!isAuthenticated) {
+      toast("Sign in to track prices", {
+        action: { label: "Sign In", onClick: navigateToLogin },
+      });
+      return;
+    }
     setLoading(true);
     if (tracked) {
       await base44.entities.PriceTrack.delete(trackRecord.id);

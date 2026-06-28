@@ -38,7 +38,7 @@ function getPageTitle(pathname) {
 export default function Navbar() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isAuthenticated, navigateToLogin } = useAuth();
   const isRootScreen = ROOT_PATHS.includes(location.pathname);
   const [dark, setDark] = useState(() => document.documentElement.classList.contains("dark"));
   const [loc, setLoc] = useState(getLocation());
@@ -201,6 +201,15 @@ export default function Navbar() {
                   Admin
                 </Link>
               }
+
+              {!isAuthenticated && (
+                <button
+                  onClick={navigateToLogin}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
+                >
+                  Sign In
+                </button>
+              )}
 
               <button onClick={toggleDark} className="p-2 rounded-xl hover:bg-secondary transition-colors">
                 {dark ? <Sun className="w-5 h-5 text-muted-foreground" /> : <Moon className="w-5 h-5 text-muted-foreground" />}

@@ -4,8 +4,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { base44 } from "@/api/base44Client";
 import { Link } from "react-router-dom";
 import { removeFromWishlistLocal, setWishlistIds } from "../lib/wishlistStore";
+import { useAuth } from "@/lib/AuthContext";
 
 export default function Wishlist() {
+  const { isAuthenticated, navigateToLogin } = useAuth();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -15,9 +17,14 @@ export default function Wishlist() {
 
   const loadWishlist = async () => {
     setLoading(true);
-    const data = await base44.entities.WishlistItem.list("-created_date", 50);
-    setItems(data);
-    setWishlistIds(data.map((d) => d.shoe_id));
+    try {
+      const data = await base44.entities.WishlistItem.list("-created_date", 50);
+      setItems(data);
+      setWishlistIds(data.map((d) => d.shoe_id));
+    } catch {
+      setItems([]);
+      setWishlistIds([]);
+    }
     setLoading(false);
   };
 
@@ -79,12 +86,22 @@ export default function Wishlist() {
             <p className="text-muted-foreground mt-2 mb-6">
               Save shoes you love and they'll show up here
             </p>
-            <Link
-              to="/"
-              className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-6 py-3 rounded-xl font-medium hover:opacity-90"
-            >
-              Explore Shoes
-            </Link>
+            <div className="flex items-center justify-center gap-3 flex-wrap">
+              {!isAuthenticated && (
+                <button
+                  onClick={navigateToLogin}
+                  className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-6 py-3 rounded-xl font-medium hover:opacity-90"
+                >
+                  Sign In to Save
+                </button>
+              )}
+              <Link
+                to="/"
+                className="inline-flex items-center gap-2 bg-secondary text-foreground px-6 py-3 rounded-xl font-medium hover:opacity-90"
+              >
+                Explore Shoes
+              </Link>
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">

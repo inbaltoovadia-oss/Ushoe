@@ -5,9 +5,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import { toggleCompare } from "../lib/compareStore";
 import { isInWishlist, addToWishlistLocal, removeFromWishlistLocal, subscribeWishlist } from "../lib/wishlistStore";
 import { base44 } from "@/api/base44Client";
+import { useAuth } from "@/lib/AuthContext";
 import { toast } from "sonner";
 
 export default function ShoeOptionsMenu({ shoe, onSponsorClick }) {
+  const { isAuthenticated, navigateToLogin } = useAuth();
   const [open, setOpen] = useState(false);
   const [wishlisted, setWishlisted] = useState(isInWishlist(shoe.id));
   const [copied, setCopied] = useState(false);
@@ -31,6 +33,13 @@ export default function ShoeOptionsMenu({ shoe, onSponsorClick }) {
   }, [open]);
 
   const handleWishlist = async () => {
+    if (!isAuthenticated) {
+      setOpen(false);
+      toast("Sign in to save your wishlist", {
+        action: { label: "Sign In", onClick: navigateToLogin },
+      });
+      return;
+    }
     if (wishlisted) {
       removeFromWishlistLocal(shoe.id);
       const items = await base44.entities.WishlistItem.filter({ shoe_id: shoe.id });
