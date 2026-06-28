@@ -4,6 +4,7 @@ import { useRef } from "react";
 import Navbar from "./Navbar";
 import CompareBar from "./CompareBar";
 import MobileBottomTabs from "./MobileBottomTabs";
+import Seo from "./Seo";
 
 // Root tabs navigate horizontally; child pages slide in from the right
 const ROOT_PATHS = ["/", "/discover", "/trending", "/wishlist", "/settings"];
@@ -45,6 +46,7 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen bg-background overflow-x-hidden relative">
+      <Seo path={location.pathname} />
       {/* Persistent ambient orbs — the "backdrop" liquid glass requires */}
       <div className="fixed inset-0 pointer-events-none z-0" aria-hidden="true">
         <div className="absolute top-[-10%] left-[-8%] w-[55vw] h-[55vw] rounded-full bg-blue-500/10 dark:bg-blue-500/15 blur-[100px]" />
@@ -52,7 +54,7 @@ export default function Layout() {
         <div className="absolute top-[40%] left-[55%] w-[30vw] h-[30vw] rounded-full bg-teal-400/6 dark:bg-teal-400/10 blur-[80px]" />
       </div>
       <Navbar />
-      <main className={`pt-16 relative z-10 ${isFullscreen ? "overflow-hidden" : "pb-20 md:pb-20"}`}>
+      <main aria-label="Main content" className={`pt-16 relative z-10 ${isFullscreen ? "overflow-hidden" : "pb-20 md:pb-20"}`}>
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={key}
@@ -70,12 +72,12 @@ export default function Layout() {
       <MobileBottomTabs />
       {/* Footer — hidden on fullscreen pages */}
       {!isFullscreen && (
-        <footer className="relative z-10 border-t border-border/40 py-6 px-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-muted-foreground">
-          <span>© {new Date().getFullYear()} uShoe. All rights reserved.</span>
-          <div className="flex items-center gap-4">
+        <footer aria-label="Site footer" className="relative z-10 border-t border-border/40 py-6 px-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-muted-foreground">
+          <span>© {new Date().getFullYear()} Ushoe. All rights reserved.</span>
+          <nav aria-label="Footer navigation" className="flex items-center gap-4">
             <Link to="/about" className="hover:text-foreground transition-colors">About</Link>
             <Link to="/contact" className="hover:text-foreground transition-colors">Contact</Link>
-          </div>
+          </nav>
         </footer>
       )}
     </div>
